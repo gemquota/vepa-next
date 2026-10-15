@@ -33,6 +33,8 @@ A committed event should carry:
 - `causationId` / `correlationId`: optional links to command and workflow.
 - `wallClockTime`: optional diagnostic metadata only; never the sole ordering key.
 
+The world-session contract now emits `world.config-committed` schema v2 with requested, prior and actual config values. Rejected, rolled-back and blocked config proposals emit explicit outcome events. These are currently in-memory and are not yet wired to the legacy physics worker.
+
 ## Transaction lifecycle
 
 ```mermaid
