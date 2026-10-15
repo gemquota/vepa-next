@@ -40,3 +40,24 @@ test('journal rejects wrong world, duplicate IDs, sequence gaps and tick regress
   assert.equal(journal.append(event(1, 1, 'e-1')).reason, 'tick-regression');
   assert.equal(journal.length, 1);
 });
+
+
+test('journal preserves __proto__ as payload data without changing prototypes', () => {
+  const journal = createEventJournal('world-1');
+  const payload = JSON.parse('{"__proto__":{"polluted":true}}');
+  const item = createEventEnvelope({
+    eventId: 'proto-key-0',
+    type: 'world.state-committed',
+    worldId: 'world-1',
+    tick: 0,
+    sequence: 0,
+    sourceModule: 'test.proto',
+    payload,
+  });
+  assert.equal(journal.append(item).accepted, true);
+  const stored = journal.snapshot()[0].payload;
+  assert.equal(Object.getPrototypeOf(stored), Object.prototype);
+  assert.equal(Object.hasOwn(stored, '__proto__'), true);
+  assert.equal(stored.__proto__.polluted, true);
+  assert.equal({}.polluted, undefined);
+});
