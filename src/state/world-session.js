@@ -105,6 +105,22 @@ export function createWorldSession({
         lastEventSequence: journal.lastSequence,
       });
     },
+    saveCheckpoint(snapshotStore, { simulationState, prngState = null, fidelityPolicy = null } = {}) {
+      if (!snapshotStore || typeof snapshotStore.save !== 'function') {
+        throw new TypeError('snapshotStore must provide save(snapshot)');
+      }
+      const snapshot = createWorldSnapshot({
+        worldId,
+        tick,
+        generation,
+        config: cloneValue(config),
+        simulationState: cloneValue(simulationState),
+        prngState: cloneValue(prngState),
+        fidelityPolicy: cloneValue(fidelityPolicy),
+        lastEventSequence: journal.lastSequence,
+      });
+      return { snapshot, storage: snapshotStore.save(snapshot) };
+    },
     async proposeConfig(proposal, context) {
       return transactions.transact(proposal, context);
     },
