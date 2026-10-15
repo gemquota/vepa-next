@@ -111,3 +111,11 @@ test('typed-array snapshot encoding rejects non-finite buffer values and unsuppo
   assert.throws(() => snapshot({ simulationState: { view: new DataView(new ArrayBuffer(4)) } }), /unsupported typed array/);
   assert.throws(() => restoreSnapshotValue({ $vepaTypedArray: 'DataView', values: [] }), /Invalid typed-array/);
 });
+
+
+test('typed-array decoder rejects inherited object property names as constructors', () => {
+  assert.throws(
+    () => restoreSnapshotValue({ $vepaTypedArray: 'constructor', values: [] }),
+    /Invalid typed-array/,
+  );
+});
