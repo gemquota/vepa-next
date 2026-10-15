@@ -37,6 +37,19 @@ test('rejects wrong-world, sequence gaps, duplicate IDs and tick regression', ()
   assert.ok(result.errors.some(error => error.reason === 'tick-regression'));
 });
 
+test('rejects duplicate event identifiers even when sequence numbers differ', () => {
+  const first = event('world-r', 0, 0, 'world.counter-add', { amount: 1 });
+  const second = createEventEnvelope({
+    ...first,
+    eventId: first.eventId,
+    sequence: 1,
+    tick: 1,
+  });
+  const result = validateReplay([first, second], { worldId: 'world-r' });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(error => error.reason === 'duplicate-event-id'));
+});
+
 test('replay invokes the reducer in event order without mutating the source stream', () => {
   const events = [
     event('world-r', 0, 0, 'world.counter-set', { value: 2 }),
