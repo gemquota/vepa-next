@@ -86,14 +86,19 @@ export function queryNeighbors(grid, x, y, z, out, maxNeighbors = Infinity) {
         visited?.add(ci);
         const cell = grid.cells[ci];
         const overflow = grid.overflowCells.get(ci) ?? [];
-        for (const bucket of [cell, overflow]) {
-          for (let k = 0; k < bucket.length; k++) {
-            if (count >= maxNeighbors || count >= out.length) {
-              truncated = true;
-              break outer;
-            }
-            out[count++] = bucket[k];
+        for (let k = 0; k < cell.length; k++) {
+          if (count >= maxNeighbors || count >= out.length) {
+            truncated = true;
+            break outer;
           }
+          out[count++] = cell[k];
+        }
+        for (let k = 0; k < overflow.length; k++) {
+          if (count >= maxNeighbors || count >= out.length) {
+            truncated = true;
+            break outer;
+          }
+          out[count++] = overflow[k];
         }
       }
     }
