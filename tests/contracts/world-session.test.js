@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorldSession } from '../../src/state/world-session.js';
+import { createSnapshotStore } from '../../src/state/snapshot-store.js';
 
 test('world session commits validated config and journals the applied generation', async () => {
   const session=createWorldSession({
@@ -88,4 +89,41 @@ test('world session snapshot rejects missing or non-serializable simulation stat
   const session = createWorldSession({ worldId: 'world-snapshot-invalid' });
   assert.throws(() => session.createSnapshot(), /JSON-compatible/);
   assert.throws(() => session.createSnapshot({ simulationState: { time: Infinity } }), /finite/);
+});
+
+
+test('world session saves a checkpoint through an injected two-slot store', async () => {
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, String(value)); },
+    removeItem(key) { values.delete(key); },
+  };
+  const store = createSnapshotStore(storage);
+  const session = createWorldSession({
+    worldId: 'world-checkpoint',
+    initialConfig: { gravity: 3 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+  });
+  await session.proposeConfig({ gravity: 4 });
+  session.advanceTick();
+
+  const saved = session.saveCheckpoint(store, {
+    simulationState: { particles: [1, 2] },
+    prngState: { state: 17 },
+    fidelityPolicy: { mode: 'configured', effectiveMaxInteractions: 500 },
+  });
+  assert.equal(saved.storage.status, 'saved');
+  assert.equal(saved.snapshot.worldId, 'world-checkpoint');
+  assert.equal(saved.snapshot.tick, 1);
+  assert.equal(saved.snapshot.config.gravity, 4);
+  assert.equal(store.load().snapshot.checksum, saved.snapshot.checksum);
+});
+
+test('checkpoint save reports storage failure without claiming persistence', () => {
+  const session = createWorldSession({ worldId: 'world-checkpoint-failure' });
+  const failedStore = { save: () => ({ status: 'failed', reason: 'slot-write-failed' }) };
+  const result = session.saveCheckpoint(failedStore, { simulationState: { particles: [] } });
+  assert.equal(result.storage.status, 'failed');
+  assert.equal(result.storage.reason, 'slot-write-failed');
 });
