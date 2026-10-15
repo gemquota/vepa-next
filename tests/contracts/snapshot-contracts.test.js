@@ -119,3 +119,19 @@ test('typed-array decoder rejects inherited object property names as constructor
     /Invalid typed-array/,
   );
 });
+
+
+test('snapshot payloads cannot collide with the reserved typed-array marker', () => {
+  assert.throws(
+    () => snapshot({ simulationState: { $vepaTypedArray: 'Float32Array', values: [1, 2] } }),
+    /reserved/,
+  );
+  const valid = snapshot({ simulationState: { positions: new Float32Array([1, 2]) } });
+  const malformed = {
+    ...valid,
+    simulationState: { positions: { $vepaTypedArray: 'constructor', values: [] } },
+  };
+  const verdict = validateWorldSnapshot(malformed);
+  assert.equal(verdict.valid, false);
+  assert.ok(verdict.errors.some(error => error.startsWith('invalid-payload:')));
+});
