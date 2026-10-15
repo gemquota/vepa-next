@@ -58,6 +58,22 @@ jobs:
         working-directory: stable
         run: npm run build
 
+      - name: Start stable development server
+        working-directory: stable
+        run: |
+          npm run dev > /tmp/vepa-dev.log 2>&1 &
+          echo $! > /tmp/vepa-dev.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5180/ > /dev/null; then
+              echo "Stable development server is reachable."
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/vepa-dev.log
+          echo "Stable development server did not become reachable." >&2
+          exit 1
+
       - name: Run worker/browser regression suite
         working-directory: stable
         run: |
