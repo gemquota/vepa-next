@@ -1,8 +1,10 @@
 /**
- * SIM-oriented spatial grid. Unlike the legacy helper, capacity exhaustion and
- * neighbor-output truncation are explicit results, never silent omissions.
- * The grid is toroidal to match the inspected legacy implementation.
+ * SIM-oriented spatial grid. Capacity exhaustion and neighbor-output truncation
+ * are explicit diagnostics, not silent omissions. Overflow particles remain
+ * queryable through per-cell overflow buckets.
  */
+const MAX_GRID_CELLS = 250_000;
+
 export function createSpatialGrid({ worldSize, dim = 12, cellCap = Infinity } = {}) {
   if (!Number.isFinite(worldSize) || worldSize <= 0) throw new RangeError('worldSize must be finite and > 0');
   if (!Number.isInteger(dim) || dim < 1) throw new RangeError('dim must be an integer >= 1');
@@ -10,12 +12,15 @@ export function createSpatialGrid({ worldSize, dim = 12, cellCap = Infinity } = 
     throw new RangeError('cellCap must be a positive integer or Infinity');
   }
   const totalCells = dim ** 3;
-  const cells = Array.from({ length: totalCells }, () => []);
-  const counts = new Int32Array(totalCells);
-  const touched = new Int32Array(totalCells);
+  if (totalCells > MAX_GRID_CELLS) throw new RangeError(`grid exceeds maximum cell budget (${MAX_GRID_CELLS})`);
   return {
     worldSize, dim, cellCap, cellSize: worldSize / dim,
-    cells, counts, touched, touchedCount: 0, overflowCount: 0,
+    cells: Array.from({ length: totalCells }, () => []),
+    counts: new Int32Array(totalCells),
+    touched: new Int32Array(totalCells),
+    touchedCount: 0,
+    overflowCount: 0,
+    overflowCells: new Map(),
   };
 }
 
@@ -34,6 +39,7 @@ export function clearSpatialGrid(grid) {
     const ci = grid.touched[i];
     grid.cells[ci].length = 0;
     grid.counts[ci] = 0;
+    grid.overflowCells.delete(ci);
   }
   grid.touchedCount = 0;
   grid.overflowCount = 0;
@@ -41,28 +47,27 @@ export function clearSpatialGrid(grid) {
 
 export function insertParticle(grid, particleIndex, x, y, z) {
   if (!Number.isInteger(particleIndex) || particleIndex < 0) throw new RangeError('particleIndex must be a non-negative integer');
-  const cx = toCell(x, grid), cy = toCell(y, grid), cz = toCell(z, grid);
-  const ci = flatIndex(cx, cy, cz, grid.dim);
+  const ci = flatIndex(toCell(x, grid), toCell(y, grid), toCell(z, grid), grid.dim);
   const cell = grid.cells[ci];
   if (cell.length === 0) grid.touched[grid.touchedCount++] = ci;
   if (cell.length >= grid.cellCap) {
+    if (!grid.overflowCells.has(ci)) grid.overflowCells.set(ci, []);
+    grid.overflowCells.get(ci).push(particleIndex);
     grid.overflowCount++;
-    return { inserted: false, reason: 'cell-capacity', cellIndex: ci, overflowCount: grid.overflowCount };
+    return { inserted: true, overflow: true, reason: 'cell-capacity-overflow', cellIndex: ci, overflowCount: grid.overflowCount };
   }
   cell.push(particleIndex);
   grid.counts[ci]++;
-  return { inserted: true, cellIndex: ci, cellCount: cell.length };
+  return { inserted: true, overflow: false, cellIndex: ci, cellCount: cell.length };
 }
 
 /**
- * Writes neighbor indices into caller-owned storage.
- * maxNeighbors defaults to Infinity. If the caller opts into a finite cap,
- * truncated is true and the caller must handle it before physics continues.
+ * Writes neighbor indices into caller-owned storage. A finite output cap or
+ * undersized output buffer sets truncated=true; the caller must not use the
+ * incomplete result for authoritative physics without a fallback.
  */
 export function queryNeighbors(grid, x, y, z, out, maxNeighbors = Infinity) {
-  if (!out || typeof out.length !== 'number') {
-    throw new TypeError('out must be a preallocated array or typed array');
-  }
+  if (!out || typeof out.length !== 'number') throw new TypeError('out must be a preallocated array or typed array');
   if (!(maxNeighbors === Infinity || (Number.isInteger(maxNeighbors) && maxNeighbors >= 0))) {
     throw new RangeError('maxNeighbors must be a non-negative integer or Infinity');
   }
@@ -80,12 +85,15 @@ export function queryNeighbors(grid, x, y, z, out, maxNeighbors = Infinity) {
         if (visited?.has(ci)) continue;
         visited?.add(ci);
         const cell = grid.cells[ci];
-        for (let k = 0; k < cell.length; k++) {
-          if (count >= maxNeighbors || count >= out.length) {
-            truncated = true;
-            break outer;
+        const overflow = grid.overflowCells.get(ci) ?? [];
+        for (const bucket of [cell, overflow]) {
+          for (let k = 0; k < bucket.length; k++) {
+            if (count >= maxNeighbors || count >= out.length) {
+              truncated = true;
+              break outer;
+            }
+            out[count++] = bucket[k];
           }
-          out[count++] = cell[k];
         }
       }
     }
