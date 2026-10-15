@@ -20,7 +20,7 @@ function canonicalize(value, seen = new WeakSet()) {
   if (Array.isArray(value)) {
     result = value.map(item => canonicalize(item, seen));
   } else {
-    result = {};
+    result = Object.create(null);
     for (const key of Object.keys(value).sort()) {
       result[key] = canonicalize(value[key], seen);
     }
