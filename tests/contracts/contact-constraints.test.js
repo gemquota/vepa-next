@@ -54,3 +54,18 @@ test('rejects invalid buffers and negative radii', () => {
   const p=particles([[1,1,1,1,0,-1],[2,2,2,1,0,1]]);
   assert.throws(()=>resolveParticleContacts(p,2,stride,20,false,8,S),/Invalid particle radius/);
 });
+
+
+test('shared grid handles dense same-cell neighborhoods without non-finite state', () => {
+  const rows = Array.from({ length: 40 }, (_, i) => [
+    8 + (i % 2) * 0.01,
+    8 + (i % 3) * 0.01,
+    8 + (i % 5) * 0.01,
+    1 + (i % 4),
+    0,
+    0.5,
+  ]);
+  const p = particles(rows);
+  resolveParticleContacts(p, rows.length, stride, 20, false, 8, S);
+  assert.ok([...p].every(Number.isFinite));
+});
