@@ -2,7 +2,7 @@
 
 The intended canonical implementation of VEPA, built by selective, traceable migration from the reviewed source repositories.
 
-**Current status (2026-10-16):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage and a shared-grid contact adaptation are committed. Contract CI passed on commit `eb0004f6e75e8603bad137b04d592a678d2f85fb` in [run 38792899940](https://github.com/gemquota/vepa-next/actions/runs/38792899940). Newer checkpoint-store and schema-v2 typed-array codec tests, plus the latest legacy contact parity fixtures, are awaiting a fresh CI result. The full runtime and authoritative physics worker have not yet been migrated; stable-vs-next performance parity remains unverified.
+**Current status (2026-10-16):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage and a shared-grid contact adaptation are committed. Contract CI passed on commit `eb0004f6e75e8603bad137b04d592a678d2f85fb` in [run 38792899940](https://github.com/gemquota/vepa-next/actions/runs/38792899940). Newer checkpoint-store and schema-v2 typed-array codec tests, plus the latest legacy contact parity fixtures, are awaiting a fresh CI result. The latest transaction-outcome journal and special-key hardening tests are also awaiting fresh CI. The full runtime and authoritative physics worker have not yet been migrated; stable-vs-next performance parity remains unverified.
 
 ## Start here
 
