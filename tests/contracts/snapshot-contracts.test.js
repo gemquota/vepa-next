@@ -6,6 +6,7 @@ import {
   snapshotChecksum,
   validateSnapshotAndReplay,
   validateWorldSnapshot,
+  restoreSnapshotValue,
 } from '../../src/state/snapshot.js';
 import { createEventEnvelope } from '../../src/core/event-envelope.js';
 
@@ -88,4 +89,25 @@ test('canonical snapshot JSON preserves special object keys as data', () => {
   const encoded = canonicalSnapshotJson(value);
   assert.equal(encoded, '{"__proto__":{"safe":true},"constructor":"value"}');
   assert.equal(JSON.parse(encoded).__proto__.safe, true);
+});
+
+
+test('snapshot schema v2 encodes and restores typed-array simulation buffers', () => {
+  const original = new Float32Array([0.25, -3, 7.5]);
+  const value = snapshot({ simulationState: { positions: original } });
+  assert.equal(value.schemaVersion, 2);
+  assert.deepEqual(value.simulationState.positions, {
+    $vepaTypedArray: 'Float32Array',
+    values: [0.25, -3, 7.5],
+  });
+  const restored = restoreSnapshotValue(value.simulationState);
+  assert.ok(restored.positions instanceof Float32Array);
+  assert.deepEqual([...restored.positions], [0.25, -3, 7.5]);
+  assert.equal(validateWorldSnapshot(value).valid, true);
+});
+
+test('typed-array snapshot encoding rejects non-finite buffer values and unsupported views', () => {
+  assert.throws(() => snapshot({ simulationState: { positions: new Float32Array([NaN]) } }), /finite/);
+  assert.throws(() => snapshot({ simulationState: { view: new DataView(new ArrayBuffer(4)) } }), /unsupported typed array/);
+  assert.throws(() => restoreSnapshotValue({ $vepaTypedArray: 'DataView', values: [] }), /Invalid typed-array/);
 });
