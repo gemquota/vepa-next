@@ -1,0 +1,81 @@
+name: Stable VEPA baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/stable-baseline.yml"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "bench/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: Verify pinned stable source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out VEPA Next workflow repository
+        uses: actions/checkout@v4
+
+      - name: Check out pinned stable source
+        uses: actions/checkout@v4
+        with:
+          repository: DayneK/vepa
+          ref: 625c82e90e771777b92897aa23dcb957e98c714a
+          path: stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: stable/package-lock.json
+
+      - name: Install locked dependencies
+        working-directory: stable
+        run: npm ci
+
+      - name: Validate generated specifications and repository invariants
+        working-directory: stable
+        run: npm run repository:check
+
+      - name: Run unit tests
+        working-directory: stable
+        run: npm test
+
+      - name: Check source syntax
+        working-directory: stable
+        run: npm run syntax-check
+
+      - name: Build production bundle
+        working-directory: stable
+        run: npm run build
+
+      - name: Run worker/browser regression suite
+        working-directory: stable
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e:worker
+
+      - name: Capture stable backend benchmark
+        working-directory: stable
+        run: npm run bench:backends:json > stable-backend-benchmark.json
+
+      - name: Upload baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-baseline-${{ github.sha }}
+          path: |
+            stable/stable-backend-benchmark.json
+            stable/test-results/
+            stable/playwright-report/
+          if-no-files-found: warn
+          retention-days: 30
