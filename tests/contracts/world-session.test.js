@@ -155,3 +155,19 @@ test('committed event records requested and actual config when validation normal
   assert.deepEqual(event.payload.beforeConfig, { gravity: 1 });
   assert.deepEqual(event.payload.actualConfig, { gravity: 10 });
 });
+
+
+test('rejected cyclic or non-finite proposal is safely represented in the outcome journal', async () => {
+  const session = createWorldSession({
+    worldId: 'world-unsafe-proposal',
+    initialConfig: { gravity: 1 },
+    validateConfig: () => ({ valid: false, reason: 'invalid-config' }),
+  });
+  const proposal = { gravity: Number.NaN };
+  proposal.self = proposal;
+  const result = await session.proposeConfig(proposal);
+  assert.equal(result.status, 'rejected');
+  const logged = session.getEvents()[0].payload.requestedConfig;
+  assert.equal(logged.gravity, 'NaN');
+  assert.equal(logged.self, '[Circular]');
+});
