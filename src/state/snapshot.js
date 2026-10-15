@@ -10,13 +10,24 @@ const TYPED_ARRAYS = Object.freeze({
   Int32Array, Uint32Array,
 });
 
-function canonicalize(value, seen = new WeakSet()) {
+function canonicalize(value, seen = new WeakSet(), allowEncodedMarkers = false) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new TypeError('Snapshot numbers must be finite');
     return Object.is(value, -0) ? 0 : value;
   }
   if (typeof value !== 'object') throw new TypeError('Snapshot must contain JSON-compatible values');
+  if (Object.hasOwn(value, '$vepaTypedArray')) {
+    if (!allowEncodedMarkers) throw new TypeError('Snapshot payload key $vepaTypedArray is reserved');
+    const keys = Object.keys(value).sort();
+    const name = value.$vepaTypedArray;
+    if (keys.length !== 2 || keys[0] !== '$vepaTypedArray' || keys[1] !== 'values' ||
+        !Object.hasOwn(TYPED_ARRAYS, name) || !Array.isArray(value.values) ||
+        value.values.some(item => typeof item !== 'number' || !Number.isFinite(item))) {
+      throw new TypeError('Invalid typed-array snapshot encoding');
+    }
+    return { $vepaTypedArray: name, values: value.values.slice() };
+  }
   if (ArrayBuffer.isView(value)) {
     const name = value.constructor?.name;
     if (!name || TYPED_ARRAYS[name] !== value.constructor || value instanceof DataView) {
@@ -24,7 +35,7 @@ function canonicalize(value, seen = new WeakSet()) {
     }
     if (seen.has(value)) throw new TypeError('Snapshot cannot contain cycles');
     seen.add(value);
-    const values = Array.from(value, item => canonicalize(item, seen));
+    const values = Array.from(value, item => canonicalize(item, seen, allowEncodedMarkers));
     seen.delete(value);
     // "$vepaTypedArray" is reserved in snapshot payloads for typed-array encoding.
     return { $vepaTypedArray: name, values };
@@ -37,14 +48,14 @@ function canonicalize(value, seen = new WeakSet()) {
   seen.add(value);
   let result;
   if (Array.isArray(value)) {
-    result = value.map(item => canonicalize(item, seen));
+    result = value.map(item => canonicalize(item, seen, allowEncodedMarkers));
   } else {
     // Preserve ordinary-object semantics while defining keys as data properties,
     // so a literal "__proto__" key cannot mutate the result's prototype.
     result = {};
     for (const key of Object.keys(value).sort()) {
       Object.defineProperty(result, key, {
-        value: canonicalize(value[key], seen),
+        value: canonicalize(value[key], seen, allowEncodedMarkers),
         enumerable: true,
         writable: true,
         configurable: true,
@@ -99,8 +110,7 @@ export function canonicalSnapshotJson(value) {
  * Stable non-cryptographic checksum for accidental corruption detection.
  * This is not an authenticity signature and must not be used as a security boundary.
  */
-export function snapshotChecksum(value) {
-  const text = typeof value === 'string' ? value : canonicalSnapshotJson(value);
+function checksumText(text) {
   let a = 0x811c9dc5;
   let b = 0x9e3779b9;
   for (let i = 0; i < text.length; i++) {
@@ -109,6 +119,11 @@ export function snapshotChecksum(value) {
     b = Math.imul(b ^ (code + i), 0x85ebca6b) >>> 0;
   }
   return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0');
+}
+
+export function snapshotChecksum(value) {
+  const text = typeof value === 'string' ? value : canonicalSnapshotJson(value);
+  return checksumText(text);
 }
 
 export function createWorldSnapshot({
@@ -139,7 +154,7 @@ export function createWorldSnapshot({
     fidelityPolicy,
     lastEventSequence,
   });
-  return Object.freeze({ ...payload, checksum: snapshotChecksum(payload) });
+  return Object.freeze({ ...payload, checksum: checksumText(JSON.stringify(payload)) });
 }
 
 export function validateWorldSnapshot(snapshot, { expectedWorldId } = {}) {
@@ -167,7 +182,8 @@ export function validateWorldSnapshot(snapshot, { expectedWorldId } = {}) {
   } else {
     try {
       const { checksum, ...payload } = snapshot;
-      if (snapshotChecksum(payload) !== checksum) errors.push('checksum-mismatch');
+      const canonicalPayload = canonicalize(payload, new WeakSet(), true);
+      if (checksumText(JSON.stringify(canonicalPayload)) !== checksum) errors.push('checksum-mismatch');
     } catch (error) {
       errors.push('invalid-payload:' + (error instanceof Error ? error.message : String(error)));
     }
