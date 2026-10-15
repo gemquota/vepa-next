@@ -20,9 +20,16 @@ function canonicalize(value, seen = new WeakSet()) {
   if (Array.isArray(value)) {
     result = value.map(item => canonicalize(item, seen));
   } else {
-    result = Object.create(null);
+    // Preserve ordinary-object semantics while defining keys as data properties,
+    // so a literal "__proto__" key cannot mutate the result's prototype.
+    result = {};
     for (const key of Object.keys(value).sort()) {
-      result[key] = canonicalize(value[key], seen);
+      Object.defineProperty(result, key, {
+        value: canonicalize(value[key], seen),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
   }
   seen.delete(value);
