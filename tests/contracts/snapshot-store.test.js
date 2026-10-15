@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorldSnapshot } from '../../src/state/snapshot.js';
+import { createWorldSnapshot, restoreSnapshotValue } from '../../src/state/snapshot.js';
 import { createSnapshotStore } from '../../src/state/snapshot-store.js';
 
 class MemoryStorage {
@@ -73,4 +73,24 @@ test('store rejects invalid snapshots and reports empty storage explicitly', () 
   const store = createSnapshotStore(new MemoryStorage());
   assert.equal(store.load().status, 'empty');
   assert.equal(store.save({ tick: -1 }).status, 'rejected');
+});
+
+
+test('two-slot store preserves typed-array simulation buffers through JSON roundtrip', () => {
+  const store = createSnapshotStore(new MemoryStorage());
+  const value = createWorldSnapshot({
+    worldId: 'typed-array-world',
+    tick: 7,
+    generation: 2,
+    config: { mode: 'configured' },
+    simulationState: { positions: new Float32Array([0.5, 1.25, -4]) },
+    prngState: { algorithm: 'splitmix32-v1', state: 17 },
+    lastEventSequence: 6,
+  });
+  assert.equal(store.save(value).status, 'saved');
+  const loaded = store.load();
+  assert.equal(loaded.status, 'loaded');
+  const state = restoreSnapshotValue(loaded.snapshot.simulationState);
+  assert.ok(state.positions instanceof Float32Array);
+  assert.deepEqual([...state.positions], [0.5, 1.25, -4]);
 });
