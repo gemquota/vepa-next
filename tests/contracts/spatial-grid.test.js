@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createSpatialGrid, clearSpatialGrid, insertParticle, queryNeighbors } from '../../src/sim/spatial-grid.js';
+import { createSpatialGrid, clearSpatialGrid, insertParticle, queryNeighbors, queryNeighborsOrAll } from '../../src/sim/spatial-grid.js';
 
 test('grid inserts and returns local neighbors across toroidal boundaries', () => {
   const grid = createSpatialGrid({ worldSize: 12, dim: 3 });
@@ -53,4 +53,30 @@ test('rejects invalid grid and coordinate inputs', () => {
   assert.throws(() => createSpatialGrid({ worldSize: 10, dim: 64 }), /cell budget/);
   const grid = createSpatialGrid({ worldSize: 10 });
   assert.throws(() => insertParticle(grid, 1, NaN, 1, 1), /coordinates/);
+});
+
+
+test('complete neighbor query falls back to all particles when local output truncates', () => {
+  const grid = createSpatialGrid({ worldSize: 20, dim: 4 });
+  insertParticle(grid, 0, 1, 1, 1);
+  insertParticle(grid, 3, 1.1, 1.1, 1.1);
+  insertParticle(grid, 7, 15, 15, 15);
+  const out = new Int32Array(3);
+  const result = queryNeighborsOrAll(grid, 1, 1, 1, out, 3, 1);
+  assert.equal(result.complete, true);
+  assert.equal(result.usedFallback, true);
+  assert.equal(result.truncated, false);
+  assert.equal(result.count, 3);
+  assert.deepEqual([...out], [0, 1, 2]);
+});
+
+test('complete neighbor query refuses to hide fallback truncation when buffer is too small', () => {
+  const grid = createSpatialGrid({ worldSize: 20, dim: 4 });
+  insertParticle(grid, 0, 1, 1, 1);
+  insertParticle(grid, 1, 1.1, 1.1, 1.1);
+  const result = queryNeighborsOrAll(grid, 1, 1, 1, new Int32Array(1), 2, 0);
+  assert.equal(result.complete, false);
+  assert.equal(result.truncated, true);
+  assert.equal(result.requiredCapacity, 2);
+  assert.equal(result.reason, 'fallback-buffer-too-small');
 });
