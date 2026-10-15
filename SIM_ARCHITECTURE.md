@@ -76,6 +76,6 @@ No simulation-critical code may call ambient `Math.random()` or use wall-clock t
 - Report solver throughput, render frame time, memory, startup/build, and save/load separately.
 - If adaptive rendering drops visual detail, show the adaptation. Never alter simulation outcomes to satisfy a frame-rate target.
 
-## Contract acceptance
+## Automated enforcement\n\nThe repository now runs `scripts/check-sim-boundaries.mjs` as part of `npm run check`. It rejects ambient `Math.random()`, wall-clock reads and DOM/window references in the deterministic `core`, `sim` and `state` layers, and checks the declared import direction between core, simulation and state modules. The check is intentionally conservative and currently covers JavaScript source under `src/`; it does not yet prove complete dependency closure, detect every dynamic import pattern, validate all domain payload schemas or enforce the full legacy application boundary. Its latest CI run passed at commit `d5fae63d62c3550a1238407f180ffb4d9936b6b8`.\n\n## Contract acceptance
 
 A module is SIM-ready when its identity, schema, state ownership, side effects, dependencies, deterministic inputs, error behavior and tests are declared. A subsystem is SIM-ready when integration tests verify the contract at both successful and failed boundaries. The repository is SIM-conformant only after automated dependency rules and evidence cover all production modules.
