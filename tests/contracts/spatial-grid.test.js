@@ -42,7 +42,7 @@ test('clear only resets touched cells and overflow diagnostics', () => {
 
 test('rejects invalid grid and coordinate inputs', () => {
   assert.throws(()=>createSpatialGrid({worldSize:0}),/worldSize/);
-  assert.throws(()=>createSpatialGrid({worldSize:10,dim:0}),/dim/);
+  assert.throws(()=>createSpatialGrid({worldSize:10,dim:0}),/dim/);\n  assert.throws(()=>createSpatialGrid({worldSize:10,dim:64}),/cell budget/);
   const grid=createSpatialGrid({worldSize:10});
   assert.throws(()=>insertParticle(grid,1,NaN,1,1),/coordinates/);
 });
