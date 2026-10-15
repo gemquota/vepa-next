@@ -2,7 +2,7 @@
 
 The intended canonical implementation of VEPA, built by selective, traceable migration from the reviewed source repositories.
 
-**Current status:** SIM target architecture and migration planning are committed. The full runtime has not yet been migrated; tests and performance parity are not yet verified.
+**Current status (2026-10-16):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage and a shared-grid contact adaptation are committed. Contract CI passed on commit `eb0004f6e75e8603bad137b04d592a678d2f85fb` in [run 38792899940](https://github.com/gemquota/vepa-next/actions/runs/38792899940). Newer checkpoint-store and schema-v2 typed-array codec tests, plus the latest legacy contact parity fixtures, are awaiting a fresh CI result. The full runtime and authoritative physics worker have not yet been migrated; stable-vs-next performance parity remains unverified.
 
 ## Start here
 
@@ -11,6 +11,7 @@ The intended canonical implementation of VEPA, built by selective, traceable mig
 - [Feature migration map](https://github.com/gemquota/vepa-docs/blob/main/FEATURE_CATALOG_AND_MIGRATION_MAP.md): capability-by-capability migration decisions.
 - [Master tracker](https://github.com/gemquota/vepa-docs/blob/main/MASTER_ROADMAP_TRACKER.md): evidence and phase status.
 - [Consolidation workspace](https://github.com/gemquota/vepa-consolidation): source inventory and migration ledger.
+- [Pinned stable-source baseline](https://github.com/gemquota/vepa-docs/blob/main/50-engineering/STABLE_BASELINE_BENCHMARK.md): verified workflow and captured gravity-kernel benchmark.
 
 ## Engineering priorities
 
@@ -51,4 +52,4 @@ Preserve the stable implementation's measured behavior before optimizing. Keep t
 
 ## Honest boundary
 
-The GitHub connector used for this refactor can inspect and commit repository text, but it does not run npm, browsers or GPU benchmarks in this session. No claim is made that VEPA Next is runnable, feature-complete, tested, stable-equivalent or deployed yet.
+The repository has passing CI evidence for earlier SIM contract slices and a passing CI baseline for the pinned stable source. The newest checkpoint/typed-array and contact-parity changes still need fresh verification. VEPA Next is not feature-complete, the authoritative worker/solver is not yet integrated, stable performance parity has not been demonstrated, and no live deployment is claimed.
