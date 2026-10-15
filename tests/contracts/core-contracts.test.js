@@ -59,3 +59,16 @@ test('law registry rejects duplicate identifiers', () => {
   registry.register(law);
   assert.throws(() => registry.register(law), /Duplicate law id/);
 });
+
+test('snapshot failure does not leave the coordinator locked', async () => {
+  const tx = createTransactionCoordinator({
+    getCurrent: () => { throw new Error('snapshot unavailable'); },
+    validate: () => ({ valid: true }),
+    apply: () => {},
+    restore: () => {},
+  });
+  const first = await tx.transact({});
+  assert.equal(first.status, 'blocked');
+  assert.equal(first.reason, 'snapshot-failed');
+  assert.equal(tx.busy, false);
+});
