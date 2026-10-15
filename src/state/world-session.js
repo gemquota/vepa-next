@@ -1,6 +1,7 @@
 import { createEventEnvelope } from '../core/event-envelope.js';
 import { createTransactionCoordinator } from './transaction.js';
 import { createEventJournal } from './event-journal.js';
+import { createWorldSnapshot } from './snapshot.js';
 
 function defaultClone(value) {
   if (typeof structuredClone !== 'function') throw new Error('Provide cloneValue where structuredClone is unavailable');
@@ -89,6 +90,18 @@ export function createWorldSession({
         tick,
         generation,
         config: cloneValue(config),
+        lastEventSequence: journal.lastSequence,
+      });
+    },
+    createSnapshot({ simulationState, prngState = null, fidelityPolicy = null } = {}) {
+      return createWorldSnapshot({
+        worldId,
+        tick,
+        generation,
+        config: cloneValue(config),
+        simulationState: cloneValue(simulationState),
+        prngState: cloneValue(prngState),
+        fidelityPolicy: cloneValue(fidelityPolicy),
         lastEventSequence: journal.lastSequence,
       });
     },
