@@ -66,11 +66,11 @@ export function createWorldSession({
   let sequence = 0;
   const journal = createEventJournal(worldId);
 
-  function append(type, payload, sourceModule) {
+  function append(type, payload, sourceModule, schemaVersion = 1) {
     const event = createEventEnvelope({
       eventId: worldId + ':' + sequence,
       type,
-      schemaVersion: 1,
+      schemaVersion,
       worldId,
       tick,
       sequence,
@@ -106,7 +106,7 @@ export function createWorldSession({
           requestedConfig: eventSafeValue(context.requestedConfig ?? candidate),
           beforeConfig: eventSafeValue(context.before),
           actualConfig: eventSafeValue(config),
-        }, 'session.world');
+        }, 'session.world', 2);
         generation = nextGeneration;
         return { generation, event };
       } catch (error) {
