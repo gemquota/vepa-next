@@ -69,7 +69,7 @@ export function restoreSnapshotValue(value) {
     const Constructor = Object.hasOwn(TYPED_ARRAYS, value.$vepaTypedArray)
       ? TYPED_ARRAYS[value.$vepaTypedArray]
       : null;
-    if (!Constructor || !Array.isArray(value.values))
+    if (!Constructor || !Array.isArray(value.values)) {
       throw new TypeError('Invalid typed-array snapshot encoding');
     }
     for (const item of value.values) {
