@@ -17,6 +17,9 @@ test('world session commits validated config and journals the applied generation
   assert.equal(session.getSnapshot().generation,1);
   assert.equal(session.getEvents()[0].type,'world.config-committed');
   assert.equal(session.getEvents()[0].payload.generation,1);
+  assert.deepEqual(session.getEvents()[0].payload.requestedConfig, { gravity: 2 });
+  assert.deepEqual(session.getEvents()[0].payload.beforeConfig, { gravity: 1 });
+  assert.deepEqual(session.getEvents()[0].payload.actualConfig, { gravity: 2 });
 });
 
 test('invalid configuration does not mutate config or generation', async () => {
@@ -31,7 +34,10 @@ test('invalid configuration does not mutate config or generation', async () => {
   assert.equal(result.status,'rejected');
   assert.equal(session.getSnapshot().config.gravity,1);
   assert.equal(session.getSnapshot().generation,0);
-  assert.equal(session.getEvents().length,0);
+  assert.equal(session.getEvents().length,1);
+  assert.equal(session.getEvents()[0].type,'world.config-rejected');
+  assert.deepEqual(session.getEvents()[0].payload.requestedConfig,{gravity:-10});
+  assert.deepEqual(session.getEvents()[0].payload.actualConfig,{gravity:1});
 });
 
 test('apply failure restores config and calls recovery adapter', async () => {
@@ -48,7 +54,10 @@ test('apply failure restores config and calls recovery adapter', async () => {
   assert.equal(session.getSnapshot().config.gravity,1);
   assert.equal(session.getSnapshot().generation,0);
   assert.equal(restoreCalls,1);
-  assert.equal(session.getEvents().length,0);
+  assert.equal(session.getEvents().length,1);
+  assert.equal(session.getEvents()[0].type,'world.config-rolled-back');
+  assert.deepEqual(session.getEvents()[0].payload.requestedConfig,{gravity:2});
+  assert.deepEqual(session.getEvents()[0].payload.actualConfig,{gravity:1});
 });
 
 test('session event sequence and tick ordering are monotonic', () => {
@@ -126,4 +135,22 @@ test('checkpoint save reports storage failure without claiming persistence', () 
   const result = session.saveCheckpoint(failedStore, { simulationState: { particles: [] } });
   assert.equal(result.storage.status, 'failed');
   assert.equal(result.storage.reason, 'slot-write-failed');
+});
+
+
+test('committed event records requested and actual config when validation normalizes a proposal', async () => {
+  const session = createWorldSession({
+    worldId: 'world-normalized',
+    initialConfig: { gravity: 1 },
+    validateConfig: proposal => ({
+      valid: true,
+      value: { gravity: Math.min(10, Math.max(0, proposal.gravity)) },
+    }),
+  });
+  const result = await session.proposeConfig({ gravity: 50 });
+  assert.equal(result.status, 'committed');
+  const event = session.getEvents()[0];
+  assert.deepEqual(event.payload.requestedConfig, { gravity: 50 });
+  assert.deepEqual(event.payload.beforeConfig, { gravity: 1 });
+  assert.deepEqual(event.payload.actualConfig, { gravity: 10 });
 });
