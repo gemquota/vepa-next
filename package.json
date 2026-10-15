@@ -1,0 +1,12 @@
+{
+  "name": "vepa-next",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SIM-oriented modular VEPA implementation",
+  "scripts": {
+    "test": "node --test",
+    "test:contracts": "node --test tests/contracts/*.test.js",
+    "check": "node --check src/core/seed.js && node --check src/core/prng.js && node --check src/core/event-envelope.js && node --check src/state/transaction.js && node --check src/sim/law-registry.js"
+  }
+}
