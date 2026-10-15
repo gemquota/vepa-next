@@ -1,0 +1,12 @@
+{
+  "name": "vepa-next",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SIM-oriented modular VEPA implementation",
+  "scripts": {
+    "test": "node --test",
+    "test:contracts": "node --test tests/contracts/*.test.js",
+    "check": "node --check src/core/seed.js && node --check src/core/prng.js && node --check src/core/event-envelope.js && node --check src/state/transaction.js && node --check src/sim/law-registry.js && node --check src/main.js && node --check src/sim/particle-layout.js && node --check src/sim/contact-constraints.js && node --check src/state/event-journal.js && node --check src/sim/spatial-grid.js && node --check src/state/world-session.js && node scripts/check-sim-boundaries.mjs && node --check src/sim/fidelity-policy.js && node --check src/state/replay.js && node --check src/state/snapshot.js && node --check src/state/snapshot-store.js"
+  }
+}
