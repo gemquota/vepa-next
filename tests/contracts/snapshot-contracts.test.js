@@ -71,7 +71,7 @@ test('snapshot creation rejects cycles, non-finite values and invalid counters',
 
 test('snapshot can anchor a contiguous replay suffix', () => {
   const value = snapshot({ tick: 4, lastEventSequence: 4 });
-  const result = validateSnapshotAndReplay([].concat(value), [event(5, 5), event(6, 6)], { expectedWorldId: 'w-1' });
+  const result = validateSnapshotAndReplay(value, [event(5, 5), event(6, 6)], { expectedWorldId: 'w-1' });
   assert.equal(result.valid, true);
   assert.equal(result.replay.lastSequence, 6);
 });
