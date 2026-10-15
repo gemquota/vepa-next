@@ -72,3 +72,15 @@ test('snapshot failure does not leave the coordinator locked', async () => {
   assert.equal(first.reason, 'snapshot-failed');
   assert.equal(tx.busy, false);
 });
+
+test('SplitMix32 preserves the legacy sequence for seed 42', () => {
+  const rng = new SplitMix32(42);
+  const expected = [
+    0.12848330102860928,
+    0.03353364090435207,
+    0.07509804493747652,
+    0.7065966189838946,
+    0.21141720796003938,
+  ];
+  assert.deepEqual(expected.map(() => rng.next()), expected);
+});
