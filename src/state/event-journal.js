@@ -18,7 +18,14 @@ function cloneAndFreeze(value, seen = new WeakSet()) {
     clone = value.map(item => cloneAndFreeze(item, seen));
   } else {
     clone = {};
-    for (const [key, item] of Object.entries(value)) clone[key] = cloneAndFreeze(item, seen);
+    for (const [key, item] of Object.entries(value)) {
+      Object.defineProperty(clone, key, {
+        value: cloneAndFreeze(item, seen),
+        enumerable: true,
+        writable: false,
+        configurable: false,
+      });
+    }
   }
   seen.delete(value);
   return Object.freeze(clone);
