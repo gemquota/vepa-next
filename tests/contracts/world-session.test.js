@@ -57,3 +57,35 @@ test('session event sequence and tick ordering are monotonic', () => {
   session.recordEvent('world.tick-completed',{tick:1},'session.world');
   assert.deepEqual(session.getEvents().map(e=>[e.tick,e.sequence]),[[0,0],[1,1]]);
 });
+
+
+test('world session snapshot captures config, generation, tick and event cursor', async () => {
+  const session = createWorldSession({
+    worldId: 'world-snapshot',
+    initialConfig: { gravity: 1 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+  });
+  await session.proposeConfig({ gravity: 2 });
+  session.advanceTick();
+  session.recordEvent('world.tick-completed', { tick: 1 }, 'session.world');
+
+  const snapshot = session.createSnapshot({
+    simulationState: { particles: [1, 2, 3] },
+    prngState: { state: 42 },
+    fidelityPolicy: { mode: 'configured', effectiveMaxInteractions: 500 },
+  });
+  assert.equal(snapshot.worldId, 'world-snapshot');
+  assert.equal(snapshot.tick, 1);
+  assert.equal(snapshot.generation, 1);
+  assert.equal(snapshot.config.gravity, 2);
+  assert.equal(snapshot.lastEventSequence, 1);
+  assert.deepEqual(snapshot.simulationState, { particles: [1, 2, 3] });
+  assert.deepEqual(snapshot.prngState, { state: 42 });
+  assert.equal(snapshot.fidelityPolicy.mode, 'configured');
+});
+
+test('world session snapshot rejects missing or non-serializable simulation state', () => {
+  const session = createWorldSession({ worldId: 'world-snapshot-invalid' });
+  assert.throws(() => session.createSnapshot(), /JSON-compatible/);
+  assert.throws(() => session.createSnapshot({ simulationState: { time: Infinity } }), /finite/);
+});
