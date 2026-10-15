@@ -12,11 +12,22 @@ export function createTransactionCoordinator({ getCurrent, validate, apply, rest
 
   return {
     async transact(proposal, context = {}) {
-      if (busy) return { status: 'rejected', reason: 'transaction-busy', sequence: sequence + 1 };
+      if (busy) return { status: 'rejected', reason: 'transaction-busy', transactionId: sequence + 1 };
       busy = true;
       const transactionId = ++sequence;
-      const before = await getCurrent();
+      let before;
       try {
+        try {
+          before = await getCurrent();
+        } catch (error) {
+          return {
+            status: 'blocked',
+            transactionId,
+            reason: 'snapshot-failed',
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+
         const verdict = await validate(proposal, { ...context, transactionId, before });
         if (!verdict || verdict.valid !== true) {
           return {
@@ -52,6 +63,14 @@ export function createTransactionCoordinator({ getCurrent, validate, apply, rest
             };
           }
         }
+      } catch (error) {
+        return {
+          status: 'blocked',
+          transactionId,
+          before,
+          reason: 'validation-or-coordinator-failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
       } finally {
         busy = false;
       }
