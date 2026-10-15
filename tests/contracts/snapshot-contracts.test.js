@@ -82,3 +82,10 @@ test('snapshot/replay validation rejects a gap after the checkpoint', () => {
   assert.equal(result.valid, false);
   assert.equal(result.reason, 'invalid-replay');
 });
+
+test('canonical snapshot JSON preserves special object keys as data', () => {
+  const value = JSON.parse('{"__proto__":{"safe":true},"constructor":"value"}');
+  const encoded = canonicalSnapshotJson(value);
+  assert.equal(encoded, '{"__proto__":{"safe":true},"constructor":"value"}');
+  assert.equal(JSON.parse(encoded).__proto__.safe, true);
+});
