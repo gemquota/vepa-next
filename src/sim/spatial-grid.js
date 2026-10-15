@@ -105,3 +105,45 @@ export function queryNeighbors(grid, x, y, z, out, maxNeighbors = Infinity) {
   }
   return { count, truncated };
 }
+
+
+/**
+ * Query nearby candidates, falling back to a complete particle scan when the
+ * caller-provided output buffer or explicit neighbor cap would truncate results.
+ *
+ * The output buffer must hold totalParticleCount entries for the fallback to be
+ * complete. If it cannot, this function reports the required capacity and the
+ * caller must grow/reuse a larger buffer and retry before authoritative physics.
+ * The returned indices include the query particle if it was inserted in the grid;
+ * callers remain responsible for self-pair filtering and exact distance tests.
+ */
+export function queryNeighborsOrAll(
+  grid, x, y, z, out, totalParticleCount, maxNeighbors = Infinity,
+) {
+  if (!Number.isInteger(totalParticleCount) || totalParticleCount < 0) {
+    throw new RangeError('totalParticleCount must be a non-negative integer');
+  }
+  const nearby = queryNeighbors(grid, x, y, z, out, maxNeighbors);
+  if (!nearby.truncated) {
+    return { ...nearby, complete: true, usedFallback: false, requiredCapacity: nearby.count };
+  }
+  if (out.length < totalParticleCount) {
+    return {
+      count: out.length,
+      truncated: true,
+      complete: false,
+      usedFallback: false,
+      requiredCapacity: totalParticleCount,
+      reason: 'fallback-buffer-too-small',
+    };
+  }
+  for (let i = 0; i < totalParticleCount; i++) out[i] = i;
+  return {
+    count: totalParticleCount,
+    truncated: false,
+    complete: true,
+    usedFallback: true,
+    requiredCapacity: totalParticleCount,
+    reason: 'neighbor-query-truncated',
+  };
+}
