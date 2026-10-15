@@ -17,6 +17,20 @@ test('journal appends events in sequence and exposes immutable snapshots', () =>
   assert.throws(() => { snapshot[0].payload.sequence = 99; }, TypeError);
 });
 
+test('journal deep-copies nested payloads and rejects cyclic payloads', () => {
+  const journal = createEventJournal('world-1');
+  const nested = { details: { label: 'original' } };
+  const first = createEventEnvelope({ eventId: 'nested-0', type: 'world.state-committed', worldId: 'world-1', tick: 0, sequence: 0, sourceModule: 'session.world', payload: nested });
+  assert.equal(journal.append(first).accepted, true);
+  nested.details.label = 'mutated';
+  assert.equal(journal.snapshot()[0].payload.details.label, 'original');
+  assert.throws(() => { journal.snapshot()[0].payload.details.label = 'tampered'; }, TypeError);
+  const cyclic = {};
+  cyclic.self = cyclic;
+  const second = createEventEnvelope({ eventId: 'nested-1', type: 'world.state-committed', worldId: 'world-1', tick: 0, sequence: 1, sourceModule: 'session.world', payload: cyclic });
+  assert.equal(journal.append(second).reason, 'invalid-payload');
+});
+
 test('journal rejects wrong world, duplicate IDs, sequence gaps and tick regression', () => {
   const journal = createEventJournal('world-1');
   assert.equal(journal.append(event(0, 2)).accepted, true);
