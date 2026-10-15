@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveParticleContacts } from '../../src/sim/contact-constraints.js';
+import { resolveLegacyContacts } from '../fixtures/legacy-contact-constraints.js';
 
 const S = { POS_X:0, POS_Y:1, POS_Z:2, MASS:3, DEAD:4, RADIUS:5 };
 const stride = 6;
@@ -68,4 +69,41 @@ test('shared grid handles dense same-cell neighborhoods without non-finite state
   const p = particles(rows);
   resolveParticleContacts(p, rows.length, stride, 20, false, 8, S);
   assert.ok([...p].every(Number.isFinite));
+});
+
+
+test('shared-grid contact solver matches the pinned legacy algorithm on standard fixtures', () => {
+  const fixtures = [
+    {
+      wrap: false,
+      rows: [[5,5,5,9,0,1],[5.5,5,5,1,0,1],[10,10,10,2,0,0.75]],
+    },
+    {
+      wrap: true,
+      rows: [[0.2,5,5,1,0,0.5],[19.8,5,5,1,0,0.5],[10,10,10,2,0,0.75]],
+    },
+    {
+      wrap: false,
+      rows: [[5,5,5,1,0,1],[5,5,5,1,0,1],[5.4,5,5,2,0,0.8]],
+    },
+    {
+      wrap: false,
+      rows: Array.from({ length: 40 }, (_, i) => [
+        8 + (i % 2) * 0.01,
+        8 + (i % 3) * 0.01,
+        8 + (i % 5) * 0.01,
+        1 + (i % 4),
+        0,
+        0.5,
+      ]),
+    },
+  ];
+  for (const fixture of fixtures) {
+    const before = particles(fixture.rows);
+    const legacy = new Float32Array(before);
+    const candidate = new Float32Array(before);
+    resolveLegacyContacts(legacy, fixture.rows.length, stride, 20, fixture.wrap, 8, S);
+    resolveParticleContacts(candidate, fixture.rows.length, stride, 20, fixture.wrap, 8, S);
+    assert.deepEqual([...candidate], [...legacy]);
+  }
 });
