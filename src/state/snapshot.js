@@ -1,7 +1,14 @@
 import { validateReplay } from './replay.js';
 
 export const SNAPSHOT_SCHEMA = 'vepa.world-snapshot';
-export const SNAPSHOT_SCHEMA_VERSION = 1;
+export const SNAPSHOT_SCHEMA_VERSION = 2;
+
+const TYPED_ARRAYS = Object.freeze({
+  Float32Array, Float64Array,
+  Int8Array, Uint8Array, Uint8ClampedArray,
+  Int16Array, Uint16Array,
+  Int32Array, Uint32Array,
+});
 
 function canonicalize(value, seen = new WeakSet()) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
@@ -10,6 +17,18 @@ function canonicalize(value, seen = new WeakSet()) {
     return Object.is(value, -0) ? 0 : value;
   }
   if (typeof value !== 'object') throw new TypeError('Snapshot must contain JSON-compatible values');
+  if (ArrayBuffer.isView(value)) {
+    const name = value.constructor?.name;
+    if (!name || TYPED_ARRAYS[name] !== value.constructor || value instanceof DataView) {
+      throw new TypeError('Snapshot contains an unsupported typed array');
+    }
+    if (seen.has(value)) throw new TypeError('Snapshot cannot contain cycles');
+    seen.add(value);
+    const values = Array.from(value, item => canonicalize(item, seen));
+    seen.delete(value);
+    // "$vepaTypedArray" is reserved in snapshot payloads for typed-array encoding.
+    return { $vepaTypedArray: name, values };
+  }
   if (seen.has(value)) throw new TypeError('Snapshot cannot contain cycles');
   const prototype = Object.getPrototypeOf(value);
   if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
@@ -33,6 +52,40 @@ function canonicalize(value, seen = new WeakSet()) {
     }
   }
   seen.delete(value);
+  return result;
+}
+
+
+/**
+ * Decode tagged numeric typed arrays from a validated snapshot payload.
+ * Plain objects are rebuilt with data-property definitions so "__proto__"
+ * remains data rather than changing the result's prototype.
+ */
+export function restoreSnapshotValue(value) {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(restoreSnapshotValue);
+  const keys = Object.keys(value).sort();
+  if (keys.length === 2 && keys[0] === '$vepaTypedArray' && keys[1] === 'values') {
+    const Constructor = TYPED_ARRAYS[value.$vepaTypedArray];
+    if (!Constructor || !Array.isArray(value.values)) {
+      throw new TypeError('Invalid typed-array snapshot encoding');
+    }
+    for (const item of value.values) {
+      if (typeof item !== 'number' || !Number.isFinite(item)) {
+        throw new TypeError('Typed-array snapshot values must be finite numbers');
+      }
+    }
+    return new Constructor(value.values);
+  }
+  const result = {};
+  for (const key of keys) {
+    Object.defineProperty(result, key, {
+      value: restoreSnapshotValue(value[key]),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
   return result;
 }
 
