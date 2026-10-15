@@ -3,6 +3,40 @@ import { createTransactionCoordinator } from './transaction.js';
 import { createEventJournal } from './event-journal.js';
 import { createWorldSnapshot } from './snapshot.js';
 
+
+function eventSafeValue(value, seen = new WeakSet()) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'undefined') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : String(value);
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value !== 'object') return String(value);
+  if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
+    return Array.from(value, item => eventSafeValue(item, seen));
+  }
+  if (seen.has(value)) return '[Circular]';
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    return '[Unsupported ' + (value.constructor?.name ?? 'object') + ']';
+  }
+  seen.add(value);
+  let result;
+  if (Array.isArray(value)) {
+    result = value.map(item => eventSafeValue(item, seen));
+  } else {
+    result = {};
+    for (const key of Object.keys(value).sort()) {
+      Object.defineProperty(result, key, {
+        value: eventSafeValue(value[key], seen),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+  }
+  seen.delete(value);
+  return result;
+}
+
 function defaultClone(value) {
   if (typeof structuredClone !== 'function') throw new Error('Provide cloneValue where structuredClone is unavailable');
   return structuredClone(value);
@@ -67,8 +101,11 @@ export function createWorldSession({
       try {
         await applyConfig(cloneValue(config), { generation: nextGeneration, transactionId: context.transactionId });
         const event = append('world.config-committed', {
+          transactionId: context.transactionId,
           generation: nextGeneration,
-          config: cloneValue(config),
+          requestedConfig: eventSafeValue(context.requestedConfig ?? candidate),
+          beforeConfig: eventSafeValue(context.before),
+          actualConfig: eventSafeValue(config),
         }, 'session.world');
         generation = nextGeneration;
         return { generation, event };
@@ -121,8 +158,28 @@ export function createWorldSession({
       });
       return { snapshot, storage: snapshotStore.save(snapshot) };
     },
-    async proposeConfig(proposal, context) {
-      return transactions.transact(proposal, context);
+    async proposeConfig(proposal, context = {}) {
+      const requestedConfig = eventSafeValue(proposal);
+      const result = await transactions.transact(proposal, { ...context, requestedConfig });
+      if (result.status !== 'committed') {
+        const type = result.status === 'rolled-back'
+          ? 'world.config-rolled-back'
+          : result.status === 'blocked'
+            ? 'world.config-blocked'
+            : 'world.config-rejected';
+        append(type, {
+          transactionId: result.transactionId ?? null,
+          status: result.status,
+          reason: result.reason ?? null,
+          requestedConfig,
+          beforeConfig: eventSafeValue(result.before ?? config),
+          actualConfig: eventSafeValue(config),
+          errors: eventSafeValue(result.errors ?? []),
+          error: result.error ?? null,
+          restoreError: result.restoreError ?? null,
+        }, 'session.world');
+      }
+      return result;
     },
     advanceTick() {
       tick++;
