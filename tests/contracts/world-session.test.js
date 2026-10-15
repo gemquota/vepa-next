@@ -16,6 +16,7 @@ test('world session commits validated config and journals the applied generation
   assert.equal(session.getSnapshot().config.gravity,2);
   assert.equal(session.getSnapshot().generation,1);
   assert.equal(session.getEvents()[0].type,'world.config-committed');
+  assert.equal(session.getEvents()[0].schemaVersion,2);
   assert.equal(session.getEvents()[0].payload.generation,1);
   assert.deepEqual(session.getEvents()[0].payload.requestedConfig, { gravity: 2 });
   assert.deepEqual(session.getEvents()[0].payload.beforeConfig, { gravity: 1 });
