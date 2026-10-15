@@ -1,35 +1,54 @@
 # VEPA Next
 
-The intended canonical implementation of VEPA, built by selective, traceable migration from the source repositories.
+The intended canonical implementation of VEPA, built by selective, traceable migration from the reviewed source repositories.
 
-## Status
+**Current status:** SIM target architecture and migration planning are committed. The full runtime has not yet been migrated; tests and performance parity are not yet verified.
 
-**Bootstrap only.** This repository is currently empty apart from this project charter. No application code has been migrated, and no tests have been run here yet.
+## Start here
+
+- [SIM Architecture](SIM_ARCHITECTURE.md): semantic boundaries, state ownership, events, transaction lifecycle and determinism.
+- [Roadmap v4 interpretation](https://github.com/gemquota/vepa-docs/blob/main/ROADMAP_V4_INTERPRETATION.md): product intent and implementation phases.
+- [Feature migration map](https://github.com/gemquota/vepa-docs/blob/main/FEATURE_CATALOG_AND_MIGRATION_MAP.md): capability-by-capability migration decisions.
+- [Master tracker](https://github.com/gemquota/vepa-docs/blob/main/MASTER_ROADMAP_TRACKER.md): evidence and phase status.
+- [Consolidation workspace](https://github.com/gemquota/vepa-consolidation): source inventory and migration ledger.
 
 ## Engineering priorities
 
-1. Establish source-of-truth and migration provenance.
-2. Establish a reproducible baseline with installation, repository checks, unit tests, browser tests, and benchmarks.
-3. Make world configuration and restart behavior transactional, validated, observable, and replayable.
-4. Verify physics correctness and performance with deterministic fixtures, CPU/GPU comparisons, and explicit performance targets.
-5. Remove duplicated sources of truth and generated-file drift across laws, specifications, provenance, and version metadata.
+1. Establish source authority, provenance and a clean baseline.
+2. Implement SIM contracts and a failure-safe world session.
+3. Preserve stable physics behavior while measuring candidate performance.
+4. Make world configuration, persistence and replay validated and inspectable.
+5. Recover unique capabilities across historical versions without duplicate implementations.
+6. Keep canonical law/schema/version registries and generate downstream references.
+7. Implement Roadmap v4 as verified vertical slices, from particle physics through higher-level emergent systems.
 
-## Project invariants
+## Invariants
 
-- Preserve the browser-first delivery model unless evidence justifies changing it.
-- Deterministic replay must account for every source of randomness, ordering, timing, and worker coordination that can affect outcomes.
-- Treat exact state equality as a testable requirement where feasible; document tolerances where it is not.
-- Validate proposed configuration before applying it and preserve the last known-good configuration on failure.
-- Record intended versus actual state transitions and provide actionable diagnostic identifiers.
-- Separate throughput, render latency, memory, and persistence targets.
-- Protect recovery data and make destructive cleanup explicit.
-- Keep fictional awakening and higher-level cognition as designed simulation laws, not claims of real consciousness.
-- Do not claim tests pass unless they were executed and their results recorded.
+- Browser-first delivery unless evidence justifies a change.
+- No untracked randomness, wall-clock dependence or unspecified event ordering in deterministic simulation paths.
+- Validate proposed configuration before mutating live state.
+- Preserve last-known-good state or enter an explicit recoverable blocked state on failure.
+- Keep intended, validated, committed and applied configuration distinguishable.
+- Separate simulation timestep, simulation speed, wall-clock time and render rate.
+- Keep simulation semantics stable when render detail adapts.
+- Record diagnostics and recovery references for failed operations.
+- Keep fictional awakening as a designed game law, not a claim of real consciousness.
+- Do not claim tests pass or performance parity exists without execution evidence.
 
-## Development workflow
+## Migration workflow
 
-1. Inventory and compare the sources in gemquota/vepa-consolidation.
-2. Migrate small, coherent batches with provenance records.
-3. Run repository consistency checks and relevant tests after each batch.
-4. Keep this repository's code authoritative; place project-wide documentation in gemquota/vepa-docs.
-5. Report blockers and unverified assumptions instead of silently choosing risky behavior.
+1. Pin source commit and file/blob SHAs.
+2. Classify feature behavior as KEEP, ADAPT, MERGE, REPLACE, ARCHIVE or REJECT.
+3. Define the SIM contract and tests before moving complex behavior.
+4. Migrate a coherent vertical slice with provenance.
+5. Run focused tests, repository checks, build and relevant benchmarks.
+6. Update docs, feature map, changelog and master tracker.
+7. Keep rollback to a known-good commit.
+
+## Performance principle
+
+Preserve the stable implementation's measured behavior before optimizing. Keep typed-array data paths and avoid allocations or dynamic semantic dispatch in particle-level hot loops unless benchmarks demonstrate a net win. Performance parity must be demonstrated on matching workloads and reference hardware, with solver throughput, render latency, memory and save/load measured separately.
+
+## Honest boundary
+
+The GitHub connector used for this refactor can inspect and commit repository text, but it does not run npm, browsers or GPU benchmarks in this session. No claim is made that VEPA Next is runnable, feature-complete, tested, stable-equivalent or deployed yet.
