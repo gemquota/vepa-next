@@ -6,9 +6,9 @@
 <label>Seed or seed phrase<input id="seedInput" value="primordial soup" autocomplete="off"></label>
 <div class="row"><button id="resetBtn" class="primary">Reset world</button><button id="pauseBtn">Pause</button></div>
 <label>Particle count <output id="countOut">180</output><input id="count" type="range" min="40" max="400" value="180"></label>
-<label>Interaction strength <output id="strengthOut">0.8</output><input id="strength" type="range" min="0" max="2" step=".1" value=".8"></label>
+<label>Gravity strength <output id="strengthOut">0.8</output><input id="strength" type="range" min="0" max="2" step=".1" value=".8"></label>
 <label>Simulation speed <output id="speedOut">1.0×</output><input id="speed" type="range" min=".2" max="2" step=".1" value="1"></label>
 <div class="stats"><div class="stat"><span class="muted">Particles</span><b id="particleStat">180</b></div><div class="stat"><span class="muted">Tick</span><b id="tickStat">0</b></div><div class="stat"><span class="muted">FPS</span><b id="fpsStat">0</b></div><div class="stat"><span class="muted">Seed hash</span><b id="hashStat">0</b></div></div>
-<div class="note">This starter demonstrates deterministic initialization and a compact typed-array update path. It is not the migrated VEPA physics solver and does not claim feature or performance parity.</div>
+<div class="note">This sandbox runs the deterministic softened-gravity prototype in a Web Worker when available, with an in-process fallback. It is not the stable 128-law solver and does not claim feature or performance parity.</div>
 <div><a href="https://github.com/gemquota/vepa-docs/blob/main/MASTER_ROADMAP_TRACKER.md" style="color:var(--cyan)">Roadmap tracker ↗</a></div>
 </div></aside></div></main><script type="module" src="./src/main.js"></script></body></html>
