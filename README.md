@@ -2,7 +2,7 @@
 
 The intended canonical implementation of VEPA, built by selective, traceable migration from the reviewed source repositories.
 
-**Current status (2026-10-21):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage and a shared-grid contact adaptation are committed. The V5 rework has now been consolidated as a behavioral migration plan covering law correctness, WRAP semantics, configuration lifecycle, saves/presets, shared UI state, narrative/analytics event paths, law-grid controls and backend-setting precedence. The authoritative runtime/physics worker is still not migrated; stable-vs-next performance parity remains unverified.
+**Current status (2026-10-21):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage, shared-grid contact handling, law-manifest validation, WRAP boundary contracts and a shared law-command adapter are committed. A minimal deterministic softened-gravity solver now provides the first physics slice, but it is not a port of stable's 128-law solver. The stable README capability gap audit is linked below. V5 remains consolidated as a behavioral migration plan covering configuration lifecycle, saves/presets, shared UI state, narrative/analytics event paths, law-grid controls and backend-setting precedence. The authoritative runtime/physics worker is still not migrated; stable-vs-next performance parity remains unverified.
 
 ## Start here
 
