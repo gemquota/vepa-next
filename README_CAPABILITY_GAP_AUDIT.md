@@ -76,3 +76,8 @@ The sandbox entry point now uses the worker-backed prototype runtime when availa
 ## Stable law-count discrepancy
 
 The current `gemquota/vepa/src/constants.js` blob `be2162548e0aed180ee262b941ebb1eedb544ff8` declares `LAW_COUNT = 136` and indexes 0–135 across eight rainbow categories plus eight Mechanics slots. This differs from older documentation that says 128 laws. Next now carries `src/sim/stable-law-inventory.js` with all 136 source indices, categories and explicit migration statuses. `INERTIA` remains marked review-required because the stable slot exists while the V5 rework reports its toggle plumbing as dead. The stable source has no WRAP law entry; Next treats V5 WRAP as a boundary compatibility alias.
+
+
+## Follow-up UI slice (2026-10-21)
+
+The sandbox now exposes Gravity, Drag and Collision toggles. Each toggle proposes a new `activeLawIds` configuration through `world-session`; the prototype solver executes gravity, exponential velocity damping and contact correction behind those IDs. This is a three-law prototype only, not a migration of the stable catalogue or the full law-command/read-model UI. The current browser path still needs real-browser interaction tests, including toggling laws while running and verifying failed proposals leave the previous active configuration intact.
