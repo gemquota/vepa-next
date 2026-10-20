@@ -50,7 +50,7 @@ This is a capability inventory, not a misleading percentage: feature families di
 ## Source-of-truth notes
 
 - Stable README currently describes version **9.1.2** (legacy label **4.9.5**) and includes additions across v8.2–v8.16 and v9.0. The README is used here as a feature inventory, not as a guarantee that all old descriptions remain current.
-- Stable's current README says WRAP was retired/replaced by a toroidal world parameter in the v9.1.0-era law recategorization. The V5 rework restores WRAP as an explicit law. Next must reconcile this conflict explicitly in the canonical configuration/schema; it must not silently accept two contradictory sources of truth.
+- Stable's current README says WRAP was retired/replaced by a toroidal world parameter in the v9.1.0-era law recategorization. The V5 rework restores WRAP as an explicit law. This is resolved in Next by keeping `boundaryMode` canonical, matching stable's TOROIDAL EDGES parameter; V5 `law.wrap` is a compatibility command alias and is excluded from canonical `activeLawIds`.
 - The target's current law registry requires executable `step(context)` functions. The manifest allows metadata-only entries only when explicitly allow-listed. Keep those concepts separate: declared historical/source law inventory versus laws actually enabled in a given runtime.
 - Stable README's advertised tests and benchmark figures are historical references. They must be rerun against the pinned stable source and matched Next workloads before any parity or performance claim.
 
