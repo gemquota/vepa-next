@@ -61,7 +61,7 @@ function makeConfig() {
   gravitationalConstant: Number(ui.strength.value) * 250,
   softening: 15,
   interactionRadius: WORLD_SIZE / 8,
-  activeLawIds: ['law.gravity'],
+  activeLawIds: ['law.gravity', 'law.drag', 'law.collision'],
   resolveContacts: true,
   contactIterations: 1,
  };
@@ -70,7 +70,7 @@ function makeConfig() {
 function validateConfig(candidate) {
  try {
   const config = validateParticleExecutionConfig(candidate);
-  const unsupported = config.activeLawIds.filter(id => id !== 'law.gravity');
+  const unsupported = config.activeLawIds.filter(id => !['law.gravity', 'law.drag', 'law.collision'].includes(id));
   if (unsupported.length) return { valid: false, reason: 'prototype-solver-unsupported-laws:' + unsupported.join(',') };
   return { valid: true, value: config };
  } catch (error) {
