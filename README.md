@@ -6,6 +6,8 @@ The intended canonical implementation of VEPA, built by selective, traceable mig
 
 ## Start here
 
+- [Stable README capability gap audit](README_CAPABILITY_GAP_AUDIT.md): feature-by-feature inventory of stable VEPA capabilities missing from Next, with required acceptance evidence.
+
 - [SIM Architecture](SIM_ARCHITECTURE.md): semantic boundaries, state ownership, events, transaction lifecycle and determinism.
 - [V5 Rework Integration Plan](V5_REWORK_PLAN.md): consolidated V5 correctness/UI behavior mapped to SIM vertical slices.
 - [Roadmap v4 interpretation](https://github.com/gemquota/vepa-docs/blob/main/ROADMAP_V4_INTERPRETATION.md): product intent and implementation phases.
