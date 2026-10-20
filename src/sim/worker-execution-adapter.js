@@ -2,15 +2,15 @@ import { createParticleExecutionAdapter } from './execution-adapter.js';
 
 const PROTOCOL_VERSION = 1;
 
-function createLocalAdapter(options) {
- const runtime = createParticleExecutionAdapter(options);
+function localFacade(runtime) {
  return Object.freeze({
   mode: 'in-process',
-  get tick() { return runtime.tick; },
   get count() { return runtime.count; },
   get stride() { return runtime.stride; },
-  getConfig: () => runtime.getConfig(),
-  readState: () => runtime.readState(),
+  get tick() { return runtime.tick; },
+  getConfig: async () => runtime.getConfig(),
+  getStatus: async () => ({ tick: runtime.tick, count: runtime.count, stride: runtime.stride }),
+  readState: async () => runtime.readState(),
   configure: async config => runtime.configure(config),
   step: async () => ({ metrics: runtime.step(), state: runtime.readState() }),
   createSnapshot: async () => runtime.createSnapshot(),
@@ -19,16 +19,14 @@ function createLocalAdapter(options) {
  });
 }
 
-/** Async worker facade. If Workers are unavailable, use the same execution contract in-process. */
+/** Async worker facade. It falls back in-process only when Worker construction is unavailable. */
 export async function createWorkerExecutionAdapter({ workerFactory, fallbackFactory = createParticleExecutionAdapter, ...options } = {}) {
- let worker;
+ let worker = null;
  try {
   if (workerFactory) worker = workerFactory();
   else if (typeof Worker === 'function') worker = new Worker(new URL('./particle.worker.js', import.meta.url), { type: 'module' });
- } catch {
-  worker = null;
- }
- if (!worker) return createLocalAdapter({ ...options, initialState: options.initialState });
+ } catch { worker = null; }
+ if (!worker) return localFacade(fallbackFactory(options));
  if (typeof worker.addEventListener !== 'function' || typeof worker.postMessage !== 'function') {
   worker.terminate?.();
   throw new TypeError('workerFactory must return a Worker-like object');
@@ -37,20 +35,17 @@ export async function createWorkerExecutionAdapter({ workerFactory, fallbackFact
  let nextId = 0;
  let disposed = false;
  const pending = new Map();
- function rejectPending(error) {
-  for (const entry of pending.values()) entry.reject(error);
-  pending.clear();
- }
+ function rejectPending(error) { for (const item of pending.values()) item.reject(error); pending.clear(); }
  worker.addEventListener('message', event => {
   const message = event?.data;
-  const entry = pending.get(message?.id);
-  if (!entry) return;
+  const item = pending.get(message?.id);
+  if (!item) return;
   pending.delete(message.id);
   if (message.protocolVersion !== PROTOCOL_VERSION || message.ok !== true) {
    const error = new Error(message?.error?.message ?? 'Invalid worker response');
    error.name = message?.error?.name ?? 'Error';
-   entry.reject(error);
-  } else entry.resolve(message.payload);
+   item.reject(error);
+  } else item.resolve(message.payload);
  });
  worker.addEventListener('error', event => rejectPending(new Error(event?.message ?? 'Particle worker failed')));
  worker.addEventListener('messageerror', () => rejectPending(new Error('Particle worker message could not be decoded')));
@@ -66,25 +61,25 @@ export async function createWorkerExecutionAdapter({ workerFactory, fallbackFact
  }
  const initState = new options.initialState.constructor(options.initialState);
  await request('INIT', { ...options, initialState: initState }, [initState.buffer]);
- let lastConfig = { ...(options.config ?? {}) };
  return Object.freeze({
   mode: 'worker',
   get count() { return options.count ?? options.initialState.length / (options.stride ?? 100); },
   get stride() { return options.stride ?? 100; },
   get tick() { return undefined; },
-  getConfig: async () => { return { ...lastConfig, ...(await request('CONFIGURE', {}) .catch(() => ({}))) }; },
-  readState: async () => { const result = await request('STEP', { readOnly: true }); return new result.state.constructor(result.state); },
-  configure: async config => { lastConfig = { ...lastConfig, ...config }; return request('CONFIGURE', config); },
-  step: async () => request('STEP'),
-  createSnapshot: async () => request('SNAPSHOT'),
-  restoreSnapshot: async snapshot => {
+  getConfig: () => request('GET_CONFIG'),
+  getStatus: () => request('STATUS'),
+  readState: async () => request('READ_STATE'),
+  configure: config => request('CONFIGURE', config),
+  step: () => request('STEP'),
+  createSnapshot: () => request('SNAPSHOT'),
+  restoreSnapshot(snapshot) {
    const copy = { ...snapshot, state: new snapshot.state.constructor(snapshot.state) };
    return request('RESTORE', copy, [copy.state.buffer]);
   },
   async dispose() {
    if (disposed) return { disposed: true };
-   try { await request('DISPOSE'); } finally { disposed = true; rejectPending(new Error('Worker adapter disposed')); worker.terminate?.(); }
-   return { disposed: true };
+   try { return await request('DISPOSE'); }
+   finally { disposed = true; rejectPending(new Error('Worker adapter disposed')); worker.terminate?.(); }
   },
  });
 }
