@@ -117,8 +117,14 @@ export function stepParticleWorld(view, count, {
     view[b + slots.POS_Z] += view[b + slots.VEL_Z] * dt;
     for (const slot of [slots.POS_X, slots.POS_Y, slots.POS_Z]) {
       if (boundaryMode === 'toroidal') view[b + slot] = wrapPosition(view[b + slot], worldSize);
-      else if (view[b + slot] < 0 || view[b + slot] > worldSize) {
-        view[b + slot] = Math.max(0, Math.min(worldSize, view[b + slot]));
+      else if (view[b + slot] < 0) {
+        view[b + slot] = 0;
+        const velocitySlot = slot === slots.POS_X ? slots.VEL_X : slot === slots.POS_Y ? slots.VEL_Y : slots.VEL_Z;
+        view[b + velocitySlot] = Math.abs(view[b + velocitySlot]);
+      } else if (view[b + slot] > worldSize) {
+        view[b + slot] = worldSize;
+        const velocitySlot = slot === slots.POS_X ? slots.VEL_X : slot === slots.POS_Y ? slots.VEL_Y : slots.VEL_Z;
+        view[b + velocitySlot] = -Math.abs(view[b + velocitySlot]);
       }
     }
   }
