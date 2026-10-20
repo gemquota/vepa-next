@@ -18,7 +18,7 @@ This is a capability inventory, not a misleading percentage: feature families di
 | Browser app and simulation bootstrap | **Partial foundation** | `src/main.js` exists, but no complete stable-equivalent application/runtime integration. Mount and browser smoke tests required. |
 | Particle memory model and 100-float stride | **Partial foundation** | Typed-array layout exists; wire authoritative buffers into a solver, worker, snapshots and renderer. Validate stride compatibility and state ownership. |
 | Species DNA (64 traits), expression and inheritance | **Missing runtime** | Add DNA schema/buffer, expression, mutation/recombination and species lifecycle with deterministic fixtures. |
-| Law catalogue (128 global laws, categories, synergy) | **Partial foundation** | Registry and manifest contracts exist; the stable law catalogue, category metadata, executable implementations, dependencies and synergy behavior are not migrated. Enumerate every source law and give each an implemented or explicit disposition. |
+| Law catalogue and synergy | **Partial foundation** | Stable `src/constants.js` currently declares 136 law slots across nine categories, despite older README/AGENTS references to 128. A 136-entry metadata inventory is now committed; executable law implementations, dependencies and synergy behavior are not migrated. |
 | Law toggles and V5 dead-toggle audit | **Partial foundation** | Manifest validator exists; route single and bulk mutations through one command adapter and connect validation to world-session transactions. |
 | WRAP/toroidal boundary semantics | **Contract only** | Boundary proposal contract exists; integrate it with session proposals and the eventual solver/worker. Test save/replay and all-law-clear cases. |
 | Core physics laws and contact behavior | **Partial foundation** | A minimal softened-gravity prototype now uses the 100-slot layout and spatial-grid candidate queries; it is not the stable solver. Complete multi-law dispatch, collision/merge/adjoin behavior and stable-source regression fixtures remain. |
@@ -71,3 +71,8 @@ A minimal deterministic gravity slice now exists and CI passes, but stable READM
 ## Follow-up update (2026-10-21)
 
 The sandbox entry point now uses the worker-backed prototype runtime when available and the in-process adapter otherwise. Live gravity and timestep settings are proposed through the world-session transaction boundary. The worker returns a compact render projection rather than transferring the full particle buffer every tick. CI covers the protocol and contract behavior; a real-browser smoke run and stable-source physics parity are still outstanding.
+
+
+## Stable law-count discrepancy
+
+The current `gemquota/vepa/src/constants.js` blob `be2162548e0aed180ee262b941ebb1eedb544ff8` declares `LAW_COUNT = 136` and indexes 0–135 across eight rainbow categories plus eight Mechanics slots. This differs from older documentation that says 128 laws. Next now carries `src/sim/stable-law-inventory.js` with all 136 source indices, categories and explicit migration statuses. `INERTIA` remains marked review-required because the stable slot exists while the V5 rework reports its toggle plumbing as dead. The stable source has no WRAP law entry; Next treats V5 WRAP as a boundary compatibility alias.
