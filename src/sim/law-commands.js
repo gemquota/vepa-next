@@ -17,7 +17,7 @@ export function createLawCommandAdapter({ session, registry }) {
   function ensureKnown(ids) {
     for (const id of ids) {
       if (typeof id !== 'string' || !id) throw new TypeError('law IDs must be non-empty strings');
-      if (!registry.get(id)) throw new RangeError('Unknown or non-executable law: ' + id);
+      if (id !== WRAP_LAW_ID && !registry.get(id)) throw new RangeError('Unknown or non-executable law: ' + id);
     }
     if (!registry.get(WRAP_LAW_ID)) throw new Error('Registry must register law.wrap to use canonical boundary semantics');
   }
