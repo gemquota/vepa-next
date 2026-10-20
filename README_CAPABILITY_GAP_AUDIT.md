@@ -66,3 +66,8 @@ This is a capability inventory, not a misleading percentage: feature families di
 ## Current honest completion state
 
 A minimal deterministic gravity slice now exists and CI passes, but stable README parity is not. No complete solver/worker/render/UI pipeline, no integrated stable law set, no migrated intelligence/civilization/matter systems, no stable-vs-next performance parity and no live deployment are claimed by this audit.
+
+
+## Follow-up update (2026-10-21)
+
+The sandbox entry point now uses the worker-backed prototype runtime when available and the in-process adapter otherwise. Live gravity and timestep settings are proposed through the world-session transaction boundary. The worker returns a compact render projection rather than transferring the full particle buffer every tick. CI covers the protocol and contract behavior; a real-browser smoke run and stable-source physics parity are still outstanding.
