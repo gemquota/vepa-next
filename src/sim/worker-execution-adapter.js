@@ -72,7 +72,7 @@ export async function createWorkerExecutionAdapter({ workerFactory, fallbackFact
   readState: async () => request('READ_STATE'),
   readRenderState: () => request('READ_RENDER_STATE'),
   configure: config => request('CONFIGURE', config),
-  step: () => request('STEP_RENDER'),
+  step: () => request('STEP'),
   createSnapshot: () => request('SNAPSHOT'),
   restoreSnapshot(snapshot) {
    const copy = { ...snapshot, state: new snapshot.state.constructor(snapshot.state) };
