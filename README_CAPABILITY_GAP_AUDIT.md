@@ -21,7 +21,7 @@ This is a capability inventory, not a misleading percentage: feature families di
 | Law catalogue (128 global laws, categories, synergy) | **Partial foundation** | Registry and manifest contracts exist; the stable law catalogue, category metadata, executable implementations, dependencies and synergy behavior are not migrated. Enumerate every source law and give each an implemented or explicit disposition. |
 | Law toggles and V5 dead-toggle audit | **Partial foundation** | Manifest validator exists; route single and bulk mutations through one command adapter and connect validation to world-session transactions. |
 | WRAP/toroidal boundary semantics | **Contract only** | Boundary proposal contract exists; integrate it with session proposals and the eventual solver/worker. Test save/replay and all-law-clear cases. |
-| Core physics laws and contact behavior | **Partial foundation** | Spatial grid/contact primitives exist; complete solver dispatch, collision/merge/adjoin behavior and stable-source regression fixtures. |
+| Core physics laws and contact behavior | **Partial foundation** | A minimal softened-gravity prototype now uses the 100-slot layout and spatial-grid candidate queries; it is not the stable solver. Complete multi-law dispatch, collision/merge/adjoin behavior and stable-source regression fixtures remain. |
 | Fields, gravity wells, portals, walls and environment controls | **Missing runtime** | Migrate field buffers, update cadence, wall/portal semantics and UI through SIM-owned state. |
 | Camera, particle rendering, HUD and responsive drawer | **Missing runtime** | Migrate renderer/camera and UI projections; prove visibility, zoom/depth, resize, drawer and mobile paths in browser tests. |
 | World/DNA/species/law controls and sliders | **Missing runtime** | Rebuild panels as read-only projections that emit commands; migrate search, category filters, bulk controls, slider precision and help. |
@@ -65,4 +65,4 @@ This is a capability inventory, not a misleading percentage: feature families di
 
 ## Current honest completion state
 
-The contract-level foundation is real, but stable README parity is not. No complete solver/worker/render/UI pipeline, no integrated stable law set, no migrated intelligence/civilization/matter systems, no stable-vs-next performance parity and no live deployment are claimed by this audit.
+A minimal deterministic gravity slice now exists and CI passes, but stable README parity is not. No complete solver/worker/render/UI pipeline, no integrated stable law set, no migrated intelligence/civilization/matter systems, no stable-vs-next performance parity and no live deployment are claimed by this audit.
