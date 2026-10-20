@@ -2,11 +2,12 @@
 
 The intended canonical implementation of VEPA, built by selective, traceable migration from the reviewed source repositories.
 
-**Current status (2026-10-16):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage and a shared-grid contact adaptation are committed. Contract CI passed on commit `eb0004f6e75e8603bad137b04d592a678d2f85fb` in [run 38792899940](https://github.com/gemquota/vepa-next/actions/runs/38792899940). Newer checkpoint-store and schema-v2 typed-array codec tests, plus the latest legacy contact parity fixtures, are awaiting a fresh CI result. The latest transaction-outcome journal and special-key hardening tests are also awaiting fresh CI. The full runtime and authoritative physics worker have not yet been migrated; stable-vs-next performance parity remains unverified.
+**Current status (2026-10-21):** SIM foundations, replay validation, versioned snapshots, two-slot recovery storage and a shared-grid contact adaptation are committed. The V5 rework has now been consolidated as a behavioral migration plan covering law correctness, WRAP semantics, configuration lifecycle, saves/presets, shared UI state, narrative/analytics event paths, law-grid controls and backend-setting precedence. The authoritative runtime/physics worker is still not migrated; stable-vs-next performance parity remains unverified.
 
 ## Start here
 
 - [SIM Architecture](SIM_ARCHITECTURE.md): semantic boundaries, state ownership, events, transaction lifecycle and determinism.
+- [V5 Rework Integration Plan](V5_REWORK_PLAN.md): consolidated V5 correctness/UI behavior mapped to SIM vertical slices.
 - [Roadmap v4 interpretation](https://github.com/gemquota/vepa-docs/blob/main/ROADMAP_V4_INTERPRETATION.md): product intent and implementation phases.
 - [Feature migration map](https://github.com/gemquota/vepa-docs/blob/main/FEATURE_CATALOG_AND_MIGRATION_MAP.md): capability-by-capability migration decisions.
 - [Master tracker](https://github.com/gemquota/vepa-docs/blob/main/MASTER_ROADMAP_TRACKER.md): evidence and phase status.
@@ -20,8 +21,9 @@ The intended canonical implementation of VEPA, built by selective, traceable mig
 3. Preserve stable physics behavior while measuring candidate performance.
 4. Make world configuration, persistence and replay validated and inspectable.
 5. Recover unique capabilities across historical versions without duplicate implementations.
-6. Keep canonical law/schema/version registries and generate downstream references.
-7. Implement Roadmap v4 as verified vertical slices, from particle physics through higher-level emergent systems.
+6. Consolidate V5 correctness/UI behavior through the same authoritative contracts.
+7. Keep canonical law/schema/version registries and generate downstream references.
+8. Implement Roadmap v4 as verified vertical slices, from particle physics through higher-level emergent systems.
 
 ## Invariants
 
@@ -52,4 +54,4 @@ Preserve the stable implementation's measured behavior before optimizing. Keep t
 
 ## Honest boundary
 
-The repository has passing CI evidence for earlier SIM contract slices and a passing CI baseline for the pinned stable source. The newest checkpoint/typed-array and contact-parity changes still need fresh verification. VEPA Next is not feature-complete, the authoritative worker/solver is not yet integrated, stable performance parity has not been demonstrated, and no live deployment is claimed.
+The repository has passing CI evidence for earlier SIM contract slices and a passing CI baseline for the pinned stable source. The newest checkpoint/typed-array and contact-parity changes still need fresh verification. V5 behavior has been mapped into the consolidation plan but has not been claimed as runtime-integrated. VEPA Next is not feature-complete, the authoritative worker/solver is not yet integrated, stable performance parity has not been demonstrated, and no live deployment is claimed.
