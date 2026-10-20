@@ -23,7 +23,7 @@ export function proposeBoundaryChange(current, change) {
     }
     const wasWrapActive = currentLaws.has(WRAP_LAW_ID);
     const isWrapActive = activeLawIds.includes(WRAP_LAW_ID);
-    if (wasWrapActive !== isWrapActive && !Object.hasOwn(change, 'boundaryMode')) {
+    if (activeLawIds.length > 0 && wasWrapActive !== isWrapActive && !Object.hasOwn(change, 'boundaryMode')) {
       boundaryMode = isWrapActive ? 'toroidal' : 'reflective';
     }
   }
