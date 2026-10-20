@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canonicalSnapshotJson,
+  SNAPSHOT_SCHEMA_VERSION,
   createWorldSnapshot,
   snapshotChecksum,
   validateSnapshotAndReplay,
@@ -44,7 +45,7 @@ test('canonical snapshot JSON sorts object keys consistently', () => {
 test('snapshot is versioned and validates with a matching checksum', () => {
   const value = snapshot();
   assert.equal(value.schema, 'vepa.world-snapshot');
-  assert.equal(value.schemaVersion, 1);
+  assert.equal(value.schemaVersion, SNAPSHOT_SCHEMA_VERSION);
   assert.equal(validateWorldSnapshot(value, { expectedWorldId: 'w-1' }).valid, true);
 });
 
