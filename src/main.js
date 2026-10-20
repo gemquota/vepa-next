@@ -19,6 +19,7 @@ const WORLD_SIZE = 2000;
 let width = 1, height = 1, runtime = null, session = null, renderState = new Float32Array(0);
 let running = true, busy = false, tick = 0, runtimeToken = 0;
 let fpsStart = 0, frameCount = 0, lastStepAt = 0;
+let settingsQueue = Promise.resolve();
 
 function resize() {
  const rect = canvas.getBoundingClientRect();
@@ -108,16 +109,19 @@ async function init() {
  }
 }
 
-async function updateSettings() {
- if (!session) return;
- const current = session.getSnapshot().config;
- const result = await session.proposeConfig({
-  ...current,
-  dt: Number(ui.speed.value) * 0.2,
-  gravitationalConstant: Number(ui.strength.value) * 250,
+function updateSettings() {
+ settingsQueue = settingsQueue.catch(() => {}).then(async () => {
+  if (!session) return;
+  const current = session.getSnapshot().config;
+  const result = await session.proposeConfig({
+   ...current,
+   dt: Number(ui.speed.value) * 0.2,
+   gravitationalConstant: Number(ui.strength.value) * 250,
+  });
+  if (result.status !== 'committed') ui.state.textContent = 'CONFIG ' + result.status.toUpperCase();
+  else ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
  });
- if (result.status !== 'committed') ui.state.textContent = 'CONFIG ' + result.status.toUpperCase();
- else ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
+ return settingsQueue;
 }
 
 function render() {
