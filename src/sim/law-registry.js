@@ -1,3 +1,5 @@
+import { validateLawManifest } from './law-manifest.js';
+
 const ID = /^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/;
 
 export function createLawRegistry() {
@@ -24,5 +26,12 @@ export function createLawRegistry() {
     get(id) { return laws.get(id); },
     list() { return [...laws.values()].sort((a, b) => a.id.localeCompare(b.id)); },
     has(id) { return laws.has(id); },
+    validateManifest({ declaredIds, metadataOnlyAllowlist = [] } = {}) {
+      return validateLawManifest({
+        declaredIds,
+        implementedIds: [...laws.keys()],
+        metadataOnlyAllowlist,
+      });
+    },
   });
 }
