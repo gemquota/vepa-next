@@ -3,7 +3,7 @@ import { stepParticleWorld } from './solver.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds] }; }
 
-function validateConfig(config) {
+export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
   if (!['toroidal', 'reflective'].includes(config.boundaryMode)) throw new RangeError('Invalid boundaryMode');
   if (!Array.isArray(config.activeLawIds) || config.activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(config.activeLawIds).size !== config.activeLawIds.length) throw new TypeError('activeLawIds must be unique non-empty strings');
@@ -37,7 +37,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
 
   let state = new Float64Array(initialState);
   let tick = 0;
-  let activeConfig = validateConfig({ ...DEFAULT_CONFIG, ...config, activeLawIds: config.activeLawIds ?? DEFAULT_CONFIG.activeLawIds });
+  let activeConfig = validateParticleExecutionConfig({ ...DEFAULT_CONFIG, ...config, activeLawIds: config.activeLawIds ?? DEFAULT_CONFIG.activeLawIds });
 
   function validateState(nextState, nextTick) {
     if (!ArrayBuffer.isView(nextState) || nextState instanceof DataView || nextState.length !== particleCount * stride) throw new TypeError('snapshot state has an incompatible typed-array shape');
@@ -52,7 +52,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     getConfig() { return copyConfig(activeConfig); },
     readState() { return new Float64Array(state); },
     configure(proposal) {
-      const next = validateConfig({ ...activeConfig, ...proposal, activeLawIds: proposal.activeLawIds ?? activeConfig.activeLawIds });
+      const next = validateParticleExecutionConfig({ ...activeConfig, ...proposal, activeLawIds: proposal.activeLawIds ?? activeConfig.activeLawIds });
       activeConfig = next;
       return copyConfig(activeConfig);
     },
@@ -74,7 +74,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     restoreSnapshot(snapshot) {
       if (!snapshot || snapshot.layoutVersion !== PARTICLE_LAYOUT_VERSION || snapshot.stride !== stride || snapshot.count !== particleCount) throw new TypeError('Snapshot layout is incompatible with this execution adapter');
       validateState(snapshot.state, snapshot.tick);
-      const nextConfig = validateConfig(snapshot.config);
+      const nextConfig = validateParticleExecutionConfig(snapshot.config);
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
