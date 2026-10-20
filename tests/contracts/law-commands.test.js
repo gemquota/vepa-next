@@ -3,26 +3,26 @@ import assert from 'node:assert/strict';
 import { createLawRegistry } from '../../src/sim/law-registry.js';
 import { createLawCommandAdapter } from '../../src/sim/law-commands.js';
 
-test('law commands normalize WRAP through the world session proposal', async () => {
+test('individual and bulk changes share one proposal path', async () => {
  const registry = createLawRegistry();
- for (const id of ['law.gravity', 'law.wrap', 'law.predation']) registry.register({ id, version: 1, step() {} });
- let config = { boundaryMode: 'toroidal', activeLawIds: ['law.gravity', 'law.wrap'] };
+ for (const id of ['law.gravity', 'law.predation']) registry.register({ id, version: 1, step() {} });
+ let config = { boundaryMode: 'toroidal', activeLawIds: ['law.gravity'] };
  const proposals = [];
  const session = { getSnapshot: () => ({ config: structuredClone(config) }), async proposeConfig(next, context) { config = structuredClone(next); proposals.push({ next, context }); return { status: 'committed' }; } };
  const commands = createLawCommandAdapter({ session, registry });
  await commands.setLawActive('law.predation', true);
- assert.equal(proposals.length, 1);
  assert.equal(proposals[0].context.command, 'laws.set-active');
+ assert.deepEqual(config.activeLawIds, ['law.gravity', 'law.predation']);
  await commands.setLawActive('law.wrap', false);
  assert.equal(config.boundaryMode, 'reflective');
- assert.ok(!config.activeLawIds.includes('law.wrap'));
+ assert.deepEqual(config.activeLawIds, ['law.gravity', 'law.predation']);
  await commands.replaceActiveLaws([]);
  assert.deepEqual(config.activeLawIds, []);
+ assert.equal(config.boundaryMode, 'reflective');
 });
 
-test('unknown law IDs fail before the session receives a proposal', () => {
- const registry = createLawRegistry();
- registry.register({ id: 'law.wrap', version: 1, step() {} });
+test('unknown law IDs fail before a proposal', () => {
+ const registry = createLawRegistry(); registry.register({ id: 'law.gravity', version: 1, step() {} });
  let calls = 0;
  const session = { getSnapshot: () => ({ config: { boundaryMode: 'reflective', activeLawIds: [] } }), proposeConfig: async () => { calls++; return { status: 'committed' }; } };
  const commands = createLawCommandAdapter({ session, registry });
