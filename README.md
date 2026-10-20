@@ -7,6 +7,7 @@ The intended canonical implementation of VEPA, built by selective, traceable mig
 ## Start here
 
 - [Stable README capability gap audit](README_CAPABILITY_GAP_AUDIT.md): feature-by-feature inventory of stable VEPA capabilities missing from Next, with required acceptance evidence.
+- [Stable law inventory](src/sim/stable-law-inventory.js): all 136 current source law slots, categories and migration dispositions; metadata is not proof of executable parity.
 
 - [SIM Architecture](SIM_ARCHITECTURE.md): semantic boundaries, state ownership, events, transaction lifecycle and determinism.
 - [V5 Rework Integration Plan](V5_REWORK_PLAN.md): consolidated V5 correctness/UI behavior mapped to SIM vertical slices.
