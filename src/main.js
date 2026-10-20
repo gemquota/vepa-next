@@ -142,6 +142,7 @@ function render() {
 }
 
 async function frame(now) {
+ requestAnimationFrame(frame);
  if (!fpsStart) fpsStart = now;
  frameCount++;
  if (now - fpsStart >= 500) {
@@ -164,7 +165,6 @@ async function frame(now) {
   } finally { if (token === runtimeToken) busy = false; }
  }
  render();
- requestAnimationFrame(frame);
 }
 
 ui.reset.addEventListener('click', () => { void init(); });
