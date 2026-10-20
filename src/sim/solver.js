@@ -22,6 +22,7 @@ export function stepParticleWorld(view, count, {
   boundaryMode = 'toroidal',
   dt = 1 / 60,
   gravitationalConstant = 1,
+  dragCoefficient = 0.015,
   softening = 1,
   interactionRadius = worldSize / 8,
   activeLawIds = ['law.gravity'],
@@ -35,6 +36,7 @@ export function stepParticleWorld(view, count, {
   }
   if (!Number.isFinite(worldSize) || worldSize <= 0 || !Number.isFinite(dt) || dt <= 0 ||
       !Number.isFinite(gravitationalConstant) || gravitationalConstant < 0 ||
+      !Number.isFinite(dragCoefficient) || dragCoefficient < 0 ||
       !Number.isFinite(softening) || softening <= 0 ||
       !Number.isFinite(interactionRadius) || interactionRadius <= 0 || interactionRadius > worldSize / 2) {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
@@ -112,6 +114,12 @@ export function stepParticleWorld(view, count, {
     view[b + slots.VEL_X] += acceleration[a] * dt;
     view[b + slots.VEL_Y] += acceleration[a + 1] * dt;
     view[b + slots.VEL_Z] += acceleration[a + 2] * dt;
+    if (activeLawIds.includes('law.drag') && dragCoefficient > 0) {
+      const damping = Math.exp(-dragCoefficient * dt);
+      view[b + slots.VEL_X] *= damping;
+      view[b + slots.VEL_Y] *= damping;
+      view[b + slots.VEL_Z] *= damping;
+    }
     view[b + slots.POS_X] += view[b + slots.VEL_X] * dt;
     view[b + slots.POS_Y] += view[b + slots.VEL_Y] * dt;
     view[b + slots.POS_Z] += view[b + slots.VEL_Z] * dt;
@@ -129,7 +137,7 @@ export function stepParticleWorld(view, count, {
     }
   }
 
-  if (resolveContacts && maxRadius > 0 && alive.length > 1 && contactIterations > 0) {
+  if (resolveContacts && activeLawIds.includes('law.collision') && maxRadius > 0 && alive.length > 1 && contactIterations > 0) {
     resolveParticleContacts(view, count, stride, worldSize, boundaryMode === 'toroidal', contactIterations, slots);
   }
   return Object.freeze({ liveCount: alive.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode });
