@@ -11,8 +11,9 @@ function localFacade(runtime) {
   getConfig: async () => runtime.getConfig(),
   getStatus: async () => ({ tick: runtime.tick, count: runtime.count, stride: runtime.stride }),
   readState: async () => runtime.readState(),
+  readRenderState: async () => runtime.readRenderState(),
   configure: async config => runtime.configure(config),
-  step: async () => ({ metrics: runtime.step(), state: runtime.readState() }),
+  step: async () => ({ metrics: runtime.step(), renderState: runtime.readRenderState() }),
   createSnapshot: async () => runtime.createSnapshot(),
   restoreSnapshot: async snapshot => runtime.restoreSnapshot(snapshot),
   dispose: async () => ({ disposed: true }),
@@ -69,8 +70,9 @@ export async function createWorkerExecutionAdapter({ workerFactory, fallbackFact
   getConfig: () => request('GET_CONFIG'),
   getStatus: () => request('STATUS'),
   readState: async () => request('READ_STATE'),
+  readRenderState: () => request('READ_RENDER_STATE'),
   configure: config => request('CONFIGURE', config),
-  step: () => request('STEP'),
+  step: () => request('STEP_RENDER'),
   createSnapshot: () => request('SNAPSHOT'),
   restoreSnapshot(snapshot) {
    const copy = { ...snapshot, state: new snapshot.state.constructor(snapshot.state) };
