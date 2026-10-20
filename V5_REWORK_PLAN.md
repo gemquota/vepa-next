@@ -11,9 +11,9 @@ V5 is a behavior source, not the architecture to transplant. Its UI/correctness 
 
 ### 1. Law contract hardening
 
-- Make the law registry the sole authoritative declaration of law identity and implementation status.
+- Make the law registry the sole authoritative declaration of executable law identity and implementation status. The V5 WRAP alias is not a runtime law.
 - Add dead-law/undeclared-law coverage.
-- Add WRAP boundary semantics and explicit parameter↔law synchronization.
+- Keep stable VEPA's `boundaryMode` / TOROIDAL EDGES parameter canonical. Accept V5 `law.wrap` only as a compatibility command alias; never store it in the canonical active-law list.
 - Ensure individual and bulk law mutations share one command path.
 
 **Gate:** every declared law is executable or explicitly allow-listed; WRAP replay fixtures pass.
