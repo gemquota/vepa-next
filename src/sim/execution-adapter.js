@@ -23,6 +23,7 @@ const DEFAULT_CONFIG = Object.freeze({
   boundaryMode: 'toroidal',
   dt: 1 / 60,
   gravitationalConstant: 1,
+  dragCoefficient: 0.015,
   softening: 1,
   interactionRadius: 250,
   activeLawIds: ['law.gravity'],
