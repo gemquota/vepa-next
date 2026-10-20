@@ -13,6 +13,7 @@ const ui = {
  state: document.querySelector('#stateBadge'), seedBadge: document.querySelector('#seedBadge'), tickBadge: document.querySelector('#tickBadge'),
  particleStat: document.querySelector('#particleStat'), tickStat: document.querySelector('#tickStat'), fpsStat: document.querySelector('#fpsStat'), hashStat: document.querySelector('#hashStat'),
  reset: document.querySelector('#resetBtn'), pause: document.querySelector('#pauseBtn'),
+ gravityLaw: document.querySelector('#gravityLaw'), dragLaw: document.querySelector('#dragLaw'), collisionLaw: document.querySelector('#collisionLaw'),
 };
 
 const WORLD_SIZE = 2000;
@@ -61,7 +62,7 @@ function makeConfig() {
   gravitationalConstant: Number(ui.strength.value) * 250,
   softening: 15,
   interactionRadius: WORLD_SIZE / 8,
-  activeLawIds: ['law.gravity', 'law.drag', 'law.collision'],
+  activeLawIds: [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision'].filter(Boolean),
   resolveContacts: true,
   contactIterations: 1,
  };
@@ -117,6 +118,7 @@ function updateSettings() {
    ...current,
    dt: Number(ui.speed.value) * 0.2,
    gravitationalConstant: Number(ui.strength.value) * 250,
+   activeLawIds: [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision'].filter(Boolean),
   });
   if (result.status !== 'committed') ui.state.textContent = 'CONFIG ' + result.status.toUpperCase();
   else ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
@@ -175,6 +177,7 @@ ui.pause.addEventListener('click', () => {
 for (const [input, output, format] of [[ui.count, ui.countOut, value => value], [ui.strength, ui.strengthOut, value => Number(value).toFixed(1)], [ui.speed, ui.speedOut, value => Number(value).toFixed(1) + '×']]) {
  input.addEventListener('input', () => { output.textContent = format(input.value); if (input !== ui.count) void updateSettings(); });
 }
+for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw]) toggle.addEventListener('change', () => { void updateSettings(); });
 ui.count.addEventListener('change', () => { void init(); });
 ui.seed.addEventListener('keydown', event => { if (event.key === 'Enter') void init(); });
 window.addEventListener('resize', resize);
