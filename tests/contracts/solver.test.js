@@ -32,3 +32,16 @@ test('invalid numeric state is rejected before mutation', () => {
  assert.throws(() => stepParticleWorld(view, 2, options), /Non-finite particle state/);
  assert.equal(view[S.POS_X], 40);
 });
+
+
+test('drag law damps velocity exponentially without requiring gravity', () => {
+ const view = pair(); view[S.VEL_X] = 2;
+ stepParticleWorld(view, 2, { ...options, activeLawIds: ['law.drag'], gravitationalConstant: 0, dragCoefficient: 0.5 });
+ assert.ok(Math.abs(view[S.VEL_X] - 2 * Math.exp(-0.5)) < 1e-12);
+});
+
+test('collision law activates positional contact correction', () => {
+ const view = pair(40, 44); view[S.RADIUS] = 3; view[STRIDE + S.RADIUS] = 3;
+ stepParticleWorld(view, 2, { ...options, activeLawIds: ['law.collision'], gravitationalConstant: 0, resolveContacts: true, contactIterations: 4 });
+ assert.ok(view[STRIDE + S.POS_X] - view[S.POS_X] > 4);
+});
