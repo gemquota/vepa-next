@@ -53,6 +53,20 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
     readState() { return new Float64Array(state); },
+    readRenderState() {
+      const render = new Float32Array(particleCount * RENDER_STRIDE);
+      for (let i = 0; i < particleCount; i++) {
+        const source = i * stride, target = i * RENDER_STRIDE;
+        render[target] = state[source + PARTICLE_SLOTS.POS_X];
+        render[target + 1] = state[source + PARTICLE_SLOTS.POS_Y];
+        render[target + 2] = state[source + PARTICLE_SLOTS.POS_Z];
+        render[target + 3] = state[source + PARTICLE_SLOTS.RADIUS];
+        render[target + 4] = state[source + PARTICLE_SLOTS.ENERGY];
+        render[target + 5] = state[source + PARTICLE_SLOTS.DEAD];
+        render[target + 6] = state[source + PARTICLE_SLOTS.CHARGE];
+      }
+      return render;
+    },
     configure(proposal) {
       const next = validateParticleExecutionConfig({ ...activeConfig, ...proposal, activeLawIds: proposal.activeLawIds ?? activeConfig.activeLawIds });
       activeConfig = next;
