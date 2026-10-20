@@ -16,6 +16,8 @@ export function validateParticleExecutionConfig(config) {
   return copyConfig(config);
 }
 
+export const RENDER_STRIDE = 7;
+
 const DEFAULT_CONFIG = Object.freeze({
   worldSize: 2000,
   boundaryMode: 'toroidal',
