@@ -7,10 +7,10 @@ export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
   if (!['toroidal', 'reflective'].includes(config.boundaryMode)) throw new RangeError('Invalid boundaryMode');
   if (!Array.isArray(config.activeLawIds) || config.activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(config.activeLawIds).size !== config.activeLawIds.length) throw new TypeError('activeLawIds must be unique non-empty strings');
-  for (const key of ['worldSize', 'dt', 'gravitationalConstant', 'softening', 'interactionRadius']) {
+  for (const key of ['worldSize', 'dt', 'gravitationalConstant', 'dragCoefficient', 'softening', 'interactionRadius']) {
     if (!Number.isFinite(config[key])) throw new RangeError(key + ' must be finite');
   }
-  if (config.worldSize <= 0 || config.dt <= 0 || config.gravitationalConstant < 0 || config.softening <= 0 || config.interactionRadius <= 0 || config.interactionRadius > config.worldSize / 2) throw new RangeError('Invalid physics configuration range');
+  if (config.worldSize <= 0 || config.dt <= 0 || config.gravitationalConstant < 0 || config.dragCoefficient < 0 || config.softening <= 0 || config.interactionRadius <= 0 || config.interactionRadius > config.worldSize / 2) throw new RangeError('Invalid physics configuration range');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
   return copyConfig(config);
