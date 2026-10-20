@@ -65,6 +65,6 @@ export function attachParticleWorker(scope) {
   return Object.freeze({ dispose() { disposed = true; runtime = null; } });
 }
 
-if (typeof self !== 'undefined' && typeof self.addEventListener === 'function' && typeof self.postMessage === 'function' && typeof document === 'undefined') {
+if (typeof self !== 'undefined' && typeof self.addEventListener === 'function' && typeof self.postMessage === 'function') {
   attachParticleWorker(self);
 }
