@@ -31,8 +31,8 @@ export function attachParticleWorker(scope) {
           break;
         case 'STEP':
           if (!runtime) throw new Error('Worker runtime is not initialized');
-          payload = { metrics: runtime.step(), state: runtime.readState(), renderState: runtime.readRenderState() };
-          transfer = [payload.state.buffer];
+          payload = { metrics: runtime.step(), renderState: runtime.readRenderState() };
+          transfer = [payload.renderState.buffer];
           break;
         case 'CONFIGURE':
           if (!runtime) throw new Error('Worker runtime is not initialized');
