@@ -27,3 +27,6 @@ Open `index.html` in a modern browser with WebGL enabled. No package installatio
 The prototype uses an O(n²) pairwise solver and caps the population at 300. Bond detection is not yet a chemistry model; it does not implement persistent bond topology, reaction rules, or energy accounting. It does not claim migration of the historical 136-law catalog.
 
 See [RECONCEPTUALIZATION.md](RECONCEPTUALIZATION.md) for the intended direction and migration policy.
+
+
+See [LAW_FEASIBILITY.md](LAW_FEASIBILITY.md) for a conservative triage of all 136 historical law IDs and the proposed migration order.
