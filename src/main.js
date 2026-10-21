@@ -4,6 +4,7 @@ import { PARTICLE_STRIDE, PARTICLE_SLOTS as S } from './sim/particle-layout.js';
 import { RENDER_STRIDE, validateParticleExecutionConfig } from './sim/execution-adapter.js';
 import { createWorkerExecutionAdapter } from './sim/worker-execution-adapter.js';
 import { createWorldSession } from './state/world-session.js';
+import { createSnapshotStore } from './state/snapshot-store.js';
 import { mountLawMatrix } from './ui/law-matrix.js';
 
 const canvas = document.querySelector('#world');
@@ -14,6 +15,7 @@ const ui = {
  state: document.querySelector('#stateBadge'), seedBadge: document.querySelector('#seedBadge'), tickBadge: document.querySelector('#tickBadge'),
  particleStat: document.querySelector('#particleStat'), tickStat: document.querySelector('#tickStat'), fpsStat: document.querySelector('#fpsStat'), hashStat: document.querySelector('#hashStat'),
  reset: document.querySelector('#resetBtn'), pause: document.querySelector('#pauseBtn'),
+ save: document.querySelector('#saveBtn'), load: document.querySelector('#loadBtn'), checkpointStatus: document.querySelector('#checkpointStatus'),
  advancedLaws: document.querySelector('#advancedLawsBtn'), lawMatrixPanel: document.querySelector('#lawMatrixPanel'), lawMatrixRoot: document.querySelector('#lawMatrixRoot'),
  gravityLaw: document.querySelector('#gravityLaw'), dragLaw: document.querySelector('#dragLaw'), collisionLaw: document.querySelector('#collisionLaw'),
 };
@@ -60,6 +62,24 @@ function makeInitialState(count, seed) {
  return state;
 }
 
+function worldIdForSeed(seed) { return 'vepa-' + seed.toString(16); }
+
+function snapshotStoreForCurrentWorld() {
+ return createSnapshotStore(window.localStorage, { prefix: 'vepa.snapshot.' + worldIdForSeed(textToSeed(ui.seed.value)) });
+}
+
+function syncControlsFromConfig(config) {
+ ui.boundary.value = config.boundaryMode;
+ ui.speed.value = String(Math.max(0.2, Math.min(2, config.dt / 0.2)));
+ ui.strength.value = String(Math.max(0, Math.min(2, config.gravitationalConstant / 250)));
+ ui.gravityLaw.checked = config.activeLawIds.includes('law.gravity');
+ ui.dragLaw.checked = config.activeLawIds.includes('law.drag');
+ ui.collisionLaw.checked = config.activeLawIds.includes('law.collision');
+ ui.speedOut.textContent = Number(ui.speed.value).toFixed(1) + '×';
+ ui.strengthOut.textContent = Number(ui.strength.value).toFixed(1);
+ lawMatrix?.setActiveIds(selectedLawIds());
+}
+
 function makeConfig() {
  return {
   worldSize: WORLD_SIZE,
@@ -99,7 +119,7 @@ async function init() {
   if (token !== runtimeToken) { await nextRuntime.dispose(); return; }
   runtime = nextRuntime;
   session = createWorldSession({
-   worldId: 'vepa-' + seed.toString(16),
+   worldId: worldIdForSeed(seed),
    initialConfig: config,
    validateConfig,
    applyConfig: async next => { await runtime.configure(next); },
@@ -177,6 +197,64 @@ async function frame(now) {
  render();
 }
 
+ui.save.addEventListener('click', async () => {
+ if (!runtime || !session) { ui.checkpointStatus.textContent = 'Checkpoint: world is not ready'; return; }
+ if (busy) { ui.checkpointStatus.textContent = 'Checkpoint: wait for the current simulation step'; return; }
+ try {
+  const simulationState = await runtime.createSnapshot();
+  const result = session.saveCheckpoint(snapshotStoreForCurrentWorld(), {
+   simulationState,
+   prngState: { algorithm: 'SplitMix32', seed: textToSeed(ui.seed.value), lifecycle: 'initialization-only' },
+   fidelityPolicy: { mode: 'prototype', solver: 'softened-gravity-v1' },
+  });
+  ui.checkpointStatus.textContent = result.storage.status === 'saved'
+   ? 'Checkpoint saved · tick ' + result.snapshot.tick
+   : 'Checkpoint ' + result.storage.status + (result.storage.reason ? ' · ' + result.storage.reason : '');
+ } catch (error) {
+  ui.checkpointStatus.textContent = 'Checkpoint save failed · ' + (error instanceof Error ? error.message : String(error));
+ }
+});
+ui.load.addEventListener('click', async () => {
+ if (!runtime || !session) { ui.checkpointStatus.textContent = 'Checkpoint: world is not ready'; return; }
+ if (busy) { ui.checkpointStatus.textContent = 'Checkpoint: wait for the current simulation step'; return; }
+ try {
+  const loaded = snapshotStoreForCurrentWorld().load();
+  if (loaded.status === 'empty') {
+   ui.checkpointStatus.textContent = 'Checkpoint: none saved for this seed';
+   return;
+  }
+  const checkpoint = loaded.snapshot;
+  if (checkpoint.simulationState?.layoutVersion === undefined ||
+      checkpoint.simulationState?.count === undefined ||
+      checkpoint.simulationState?.tick !== checkpoint.tick) {
+   ui.checkpointStatus.textContent = 'Checkpoint rejected · incompatible or inconsistent simulation state';
+   return;
+  }
+  syncControlsFromConfig(checkpoint.config);
+  ui.count.value = String(checkpoint.simulationState.count);
+  ui.countOut.textContent = ui.count.value;
+  await init();
+  if (!runtime || !session) throw new Error('World initialization failed');
+  const restored = await session.restoreCheckpoint(checkpoint, {
+   captureSimulationState: async () => runtime.createSnapshot(),
+   restoreSimulationState: async simulationState => { await runtime.restoreSnapshot(simulationState); },
+  });
+  if (restored.status !== 'restored') {
+   ui.checkpointStatus.textContent = 'Checkpoint load ' + restored.status + (restored.reason ? ' · ' + restored.reason : '');
+   return;
+  }
+  tick = restored.tick;
+  renderState = await runtime.readRenderState();
+  ui.tickStat.textContent = String(tick);
+  ui.tickBadge.textContent = 'TICK ' + tick;
+  ui.seedBadge.textContent = 'SEED ' + textToSeed(ui.seed.value);
+  ui.particleStat.textContent = String(runtime.count);
+  ui.state.textContent = running ? (runtime.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
+  ui.checkpointStatus.textContent = 'Checkpoint loaded' + (loaded.status === 'recovered' ? ' · recovered previous valid slot' : '') + ' · tick ' + tick;
+ } catch (error) {
+  ui.checkpointStatus.textContent = 'Checkpoint load failed · ' + (error instanceof Error ? error.message : String(error));
+ }
+});
 ui.reset.addEventListener('click', () => { void init(); });
 ui.pause.addEventListener('click', () => {
  running = !running; ui.pause.textContent = running ? 'Pause' : 'Resume';
