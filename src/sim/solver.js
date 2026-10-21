@@ -1,9 +1,9 @@
 import { PARTICLE_STRIDE, PARTICLE_SLOTS as S } from './particle-layout.js';
-import { createSpatialGrid, clearSpatialGrid, insertParticle, queryNeighborsOrAll } from './spatial-grid.js';
+import { createSpatialGrid, insertParticle, queryNeighborsOrAll } from './spatial-grid.js';
 import { resolveParticleContacts } from './contact-constraints.js';
+import { applyExtendedLaws } from './extended-laws.js';
 
 const WRAP_MODES = new Set(['toroidal', 'reflective']);
-
 function wrapPosition(value, size) { return ((value % size) + size) % size; }
 function shortestDelta(delta, size) {
   if (delta > size / 2) return delta - size;
@@ -11,11 +11,7 @@ function shortestDelta(delta, size) {
   return delta;
 }
 
-/**
- * Deterministic, bounded Newtonian prototype for the first VEPA Next runtime slice.
- * This is not yet a port of stable VEPA's multi-law solver. It intentionally
- * implements only softened pair gravity and optional positional contact repair.
- */
+/** Deterministic bounded particle solver. Laws are explicit, composable runtime capabilities. */
 export function stepParticleWorld(view, count, {
   stride = PARTICLE_STRIDE,
   worldSize = 2000,
@@ -29,6 +25,12 @@ export function stepParticleWorld(view, count, {
   activeLawIds = ['law.gravity'],
   resolveContacts = true,
   contactIterations = 2,
+  entrainmentCoefficient = 0.35,
+  buoyancyCoefficient = 0.08,
+  ambientTemperature = 0,
+  accretionRadiusMultiplier = 1.25,
+  bondStrength = 2,
+  bondDamping = 0.15,
   slots = S,
 } = {}) {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
@@ -48,7 +50,7 @@ export function stepParticleWorld(view, count, {
     throw new TypeError('activeLawIds must be a unique array of non-empty strings');
   }
   if (!Number.isInteger(contactIterations) || contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
-  for (const key of ['POS_X','POS_Y','POS_Z','VEL_X','VEL_Y','VEL_Z','MASS','DEAD','RADIUS','CHARGE']) {
+  for (const key of ['POS_X','POS_Y','POS_Z','VEL_X','VEL_Y','VEL_Z','MASS','DEAD','RADIUS','CHARGE','TEMPERATURE','BOND_PARTNER_1']) {
     if (!Number.isInteger(slots[key]) || slots[key] < 0 || slots[key] >= stride) throw new TypeError('Invalid particle slot: ' + key);
   }
 
@@ -78,24 +80,22 @@ export function stepParticleWorld(view, count, {
   let interactions = 0;
   let fallbackQueries = 0;
   const candidates = new Int32Array(count);
-  // Coulomb-like charge interaction. Charge sign controls attraction/repulsion;
-  // electricConstant is an explicit prototype scale, not a calibrated SI constant.
+  const query = (x, y, z) => queryNeighborsOrAll(grid, x, y, z, candidates, count);
+
   if (activeLawIds.includes('law.charge') && electricConstant > 0) {
     for (const i of alive) {
       const a = i * stride;
-      const query = queryNeighborsOrAll(grid, view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z], candidates, count);
-      if (!query.complete) throw new Error('Neighbor query incomplete; refusing partial authoritative physics');
-      if (query.usedFallback) fallbackQueries++;
-      for (let n = 0; n < query.count; n++) {
+      const result = query(view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z]);
+      if (!result.complete) throw new Error('Neighbor query incomplete; refusing partial authoritative physics');
+      if (result.usedFallback) fallbackQueries++;
+      for (let n = 0; n < result.count; n++) {
         const j = candidates[n];
         if (j <= i) continue;
         const b = j * stride;
         let dx = view[b + slots.POS_X] - view[a + slots.POS_X];
         let dy = view[b + slots.POS_Y] - view[a + slots.POS_Y];
         let dz = view[b + slots.POS_Z] - view[a + slots.POS_Z];
-        if (boundaryMode === 'toroidal') {
-          dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize);
-        }
+        if (boundaryMode === 'toroidal') { dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize); }
         const distanceSquared = dx * dx + dy * dy + dz * dz;
         if (distanceSquared === 0 || distanceSquared > interactionRadius * interactionRadius) continue;
         const chargeA = Number.isFinite(view[a + slots.CHARGE]) ? view[a + slots.CHARGE] : 0;
@@ -104,59 +104,64 @@ export function stepParticleWorld(view, count, {
         const denominator = Math.pow(distanceSquared + softening * softening, 1.5);
         const factorA = -electricConstant * chargeA * chargeB / (view[a + slots.MASS] * denominator);
         const factorB = electricConstant * chargeA * chargeB / (view[b + slots.MASS] * denominator);
-        acceleration[i * 3] += dx * factorA;
-        acceleration[i * 3 + 1] += dy * factorA;
-        acceleration[i * 3 + 2] += dz * factorA;
-        acceleration[j * 3] += dx * factorB;
-        acceleration[j * 3 + 1] += dy * factorB;
-        acceleration[j * 3 + 2] += dz * factorB;
+        acceleration[i * 3] += dx * factorA; acceleration[i * 3 + 1] += dy * factorA; acceleration[i * 3 + 2] += dz * factorA;
+        acceleration[j * 3] += dx * factorB; acceleration[j * 3 + 1] += dy * factorB; acceleration[j * 3 + 2] += dz * factorB;
         interactions++;
       }
     }
   }
+
   if (activeLawIds.includes('law.gravity') && gravitationalConstant > 0) {
     for (const i of alive) {
       const a = i * stride;
-      const query = queryNeighborsOrAll(grid, view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z], candidates, count);
-      if (!query.complete) throw new Error('Neighbor query incomplete; refusing partial authoritative physics');
-      if (query.usedFallback) fallbackQueries++;
-      for (let n = 0; n < query.count; n++) {
+      const result = query(view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z]);
+      if (!result.complete) throw new Error('Neighbor query incomplete; refusing partial authoritative physics');
+      if (result.usedFallback) fallbackQueries++;
+      for (let n = 0; n < result.count; n++) {
         const j = candidates[n];
         if (j <= i) continue;
         const b = j * stride;
         let dx = view[b + slots.POS_X] - view[a + slots.POS_X];
         let dy = view[b + slots.POS_Y] - view[a + slots.POS_Y];
         let dz = view[b + slots.POS_Z] - view[a + slots.POS_Z];
-        if (boundaryMode === 'toroidal') {
-          dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize);
-        }
+        if (boundaryMode === 'toroidal') { dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize); }
         const distanceSquared = dx * dx + dy * dy + dz * dz;
         if (distanceSquared === 0 || distanceSquared > interactionRadius * interactionRadius) continue;
         const denominator = Math.pow(distanceSquared + softening * softening, 1.5);
         const massA = view[a + slots.MASS], massB = view[b + slots.MASS];
         const factorA = gravitationalConstant * massB / denominator;
         const factorB = gravitationalConstant * massA / denominator;
-        acceleration[i * 3] += dx * factorA;
-        acceleration[i * 3 + 1] += dy * factorA;
-        acceleration[i * 3 + 2] += dz * factorA;
-        acceleration[j * 3] -= dx * factorB;
-        acceleration[j * 3 + 1] -= dy * factorB;
-        acceleration[j * 3 + 2] -= dz * factorB;
+        acceleration[i * 3] += dx * factorA; acceleration[i * 3 + 1] += dy * factorA; acceleration[i * 3 + 2] += dz * factorA;
+        acceleration[j * 3] -= dx * factorB; acceleration[j * 3 + 1] -= dy * factorB; acceleration[j * 3 + 2] -= dz * factorB;
         interactions++;
       }
     }
   }
 
-  for (const i of alive) {
+  interactions += applyExtendedLaws(view, alive, acceleration, candidates, (x, y, z) => {
+    const result = query(x, y, z);
+    if (result.usedFallback) fallbackQueries++;
+    return result;
+  }, {
+    stride, worldSize, boundaryMode, interactionRadius, softening, dt, activeLawIds,
+    entrainmentCoefficient, buoyancyCoefficient, ambientTemperature,
+    accretionRadiusMultiplier, bondStrength, bondDamping,
+  });
+
+  // Accretion can retire particles, so rebuild the integration list before applying velocities.
+  const activeAfterLaws = [];
+  for (let i = 0; i < count; i++) {
+    const b = i * stride;
+    if (view[b + slots.DEAD] < 0.5 && view[b + slots.MASS] > 0) activeAfterLaws.push(i);
+  }
+  for (const i of activeAfterLaws) {
     const b = i * stride, a = i * 3;
     view[b + slots.VEL_X] += acceleration[a] * dt;
     view[b + slots.VEL_Y] += acceleration[a + 1] * dt;
     view[b + slots.VEL_Z] += acceleration[a + 2] * dt;
     if (activeLawIds.includes('law.drag') && dragCoefficient > 0) {
       const damping = Math.exp(-dragCoefficient * dt);
-      view[b + slots.VEL_X] *= damping;
-      view[b + slots.VEL_Y] *= damping;
-      view[b + slots.VEL_Z] *= damping;
+      view[b + slots.VEL_X] *= damping; view[b + slots.VEL_Y] *= damping; view[b + slots.VEL_Z] *= damping;
     }
     view[b + slots.POS_X] += view[b + slots.VEL_X] * dt;
     view[b + slots.POS_Y] += view[b + slots.VEL_Y] * dt;
@@ -175,8 +180,8 @@ export function stepParticleWorld(view, count, {
     }
   }
 
-  if (resolveContacts && activeLawIds.includes('law.collision') && maxRadius > 0 && alive.length > 1 && contactIterations > 0) {
+  if (resolveContacts && activeLawIds.includes('law.collision') && maxRadius > 0 && activeAfterLaws.length > 1 && contactIterations > 0) {
     resolveParticleContacts(view, count, stride, worldSize, boundaryMode === 'toroidal', contactIterations, slots);
   }
-  return Object.freeze({ liveCount: alive.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode });
+  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode });
 }
