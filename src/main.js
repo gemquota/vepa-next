@@ -4,6 +4,7 @@ import { PARTICLE_STRIDE, PARTICLE_SLOTS as S } from './sim/particle-layout.js';
 import { RENDER_STRIDE, validateParticleExecutionConfig } from './sim/execution-adapter.js';
 import { createWorkerExecutionAdapter } from './sim/worker-execution-adapter.js';
 import { createWorldSession } from './state/world-session.js';
+import { mountLawMatrix } from './ui/law-matrix.js';
 
 const canvas = document.querySelector('#world');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -13,6 +14,7 @@ const ui = {
  state: document.querySelector('#stateBadge'), seedBadge: document.querySelector('#seedBadge'), tickBadge: document.querySelector('#tickBadge'),
  particleStat: document.querySelector('#particleStat'), tickStat: document.querySelector('#tickStat'), fpsStat: document.querySelector('#fpsStat'), hashStat: document.querySelector('#hashStat'),
  reset: document.querySelector('#resetBtn'), pause: document.querySelector('#pauseBtn'),
+ advancedLaws: document.querySelector('#advancedLawsBtn'), lawMatrixPanel: document.querySelector('#lawMatrixPanel'), lawMatrixRoot: document.querySelector('#lawMatrixRoot'),
  gravityLaw: document.querySelector('#gravityLaw'), dragLaw: document.querySelector('#dragLaw'), collisionLaw: document.querySelector('#collisionLaw'),
 };
 
@@ -20,7 +22,11 @@ const WORLD_SIZE = 2000;
 let width = 1, height = 1, runtime = null, session = null, renderState = new Float32Array(0);
 let running = true, busy = false, tick = 0, runtimeToken = 0;
 let fpsStart = 0, frameCount = 0, lastStepAt = 0;
-let settingsQueue = Promise.resolve();
+let settingsQueue = Promise.resolve(), lawMatrix = null;
+
+function selectedLawIds() {
+ return [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision'].filter(Boolean);
+}
 
 function resize() {
  const rect = canvas.getBoundingClientRect();
@@ -62,7 +68,7 @@ function makeConfig() {
   gravitationalConstant: Number(ui.strength.value) * 250,
   softening: 15,
   interactionRadius: WORLD_SIZE / 8,
-  activeLawIds: [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision'].filter(Boolean),
+  activeLawIds: selectedLawIds(),
   resolveContacts: true,
   contactIterations: 1,
  };
@@ -118,10 +124,11 @@ function updateSettings() {
    ...current,
    dt: Number(ui.speed.value) * 0.2,
    gravitationalConstant: Number(ui.strength.value) * 250,
-   activeLawIds: [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision'].filter(Boolean),
+   activeLawIds: selectedLawIds(),
   });
   if (result.status !== 'committed') ui.state.textContent = 'CONFIG ' + result.status.toUpperCase();
   else ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
+  lawMatrix?.setActiveIds(selectedLawIds());
  });
  return settingsQueue;
 }
@@ -177,7 +184,24 @@ ui.pause.addEventListener('click', () => {
 for (const [input, output, format] of [[ui.count, ui.countOut, value => value], [ui.strength, ui.strengthOut, value => Number(value).toFixed(1)], [ui.speed, ui.speedOut, value => Number(value).toFixed(1) + '×']]) {
  input.addEventListener('input', () => { output.textContent = format(input.value); if (input !== ui.count) void updateSettings(); });
 }
-for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw]) toggle.addEventListener('change', () => { void updateSettings(); });
+for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw]) toggle.addEventListener('change', () => { lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); });
+ui.advancedLaws.addEventListener('click', () => {
+ const opening = ui.lawMatrixPanel.hidden;
+ ui.lawMatrixPanel.hidden = !opening;
+ ui.advancedLaws.setAttribute('aria-expanded', String(opening));
+ if (opening) lawMatrix?.render();
+});
+lawMatrix = mountLawMatrix({
+ root: ui.lawMatrixRoot,
+ activeIds: selectedLawIds(),
+ onToggle: (id, enabled) => {
+  const toggle = ({ 'law.gravity': ui.gravityLaw, 'law.drag': ui.dragLaw, 'law.collision': ui.collisionLaw })[id];
+  if (!toggle) return;
+  toggle.checked = enabled;
+  lawMatrix?.setActiveIds(selectedLawIds());
+  void updateSettings();
+ },
+});
 ui.count.addEventListener('change', () => { void init(); });
 ui.seed.addEventListener('keydown', event => { if (event.key === 'Enter') void init(); });
 window.addEventListener('resize', resize);
