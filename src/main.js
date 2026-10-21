@@ -9,7 +9,7 @@ import { mountLawMatrix } from './ui/law-matrix.js';
 const canvas = document.querySelector('#world');
 const ctx = canvas.getContext('2d', { alpha: false });
 const ui = {
- seed: document.querySelector('#seedInput'), count: document.querySelector('#count'), strength: document.querySelector('#strength'), speed: document.querySelector('#speed'),
+ seed: document.querySelector('#seedInput'), count: document.querySelector('#count'), strength: document.querySelector('#strength'), speed: document.querySelector('#speed'), boundary: document.querySelector('#boundaryMode'),
  countOut: document.querySelector('#countOut'), strengthOut: document.querySelector('#strengthOut'), speedOut: document.querySelector('#speedOut'),
  state: document.querySelector('#stateBadge'), seedBadge: document.querySelector('#seedBadge'), tickBadge: document.querySelector('#tickBadge'),
  particleStat: document.querySelector('#particleStat'), tickStat: document.querySelector('#tickStat'), fpsStat: document.querySelector('#fpsStat'), hashStat: document.querySelector('#hashStat'),
@@ -63,7 +63,7 @@ function makeInitialState(count, seed) {
 function makeConfig() {
  return {
   worldSize: WORLD_SIZE,
-  boundaryMode: 'toroidal',
+  boundaryMode: ui.boundary.value,
   dt: Number(ui.speed.value) * 0.2,
   gravitationalConstant: Number(ui.strength.value) * 250,
   softening: 15,
@@ -123,6 +123,7 @@ function updateSettings() {
   const result = await session.proposeConfig({
    ...current,
    dt: Number(ui.speed.value) * 0.2,
+   boundaryMode: ui.boundary.value,
    gravitationalConstant: Number(ui.strength.value) * 250,
    activeLawIds: selectedLawIds(),
   });
@@ -185,6 +186,7 @@ for (const [input, output, format] of [[ui.count, ui.countOut, value => value], 
  input.addEventListener('input', () => { output.textContent = format(input.value); if (input !== ui.count) void updateSettings(); });
 }
 for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw]) toggle.addEventListener('change', () => { lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); });
+ui.boundary.addEventListener('change', () => { void updateSettings(); });
 ui.advancedLaws.addEventListener('click', () => {
  const opening = ui.lawMatrixPanel.hidden;
  ui.lawMatrixPanel.hidden = !opening;
