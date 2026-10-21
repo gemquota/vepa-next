@@ -166,8 +166,8 @@ export function createWorldSession({
       captureSimulationState,
     } = {}) {
       if (transactions.busy) return { status: 'rejected', reason: 'transaction-busy' };
-      if (typeof restoreSimulationState !== 'function') {
-        return { status: 'rejected', reason: 'restore-simulation-callback-required' };
+      if (typeof restoreSimulationState !== 'function' || typeof captureSimulationState !== 'function') {
+        return { status: 'rejected', reason: 'capture-and-restore-simulation-callbacks-required' };
       }
       const verdict = validateWorldSnapshot(snapshot, { expectedWorldId: worldId });
       if (!verdict.valid) return { status: 'rejected', reason: 'invalid-snapshot', errors: verdict.errors };
@@ -179,7 +179,7 @@ export function createWorldSession({
         initialTick: 0,
         initialSequence: 0,
       });
-      if (!replay.valid || replay.lastSequence !== snapshot.lastEventSequence) {
+      if (!replay.valid || (snapshot.journalEvents.length ? replay.lastSequence : -1) !== snapshot.lastEventSequence) {
         return { status: 'rejected', reason: 'invalid-journal', errors: replay.errors ?? ['journal-cursor-mismatch'] };
       }
       const configVerdict = await validateConfig(restoreSnapshotValue(snapshot.config), {
@@ -197,12 +197,8 @@ export function createWorldSession({
       const previousSequence = sequence;
       const previousJournal = journal;
       let previousSimulation;
-      let hasPreviousSimulation = false;
       try {
-        if (typeof captureSimulationState === 'function') {
-          previousSimulation = await captureSimulationState();
-          hasPreviousSimulation = true;
-        }
+        previousSimulation = await captureSimulationState();
         const restoredConfig = cloneValue(restoreSnapshotValue(snapshot.config));
         await applyConfig(cloneValue(restoredConfig), { generation: snapshot.generation, transactionId: 'checkpoint-restore' });
         await restoreSimulationState(
@@ -243,10 +239,8 @@ export function createWorldSession({
         const rollbackErrors = [];
         try { await restoreConfig(cloneValue(previousConfig), { transactionId: 'checkpoint-restore-rollback', error }); }
         catch (rollbackError) { rollbackErrors.push('config:' + (rollbackError instanceof Error ? rollbackError.message : String(rollbackError))); }
-        if (hasPreviousSimulation) {
-          try { await restoreSimulationState(previousSimulation, { rollback: true, config: cloneValue(previousConfig) }); }
-          catch (rollbackError) { rollbackErrors.push('simulation:' + (rollbackError instanceof Error ? rollbackError.message : String(rollbackError))); }
-        }
+        try { await restoreSimulationState(previousSimulation, { rollback: true, config: cloneValue(previousConfig) }); }
+        catch (rollbackError) { rollbackErrors.push('simulation:' + (rollbackError instanceof Error ? rollbackError.message : String(rollbackError))); }
         return {
           status: 'failed',
           reason: 'restore-failed',
