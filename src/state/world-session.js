@@ -199,6 +199,14 @@ export function createWorldSession({
       let previousSimulation;
       try {
         previousSimulation = await captureSimulationState();
+      } catch (error) {
+        return {
+          status: 'failed',
+          reason: 'capture-failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+      try {
         const restoredConfig = cloneValue(restoreSnapshotValue(snapshot.config));
         await applyConfig(cloneValue(restoredConfig), { generation: snapshot.generation, transactionId: 'checkpoint-restore' });
         await restoreSimulationState(
