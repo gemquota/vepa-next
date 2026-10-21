@@ -10,3 +10,25 @@ test('worker adapter steps and reads state without an extra tick',async()=>{cons
 test('worker construction failure selects in-process fallback',async()=>{const r=await createWorkerExecutionAdapter({...options,workerFactory:()=>{throw new Error('unavailable');}});assert.equal(r.mode,'in-process');assert.equal((await r.step()).metrics.tick,1);});
 
 test('worker and in-process adapters produce equivalent state for the same deterministic steps',async()=>{const worker=await createWorkerExecutionAdapter({...options,workerFactory:makeWorker});const local=await createWorkerExecutionAdapter({...options,workerFactory:()=>{throw new Error('unavailable');}});for(let i=0;i<5;i++){await worker.step();await local.step();}assert.deepEqual(Array.from(await worker.readState()),Array.from(await local.readState()));assert.deepEqual(await worker.getConfig(),await local.getConfig());await worker.dispose();await local.dispose();});
+
+test('worker checkpoint restores typed-array state, config and tick without mutating the saved copy', async () => {
+  const worker = await createWorkerExecutionAdapter({ ...options, workerFactory: makeWorker });
+  await worker.step();
+  await worker.step();
+  const checkpoint = await worker.createSnapshot();
+  const savedState = Array.from(checkpoint.state);
+  const savedConfig = await worker.getConfig();
+
+  await worker.step();
+  await worker.step();
+  assert.equal((await worker.getStatus()).tick, checkpoint.tick + 2);
+
+  const restored = await worker.restoreSnapshot(checkpoint);
+  assert.equal(restored.restored, true);
+  assert.equal((await worker.getStatus()).tick, checkpoint.tick);
+  assert.deepEqual(Array.from(await worker.readState()), savedState);
+  assert.deepEqual(await worker.getConfig(), savedConfig);
+  assert.deepEqual(Array.from(checkpoint.state), savedState);
+  await worker.dispose();
+});
+
