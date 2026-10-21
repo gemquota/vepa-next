@@ -186,11 +186,9 @@ export function validateWorldSnapshot(snapshot, { expectedWorldId } = {}) {
       initialSequence: 0,
     });
     if (!replay.valid) errors.push('invalid-journal:' + JSON.stringify(replay.errors));
-    else if (replay.lastSequence !== snapshot.lastEventSequence) {
+    else if ((snapshot.journalEvents.length ? replay.lastSequence : -1) !== snapshot.lastEventSequence) {
       errors.push('journal-cursor-mismatch');
     }
-  } else if (snapshot.lastEventSequence !== -1) {
-    errors.push('journal-history-missing');
   }
   if (typeof snapshot.checksum !== 'string' || !/^[0-9a-f]{16}$/.test(snapshot.checksum)) {
     errors.push('invalid-checksum-format');
