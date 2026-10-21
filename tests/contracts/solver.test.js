@@ -58,3 +58,30 @@ test('reflective boundary clamps position and reverses outward velocity', () => 
  assert.equal(view[S.POS_X], 100);
  assert.equal(view[S.VEL_X], -5);
 });
+
+test('charge law repels like charges and attracts opposite charges', () => {
+ const like = pair(); like[S.CHARGE] = 1; like[STRIDE + S.CHARGE] = 1;
+ stepParticleWorld(like, 2, { ...options, activeLawIds: ['law.charge'], electricConstant: 10 });
+ assert.ok(like[S.VEL_X] < 0, 'left positive charge moves left');
+ assert.ok(like[STRIDE + S.VEL_X] > 0, 'right positive charge moves right');
+
+ const unlike = pair(); unlike[S.CHARGE] = 1; unlike[STRIDE + S.CHARGE] = -1;
+ stepParticleWorld(unlike, 2, { ...options, activeLawIds: ['law.charge'], electricConstant: 10 });
+ assert.ok(unlike[S.VEL_X] > 0, 'left positive charge moves toward the negative charge');
+ assert.ok(unlike[STRIDE + S.VEL_X] < 0, 'right negative charge moves toward the positive charge');
+});
+
+test('charge, gravity and drag compose in one deterministic solver step', () => {
+ const view = pair(); view[S.CHARGE] = 1; view[STRIDE + S.CHARGE] = -1;
+ view[S.VEL_Y] = 2; view[STRIDE + S.VEL_Y] = -2;
+ const result = stepParticleWorld(view, 2, {
+  ...options, activeLawIds: ['law.gravity', 'law.charge', 'law.drag'],
+  gravitationalConstant: 1, electricConstant: 10, dragCoefficient: 0.25,
+ });
+ assert.equal(result.interactions, 2);
+ assert.ok(view[S.VEL_X] > 0);
+ assert.ok(view[STRIDE + S.VEL_X] < 0);
+ assert.ok(Math.abs(view[S.VEL_Y]) < 2);
+ assert.ok(Math.abs(view[STRIDE + S.VEL_Y]) < 2);
+});
+
