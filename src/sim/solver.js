@@ -22,6 +22,7 @@ export function stepParticleWorld(view, count, {
   boundaryMode = 'toroidal',
   dt = 1 / 60,
   gravitationalConstant = 1,
+  electricConstant = 50000,
   dragCoefficient = 0.015,
   softening = 1,
   interactionRadius = worldSize / 8,
@@ -36,6 +37,7 @@ export function stepParticleWorld(view, count, {
   }
   if (!Number.isFinite(worldSize) || worldSize <= 0 || !Number.isFinite(dt) || dt <= 0 ||
       !Number.isFinite(gravitationalConstant) || gravitationalConstant < 0 ||
+      !Number.isFinite(electricConstant) || electricConstant < 0 ||
       !Number.isFinite(dragCoefficient) || dragCoefficient < 0 ||
       !Number.isFinite(softening) || softening <= 0 ||
       !Number.isFinite(interactionRadius) || interactionRadius <= 0 || interactionRadius > worldSize / 2) {
@@ -46,7 +48,7 @@ export function stepParticleWorld(view, count, {
     throw new TypeError('activeLawIds must be a unique array of non-empty strings');
   }
   if (!Number.isInteger(contactIterations) || contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
-  for (const key of ['POS_X','POS_Y','POS_Z','VEL_X','VEL_Y','VEL_Z','MASS','DEAD','RADIUS']) {
+  for (const key of ['POS_X','POS_Y','POS_Z','VEL_X','VEL_Y','VEL_Z','MASS','DEAD','RADIUS','CHARGE']) {
     if (!Number.isInteger(slots[key]) || slots[key] < 0 || slots[key] >= stride) throw new TypeError('Invalid particle slot: ' + key);
   }
 
@@ -76,6 +78,42 @@ export function stepParticleWorld(view, count, {
   let interactions = 0;
   let fallbackQueries = 0;
   const candidates = new Int32Array(count);
+  // Coulomb-like charge interaction. Charge sign controls attraction/repulsion;
+  // electricConstant is an explicit prototype scale, not a calibrated SI constant.
+  if (activeLawIds.includes('law.charge') && electricConstant > 0) {
+    for (const i of alive) {
+      const a = i * stride;
+      const query = queryNeighborsOrAll(grid, view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z], candidates, count);
+      if (!query.complete) throw new Error('Neighbor query incomplete; refusing partial authoritative physics');
+      if (query.usedFallback) fallbackQueries++;
+      for (let n = 0; n < query.count; n++) {
+        const j = candidates[n];
+        if (j <= i) continue;
+        const b = j * stride;
+        let dx = view[b + slots.POS_X] - view[a + slots.POS_X];
+        let dy = view[b + slots.POS_Y] - view[a + slots.POS_Y];
+        let dz = view[b + slots.POS_Z] - view[a + slots.POS_Z];
+        if (boundaryMode === 'toroidal') {
+          dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize);
+        }
+        const distanceSquared = dx * dx + dy * dy + dz * dz;
+        if (distanceSquared === 0 || distanceSquared > interactionRadius * interactionRadius) continue;
+        const chargeA = Number.isFinite(view[a + slots.CHARGE]) ? view[a + slots.CHARGE] : 0;
+        const chargeB = Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0;
+        if (chargeA === 0 || chargeB === 0) continue;
+        const denominator = Math.pow(distanceSquared + softening * softening, 1.5);
+        const factorA = -electricConstant * chargeA * chargeB / (view[a + slots.MASS] * denominator);
+        const factorB = electricConstant * chargeA * chargeB / (view[b + slots.MASS] * denominator);
+        acceleration[i * 3] += dx * factorA;
+        acceleration[i * 3 + 1] += dy * factorA;
+        acceleration[i * 3 + 2] += dz * factorA;
+        acceleration[j * 3] += dx * factorB;
+        acceleration[j * 3 + 1] += dy * factorB;
+        acceleration[j * 3 + 2] += dz * factorB;
+        interactions++;
+      }
+    }
+  }
   if (activeLawIds.includes('law.gravity') && gravitationalConstant > 0) {
     for (const i of alive) {
       const a = i * stride;
