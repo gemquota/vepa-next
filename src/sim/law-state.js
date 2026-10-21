@@ -39,12 +39,6 @@ export function evaluateLawStates({ laws, relationships = [], activeIds = new Se
   const states = new Map();
 
   for (const law of laws) {
-    const incomingRequirements = relationships.filter(edge =>
-      edge.to === law.id && REQUIREMENT_TYPES.has(edge.type));
-    const missingRequirements = incomingRequirements
-      .filter(edge => !activeIds.has(edge.from))
-      .map(edge => edge.from);
-
     // In a "requires" edge, from requires to, so inspect edges originating
     // at this law as well. This is the canonical direction used by the UI.
     const requiredIds = relationships
