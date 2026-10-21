@@ -135,6 +135,7 @@ export function createWorldSnapshot({
   prngState = null,
   fidelityPolicy = null,
   lastEventSequence = -1,
+  journalEvents = undefined,
 } = {}) {
   if (typeof worldId !== 'string' || !worldId) throw new TypeError('worldId is required');
   for (const [name, value] of Object.entries({ tick, generation, lastEventSequence })) {
@@ -153,6 +154,7 @@ export function createWorldSnapshot({
     prngState,
     fidelityPolicy,
     lastEventSequence,
+    ...(journalEvents === undefined ? {} : { journalEvents }),
   });
   return Object.freeze({ ...payload, checksum: checksumText(JSON.stringify(payload)) });
 }
@@ -176,6 +178,19 @@ export function validateWorldSnapshot(snapshot, { expectedWorldId } = {}) {
   }
   if (!Object.hasOwn(snapshot, 'config') || !Object.hasOwn(snapshot, 'simulationState')) {
     errors.push('missing-state-payload');
+  }
+  if (Object.hasOwn(snapshot, 'journalEvents')) {
+    const replay = validateReplay(snapshot.journalEvents, {
+      worldId: snapshot.worldId,
+      initialTick: 0,
+      initialSequence: 0,
+    });
+    if (!replay.valid) errors.push('invalid-journal:' + JSON.stringify(replay.errors));
+    else if (replay.lastSequence !== snapshot.lastEventSequence) {
+      errors.push('journal-cursor-mismatch');
+    }
+  } else if (snapshot.lastEventSequence !== -1) {
+    errors.push('journal-history-missing');
   }
   if (typeof snapshot.checksum !== 'string' || !/^[0-9a-f]{16}$/.test(snapshot.checksum)) {
     errors.push('invalid-checksum-format');
