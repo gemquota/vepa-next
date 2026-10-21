@@ -32,3 +32,26 @@ test('worker checkpoint restores typed-array state, config and tick without muta
   await worker.dispose();
 });
 
+test('worker rejects invalid checkpoint atomically without changing live state', async () => {
+  const worker = await createWorkerExecutionAdapter({ ...options, workerFactory: makeWorker });
+  await worker.step();
+  const beforeState = Array.from(await worker.readState());
+  const beforeConfig = await worker.getConfig();
+  const beforeStatus = await worker.getStatus();
+
+  const badState = await worker.createSnapshot();
+  badState.state[0] = Number.NaN;
+  await assert.rejects(worker.restoreSnapshot(badState), /non-finite/);
+  assert.deepEqual(Array.from(await worker.readState()), beforeState);
+  assert.deepEqual(await worker.getConfig(), beforeConfig);
+  assert.equal((await worker.getStatus()).tick, beforeStatus.tick);
+
+  const badConfig = await worker.createSnapshot();
+  badConfig.config = { ...badConfig.config, dt: -1 };
+  await assert.rejects(worker.restoreSnapshot(badConfig), /Invalid physics configuration range/);
+  assert.deepEqual(Array.from(await worker.readState()), beforeState);
+  assert.deepEqual(await worker.getConfig(), beforeConfig);
+  assert.equal((await worker.getStatus()).tick, beforeStatus.tick);
+  await worker.dispose();
+});
+
