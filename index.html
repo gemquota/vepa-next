@@ -5,6 +5,7 @@
 <div class="layout"><section class="viewport"><canvas id="world" aria-label="Animated particle world"></canvas><div class="overlay"><span class="badge" id="stateBadge">RUNNING</span><span class="badge" id="seedBadge">SEED 0</span><span class="badge" id="tickBadge">TICK 0</span></div></section><aside class="panel"><div class="controls">
 <label>Seed or seed phrase<input id="seedInput" value="primordial soup" autocomplete="off"></label>
 <div class="row"><button id="resetBtn" class="primary">Reset world</button><button id="pauseBtn">Pause</button></div>
+<div class="row"><button id="saveBtn">Save checkpoint</button><button id="loadBtn">Load checkpoint</button></div><div class="muted" id="checkpointStatus" role="status" aria-live="polite">Checkpoint: not saved</div>
 <label>Particle count <output id="countOut">180</output><input id="count" type="range" min="40" max="400" value="180"></label>
 <label>Gravity strength <output id="strengthOut">0.8</output><input id="strength" type="range" min="0" max="2" step=".1" value=".8"></label>
 <label>Simulation speed <output id="speedOut">1.0×</output><input id="speed" type="range" min=".2" max="2" step=".1" value="1"></label>
