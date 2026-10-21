@@ -1,7 +1,8 @@
 import { createEventEnvelope } from '../core/event-envelope.js';
 import { createTransactionCoordinator } from './transaction.js';
 import { createEventJournal } from './event-journal.js';
-import { createWorldSnapshot } from './snapshot.js';
+import { createWorldSnapshot, restoreSnapshotValue, validateWorldSnapshot } from './snapshot.js';
+import { validateReplay } from './replay.js';
 
 
 function eventSafeValue(value, seen = new WeakSet()) {
@@ -64,7 +65,7 @@ export function createWorldSession({
   let generation = 0;
   let tick = 0;
   let sequence = 0;
-  const journal = createEventJournal(worldId);
+  let journal = createEventJournal(worldId);
 
   function append(type, payload, sourceModule, schemaVersion = 1) {
     const event = createEventEnvelope({
@@ -140,6 +141,7 @@ export function createWorldSession({
         prngState: cloneValue(prngState),
         fidelityPolicy: cloneValue(fidelityPolicy),
         lastEventSequence: journal.lastSequence,
+        journalEvents: journal.snapshot(),
       });
     },
     saveCheckpoint(snapshotStore, { simulationState, prngState = null, fidelityPolicy = null } = {}) {
@@ -155,8 +157,103 @@ export function createWorldSession({
         prngState: cloneValue(prngState),
         fidelityPolicy: cloneValue(fidelityPolicy),
         lastEventSequence: journal.lastSequence,
+        journalEvents: journal.snapshot(),
       });
       return { snapshot, storage: snapshotStore.save(snapshot) };
+    },
+    async restoreCheckpoint(snapshot, {
+      restoreSimulationState,
+      captureSimulationState,
+    } = {}) {
+      if (transactions.busy) return { status: 'rejected', reason: 'transaction-busy' };
+      if (typeof restoreSimulationState !== 'function') {
+        return { status: 'rejected', reason: 'restore-simulation-callback-required' };
+      }
+      const verdict = validateWorldSnapshot(snapshot, { expectedWorldId: worldId });
+      if (!verdict.valid) return { status: 'rejected', reason: 'invalid-snapshot', errors: verdict.errors };
+      if (!Array.isArray(snapshot.journalEvents)) {
+        return { status: 'rejected', reason: 'journal-history-missing' };
+      }
+      const replay = validateReplay(snapshot.journalEvents, {
+        worldId,
+        initialTick: 0,
+        initialSequence: 0,
+      });
+      if (!replay.valid || replay.lastSequence !== snapshot.lastEventSequence) {
+        return { status: 'rejected', reason: 'invalid-journal', errors: replay.errors ?? ['journal-cursor-mismatch'] };
+      }
+      const configVerdict = await validateConfig(restoreSnapshotValue(snapshot.config), {
+        current: cloneValue(config),
+        generation,
+        transactionId: 'checkpoint-restore',
+      });
+      if (!configVerdict || configVerdict.valid !== true) {
+        return { status: 'rejected', reason: 'invalid-config', errors: configVerdict?.errors ?? [configVerdict?.reason ?? 'config-validation-failed'] };
+      }
+
+      const previousConfig = cloneValue(config);
+      const previousTick = tick;
+      const previousGeneration = generation;
+      const previousSequence = sequence;
+      const previousJournal = journal;
+      let previousSimulation;
+      let hasPreviousSimulation = false;
+      try {
+        if (typeof captureSimulationState === 'function') {
+          previousSimulation = await captureSimulationState();
+          hasPreviousSimulation = true;
+        }
+        const restoredConfig = cloneValue(restoreSnapshotValue(snapshot.config));
+        await applyConfig(cloneValue(restoredConfig), { generation: snapshot.generation, transactionId: 'checkpoint-restore' });
+        await restoreSimulationState(
+          restoreSnapshotValue(snapshot.simulationState),
+          {
+            tick: snapshot.tick,
+            generation: snapshot.generation,
+            prngState: restoreSnapshotValue(snapshot.prngState),
+            fidelityPolicy: restoreSnapshotValue(snapshot.fidelityPolicy),
+            config: cloneValue(restoredConfig),
+          },
+        );
+
+        const restoredJournal = createEventJournal(worldId);
+        for (const event of snapshot.journalEvents) {
+          const appended = restoredJournal.append(event);
+          if (!appended.accepted) throw new Error('Journal restore failed: ' + appended.reason);
+        }
+        config = restoredConfig;
+        tick = snapshot.tick;
+        generation = snapshot.generation;
+        sequence = snapshot.lastEventSequence + 1;
+        journal = restoredJournal;
+        return {
+          status: 'restored',
+          worldId,
+          tick,
+          generation,
+          lastEventSequence: journal.lastSequence,
+          eventCount: journal.length,
+        };
+      } catch (error) {
+        config = previousConfig;
+        tick = previousTick;
+        generation = previousGeneration;
+        sequence = previousSequence;
+        journal = previousJournal;
+        const rollbackErrors = [];
+        try { await restoreConfig(cloneValue(previousConfig), { transactionId: 'checkpoint-restore-rollback', error }); }
+        catch (rollbackError) { rollbackErrors.push('config:' + (rollbackError instanceof Error ? rollbackError.message : String(rollbackError))); }
+        if (hasPreviousSimulation) {
+          try { await restoreSimulationState(previousSimulation, { rollback: true, config: cloneValue(previousConfig) }); }
+          catch (rollbackError) { rollbackErrors.push('simulation:' + (rollbackError instanceof Error ? rollbackError.message : String(rollbackError))); }
+        }
+        return {
+          status: 'failed',
+          reason: 'restore-failed',
+          error: error instanceof Error ? error.message : String(error),
+          rollbackErrors,
+        };
+      }
     },
     async proposeConfig(proposal, context = {}) {
       const requestedConfig = eventSafeValue(proposal);
