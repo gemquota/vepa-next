@@ -18,6 +18,7 @@ const ui = {
  save: document.querySelector('#saveBtn'), load: document.querySelector('#loadBtn'), checkpointStatus: document.querySelector('#checkpointStatus'),
  advancedLaws: document.querySelector('#advancedLawsBtn'), lawMatrixPanel: document.querySelector('#lawMatrixPanel'), lawMatrixRoot: document.querySelector('#lawMatrixRoot'),
  gravityLaw: document.querySelector('#gravityLaw'), dragLaw: document.querySelector('#dragLaw'), collisionLaw: document.querySelector('#collisionLaw'), chargeLaw: document.querySelector('#chargeLaw'),
+ entrainmentLaw: document.querySelector('#entrainmentLaw'), buoyancyLaw: document.querySelector('#buoyancyLaw'), accretionLaw: document.querySelector('#accretionLaw'), bondLaw: document.querySelector('#bondLaw'),
 };
 
 const WORLD_SIZE = 2000;
@@ -27,7 +28,10 @@ let fpsStart = 0, frameCount = 0, lastStepAt = 0;
 let settingsQueue = Promise.resolve(), lawMatrix = null;
 
 function selectedLawIds() {
- return [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision', ui.chargeLaw.checked && 'law.charge'].filter(Boolean);
+ return [
+  ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision', ui.chargeLaw.checked && 'law.charge',
+  ui.entrainmentLaw.checked && 'law.entrainment', ui.buoyancyLaw.checked && 'law.buoyancy', ui.accretionLaw.checked && 'law.accretion', ui.bondLaw.checked && 'law.bond',
+ ].filter(Boolean);
 }
 
 function resize() {
@@ -43,251 +47,105 @@ function makeInitialState(count, seed) {
  const state = new Float64Array(count * PARTICLE_STRIDE);
  for (let i = 0; i < count; i++) {
   const b = i * PARTICLE_STRIDE;
-  state[b + S.POS_X] = rng.next() * WORLD_SIZE;
-  state[b + S.POS_Y] = rng.next() * WORLD_SIZE;
-  state[b + S.POS_Z] = rng.next() * WORLD_SIZE;
-  const azimuth = rng.next() * Math.PI * 2;
-  const z = rng.next() * 2 - 1;
-  const planar = Math.sqrt(Math.max(0, 1 - z * z));
-  const speed = 2 + rng.next() * 4;
-  state[b + S.VEL_X] = Math.cos(azimuth) * planar * speed;
-  state[b + S.VEL_Y] = Math.sin(azimuth) * planar * speed;
-  state[b + S.VEL_Z] = z * speed;
-  state[b + S.MASS] = 0.75 + rng.next() * 0.5;
-  state[b + S.RADIUS] = 3 + rng.next() * 2;
-  state[b + S.CHARGE] = rng.next() < 0.5 ? -1 : 1;
-  state[b + S.ENERGY] = 0.25 + rng.next() * 0.75;
-  state[b + S.DEAD] = 0;
+  state[b + S.POS_X] = rng.next() * WORLD_SIZE; state[b + S.POS_Y] = rng.next() * WORLD_SIZE; state[b + S.POS_Z] = rng.next() * WORLD_SIZE;
+  const azimuth = rng.next() * Math.PI * 2, z = rng.next() * 2 - 1, planar = Math.sqrt(Math.max(0, 1 - z * z)), speed = 2 + rng.next() * 4;
+  state[b + S.VEL_X] = Math.cos(azimuth) * planar * speed; state[b + S.VEL_Y] = Math.sin(azimuth) * planar * speed; state[b + S.VEL_Z] = z * speed;
+  state[b + S.MASS] = 0.75 + rng.next() * 0.5; state[b + S.RADIUS] = 3 + rng.next() * 2; state[b + S.CHARGE] = rng.next() < 0.5 ? -1 : 1;
+  state[b + S.ENERGY] = 0.25 + rng.next() * 0.75; state[b + S.TEMPERATURE] = rng.next() * 2 - 1; state[b + S.DEAD] = 0;
  }
  return state;
 }
-
 function worldIdForSeed(seed) { return 'vepa-' + seed.toString(16); }
-
-function snapshotStoreForCurrentWorld() {
- return createSnapshotStore(window.localStorage, { prefix: 'vepa.snapshot.' + worldIdForSeed(textToSeed(ui.seed.value)) });
-}
+function snapshotStoreForCurrentWorld() { return createSnapshotStore(window.localStorage, { prefix: 'vepa.snapshot.' + worldIdForSeed(textToSeed(ui.seed.value)) }); }
 
 function syncControlsFromConfig(config) {
- ui.boundary.value = config.boundaryMode;
- ui.speed.value = String(Math.max(0.2, Math.min(2, config.dt / 0.2)));
- ui.strength.value = String(Math.max(0, Math.min(2, config.gravitationalConstant / 250)));
- ui.gravityLaw.checked = config.activeLawIds.includes('law.gravity');
- ui.dragLaw.checked = config.activeLawIds.includes('law.drag');
- ui.collisionLaw.checked = config.activeLawIds.includes('law.collision');
- ui.chargeLaw.checked = config.activeLawIds.includes('law.charge');
- ui.speedOut.textContent = Number(ui.speed.value).toFixed(1) + '×';
- ui.strengthOut.textContent = Number(ui.strength.value).toFixed(1);
- lawMatrix?.setActiveIds(selectedLawIds());
+ ui.boundary.value = config.boundaryMode; ui.speed.value = String(Math.max(0.2, Math.min(2, config.dt / 0.2))); ui.strength.value = String(Math.max(0, Math.min(2, config.gravitationalConstant / 250)));
+ for (const [key, id] of [['gravityLaw','law.gravity'],['dragLaw','law.drag'],['collisionLaw','law.collision'],['chargeLaw','law.charge'],['entrainmentLaw','law.entrainment'],['buoyancyLaw','law.buoyancy'],['accretionLaw','law.accretion'],['bondLaw','law.bond']]) ui[key].checked = config.activeLawIds.includes(id);
+ ui.speedOut.textContent = Number(ui.speed.value).toFixed(1) + '×'; ui.strengthOut.textContent = Number(ui.strength.value).toFixed(1); lawMatrix?.setActiveIds(selectedLawIds());
 }
-
 function makeConfig() {
- return {
-  worldSize: WORLD_SIZE,
-  boundaryMode: ui.boundary.value,
-  dt: Number(ui.speed.value) * 0.2,
-  gravitationalConstant: Number(ui.strength.value) * 250,
-  electricConstant: 50000,
-  softening: 15,
-  interactionRadius: WORLD_SIZE / 8,
-  activeLawIds: selectedLawIds(),
-  resolveContacts: true,
-  contactIterations: 1,
- };
+ return { worldSize: WORLD_SIZE, boundaryMode: ui.boundary.value, dt: Number(ui.speed.value) * 0.2, gravitationalConstant: Number(ui.strength.value) * 250, electricConstant: 50000, softening: 15, interactionRadius: WORLD_SIZE / 8, activeLawIds: selectedLawIds(), resolveContacts: true, contactIterations: 1 };
 }
-
 function validateConfig(candidate) {
  try {
   const config = validateParticleExecutionConfig(candidate);
-  const unsupported = config.activeLawIds.filter(id => !['law.gravity', 'law.drag', 'law.collision', 'law.charge'].includes(id));
+  const supported = ['law.gravity','law.drag','law.collision','law.charge','law.entrainment','law.buoyancy','law.accretion','law.bond'];
+  const unsupported = config.activeLawIds.filter(id => !supported.includes(id));
   if (unsupported.length) return { valid: false, reason: 'prototype-solver-unsupported-laws:' + unsupported.join(',') };
   return { valid: true, value: config };
- } catch (error) {
-  return { valid: false, reason: error.message };
- }
+ } catch (error) { return { valid: false, reason: error.message }; }
 }
 
 async function init() {
- const token = ++runtimeToken;
- const previous = runtime;
- runtime = null; session = null; busy = false; tick = 0;
+ const token = ++runtimeToken, previous = runtime; runtime = null; session = null; busy = false; tick = 0;
  if (previous) await previous.dispose().catch(() => {});
- const seed = textToSeed(ui.seed.value);
- const count = Number(ui.count.value);
- const config = makeConfig();
- const initialState = makeInitialState(count, seed);
+ const seed = textToSeed(ui.seed.value), count = Number(ui.count.value), config = makeConfig(), initialState = makeInitialState(count, seed);
  try {
   const nextRuntime = await createWorkerExecutionAdapter({ initialState, count, stride: PARTICLE_STRIDE, config });
   if (token !== runtimeToken) { await nextRuntime.dispose(); return; }
   runtime = nextRuntime;
-  session = createWorldSession({
-   worldId: worldIdForSeed(seed),
-   initialConfig: config,
-   validateConfig,
-   applyConfig: async next => { await runtime.configure(next); },
-   restoreConfig: async previousConfig => { await runtime.configure(previousConfig); },
-  });
-  renderState = await runtime.readRenderState();
-  ui.state.textContent = runtime.mode === 'worker' ? 'WORKER' : 'IN-PROCESS';
-  ui.seedBadge.textContent = 'SEED ' + seed;
-  ui.hashStat.textContent = seed.toString(16).padStart(8, '0');
-  ui.particleStat.textContent = String(count);
-  ui.tickStat.textContent = '0'; ui.tickBadge.textContent = 'TICK 0';
- } catch (error) {
-  if (token === runtimeToken) { ui.state.textContent = 'ERROR'; console.error(error); }
- }
+  session = createWorldSession({ worldId: worldIdForSeed(seed), initialConfig: config, validateConfig, applyConfig: async next => { await runtime.configure(next); }, restoreConfig: async previousConfig => { await runtime.configure(previousConfig); } });
+  renderState = await runtime.readRenderState(); ui.state.textContent = runtime.mode === 'worker' ? 'WORKER' : 'IN-PROCESS'; ui.seedBadge.textContent = 'SEED ' + seed; ui.hashStat.textContent = seed.toString(16).padStart(8, '0'); ui.particleStat.textContent = String(count); ui.tickStat.textContent = '0'; ui.tickBadge.textContent = 'TICK 0';
+ } catch (error) { if (token === runtimeToken) { ui.state.textContent = 'ERROR'; console.error(error); } }
 }
-
 function updateSettings() {
  settingsQueue = settingsQueue.catch(() => {}).then(async () => {
   if (!session) return;
   const current = session.getSnapshot().config;
-  const result = await session.proposeConfig({
-   ...current,
-   dt: Number(ui.speed.value) * 0.2,
-   boundaryMode: ui.boundary.value,
-   gravitationalConstant: Number(ui.strength.value) * 250,
-   activeLawIds: selectedLawIds(),
-  });
-  if (result.status !== 'committed') ui.state.textContent = 'CONFIG ' + result.status.toUpperCase();
-  else ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
+  const result = await session.proposeConfig({ ...current, dt: Number(ui.speed.value) * 0.2, boundaryMode: ui.boundary.value, gravitationalConstant: Number(ui.strength.value) * 250, activeLawIds: selectedLawIds() });
+  if (result.status !== 'committed') ui.state.textContent = 'CONFIG ' + result.status.toUpperCase(); else ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
   lawMatrix?.setActiveIds(selectedLawIds());
- });
- return settingsQueue;
+ }); return settingsQueue;
 }
-
 function render() {
- ctx.fillStyle = '#070c16'; ctx.fillRect(0, 0, width, height);
- ctx.globalCompositeOperation = 'lighter';
+ ctx.fillStyle = '#070c16'; ctx.fillRect(0, 0, width, height); ctx.globalCompositeOperation = 'lighter';
  for (let i = 0; i + RENDER_STRIDE <= renderState.length; i += RENDER_STRIDE) {
   if (renderState[i + 5] >= 0.5) continue;
-  const x = renderState[i] / WORLD_SIZE * width;
-  const y = renderState[i + 1] / WORLD_SIZE * height;
-  const depth = renderState[i + 2] / WORLD_SIZE;
-  const radius = Math.max(1, Math.min(4, 1.1 + renderState[i + 3] * 0.22 + depth * 0.7));
-  const alpha = Math.max(0.25, Math.min(0.95, 0.45 + depth * 0.5));
-  ctx.beginPath();
-  ctx.fillStyle = renderState[i + 6] >= 0 ? 'rgba(86,231,239,' + alpha + ')' : 'rgba(174,143,255,' + alpha + ')';
-  ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+  const x = renderState[i] / WORLD_SIZE * width, y = renderState[i + 1] / WORLD_SIZE * height, depth = renderState[i + 2] / WORLD_SIZE;
+  const radius = Math.max(1, Math.min(4, 1.1 + renderState[i + 3] * 0.22 + depth * 0.7)), alpha = Math.max(0.25, Math.min(0.95, 0.45 + depth * 0.5));
+  ctx.beginPath(); ctx.fillStyle = renderState[i + 6] >= 0 ? 'rgba(86,231,239,' + alpha + ')' : 'rgba(174,143,255,' + alpha + ')'; ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
  }
  ctx.globalCompositeOperation = 'source-over';
 }
-
 async function frame(now) {
- requestAnimationFrame(frame);
- if (!fpsStart) fpsStart = now;
- frameCount++;
- if (now - fpsStart >= 500) {
-  ui.fpsStat.textContent = String(Math.round(frameCount * 1000 / (now - fpsStart)));
-  frameCount = 0; fpsStart = now;
- }
+ requestAnimationFrame(frame); if (!fpsStart) fpsStart = now; frameCount++;
+ if (now - fpsStart >= 500) { ui.fpsStat.textContent = String(Math.round(frameCount * 1000 / (now - fpsStart))); frameCount = 0; fpsStart = now; }
  if (running && runtime && !busy && now - lastStepAt >= 16) {
-  const token = runtimeToken;
-  busy = true; lastStepAt = now;
-  try {
-   const result = await runtime.step();
-   if (token === runtimeToken) {
-    renderState = result.renderState;
-    tick = result.metrics.tick;
-    session?.advanceTick();
-    ui.tickStat.textContent = String(tick); ui.tickBadge.textContent = 'TICK ' + tick;
-   }
-  } catch (error) {
-   if (token === runtimeToken) { running = false; ui.state.textContent = 'ERROR'; console.error(error); }
-  } finally { if (token === runtimeToken) busy = false; }
+  const token = runtimeToken; busy = true; lastStepAt = now;
+  try { const result = await runtime.step(); if (token === runtimeToken) { renderState = result.renderState; tick = result.metrics.tick; session?.advanceTick(); ui.tickStat.textContent = String(tick); ui.tickBadge.textContent = 'TICK ' + tick; } }
+  catch (error) { if (token === runtimeToken) { running = false; ui.state.textContent = 'ERROR'; console.error(error); } }
+  finally { if (token === runtimeToken) busy = false; }
  }
  render();
 }
 
 ui.save.addEventListener('click', async () => {
- if (!runtime || !session) { ui.checkpointStatus.textContent = 'Checkpoint: world is not ready'; return; }
- if (busy) { ui.checkpointStatus.textContent = 'Checkpoint: wait for the current simulation step'; return; }
+ if (!runtime || !session) { ui.checkpointStatus.textContent = 'Checkpoint: world is not ready'; return; } if (busy) { ui.checkpointStatus.textContent = 'Checkpoint: wait for the current simulation step'; return; }
  try {
   const simulationState = await runtime.createSnapshot();
-  const result = session.saveCheckpoint(snapshotStoreForCurrentWorld(), {
-   simulationState,
-   prngState: { algorithm: 'SplitMix32', seed: textToSeed(ui.seed.value), lifecycle: 'initialization-only' },
-   fidelityPolicy: { mode: 'prototype', solver: 'softened-gravity-v1' },
-  });
-  ui.checkpointStatus.textContent = result.storage.status === 'saved'
-   ? 'Checkpoint saved · tick ' + result.snapshot.tick
-   : 'Checkpoint ' + result.storage.status + (result.storage.reason ? ' · ' + result.storage.reason : '');
- } catch (error) {
-  ui.checkpointStatus.textContent = 'Checkpoint save failed · ' + (error instanceof Error ? error.message : String(error));
- }
+  const result = session.saveCheckpoint(snapshotStoreForCurrentWorld(), { simulationState, prngState: { algorithm: 'SplitMix32', seed: textToSeed(ui.seed.value), lifecycle: 'initialization-only' }, fidelityPolicy: { mode: 'prototype', solver: 'softened-gravity-v1' } });
+  ui.checkpointStatus.textContent = result.storage.status === 'saved' ? 'Checkpoint saved · tick ' + result.snapshot.tick : 'Checkpoint ' + result.storage.status + (result.storage.reason ? ' · ' + result.storage.reason : '');
+ } catch (error) { ui.checkpointStatus.textContent = 'Checkpoint save failed · ' + (error instanceof Error ? error.message : String(error)); }
 });
 ui.load.addEventListener('click', async () => {
- if (!runtime || !session) { ui.checkpointStatus.textContent = 'Checkpoint: world is not ready'; return; }
- if (busy) { ui.checkpointStatus.textContent = 'Checkpoint: wait for the current simulation step'; return; }
+ if (!runtime || !session) { ui.checkpointStatus.textContent = 'Checkpoint: world is not ready'; return; } if (busy) { ui.checkpointStatus.textContent = 'Checkpoint: wait for the current simulation step'; return; }
  try {
-  const loaded = snapshotStoreForCurrentWorld().load();
-  if (loaded.status === 'empty') {
-   ui.checkpointStatus.textContent = 'Checkpoint: none saved for this seed';
-   return;
-  }
+  const loaded = snapshotStoreForCurrentWorld().load(); if (loaded.status === 'empty') { ui.checkpointStatus.textContent = 'Checkpoint: none saved for this seed'; return; }
   const checkpoint = loaded.snapshot;
-  if (checkpoint.simulationState?.layoutVersion === undefined ||
-      checkpoint.simulationState?.count === undefined ||
-      checkpoint.simulationState?.tick !== checkpoint.tick) {
-   ui.checkpointStatus.textContent = 'Checkpoint rejected · incompatible or inconsistent simulation state';
-   return;
-  }
-  syncControlsFromConfig(checkpoint.config);
-  ui.count.value = String(checkpoint.simulationState.count);
-  ui.countOut.textContent = ui.count.value;
-  await init();
+  if (checkpoint.simulationState?.layoutVersion === undefined || checkpoint.simulationState?.count === undefined || checkpoint.simulationState?.tick !== checkpoint.tick) { ui.checkpointStatus.textContent = 'Checkpoint rejected · incompatible or inconsistent simulation state'; return; }
+  syncControlsFromConfig(checkpoint.config); ui.count.value = String(checkpoint.simulationState.count); ui.countOut.textContent = ui.count.value; await init();
   if (!runtime || !session) throw new Error('World initialization failed');
-  const restored = await session.restoreCheckpoint(checkpoint, {
-   captureSimulationState: async () => runtime.createSnapshot(),
-   restoreSimulationState: async simulationState => { await runtime.restoreSnapshot(simulationState); },
-  });
-  if (restored.status !== 'restored') {
-   ui.checkpointStatus.textContent = 'Checkpoint load ' + restored.status + (restored.reason ? ' · ' + restored.reason : '');
-   return;
-  }
-  tick = restored.tick;
-  renderState = await runtime.readRenderState();
-  ui.tickStat.textContent = String(tick);
-  ui.tickBadge.textContent = 'TICK ' + tick;
-  ui.seedBadge.textContent = 'SEED ' + textToSeed(ui.seed.value);
-  ui.particleStat.textContent = String(runtime.count);
-  ui.state.textContent = running ? (runtime.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
-  ui.checkpointStatus.textContent = 'Checkpoint loaded' + (loaded.status === 'recovered' ? ' · recovered previous valid slot' : '') + ' · tick ' + tick;
- } catch (error) {
-  ui.checkpointStatus.textContent = 'Checkpoint load failed · ' + (error instanceof Error ? error.message : String(error));
- }
+  const restored = await session.restoreCheckpoint(checkpoint, { captureSimulationState: async () => runtime.createSnapshot(), restoreSimulationState: async simulationState => { await runtime.restoreSnapshot(simulationState); } });
+  if (restored.status !== 'restored') { ui.checkpointStatus.textContent = 'Checkpoint load ' + restored.status + (restored.reason ? ' · ' + restored.reason : ''); return; }
+  tick = restored.tick; renderState = await runtime.readRenderState(); ui.tickStat.textContent = String(tick); ui.tickBadge.textContent = 'TICK ' + tick; ui.seedBadge.textContent = 'SEED ' + textToSeed(ui.seed.value); ui.particleStat.textContent = String(runtime.count); ui.state.textContent = running ? (runtime.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED'; ui.checkpointStatus.textContent = 'Checkpoint loaded' + (loaded.status === 'recovered' ? ' · recovered previous valid slot' : '') + ' · tick ' + tick;
+ } catch (error) { ui.checkpointStatus.textContent = 'Checkpoint load failed · ' + (error instanceof Error ? error.message : String(error)); }
 });
 ui.reset.addEventListener('click', () => { void init(); });
-ui.pause.addEventListener('click', () => {
- running = !running; ui.pause.textContent = running ? 'Pause' : 'Resume';
- ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED';
-});
-for (const [input, output, format] of [[ui.count, ui.countOut, value => value], [ui.strength, ui.strengthOut, value => Number(value).toFixed(1)], [ui.speed, ui.speedOut, value => Number(value).toFixed(1) + '×']]) {
- input.addEventListener('input', () => { output.textContent = format(input.value); if (input !== ui.count) void updateSettings(); });
-}
-for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw, ui.chargeLaw]) toggle.addEventListener('change', () => { lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); });
+ui.pause.addEventListener('click', () => { running = !running; ui.pause.textContent = running ? 'Pause' : 'Resume'; ui.state.textContent = running ? (runtime?.mode === 'worker' ? 'WORKER' : 'IN-PROCESS') : 'PAUSED'; });
+for (const [input, output, format] of [[ui.count, ui.countOut, value => value], [ui.strength, ui.strengthOut, value => Number(value).toFixed(1)], [ui.speed, ui.speedOut, value => Number(value).toFixed(1) + '×']]) input.addEventListener('input', () => { output.textContent = format(input.value); if (input !== ui.count) void updateSettings(); });
+for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw, ui.chargeLaw, ui.entrainmentLaw, ui.buoyancyLaw, ui.accretionLaw, ui.bondLaw]) toggle.addEventListener('change', () => { lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); });
 ui.boundary.addEventListener('change', () => { void updateSettings(); });
-ui.advancedLaws.addEventListener('click', () => {
- const opening = ui.lawMatrixPanel.hidden;
- ui.lawMatrixPanel.hidden = !opening;
- ui.advancedLaws.setAttribute('aria-expanded', String(opening));
- if (opening) lawMatrix?.render();
-});
-lawMatrix = mountLawMatrix({
- root: ui.lawMatrixRoot,
- activeIds: selectedLawIds(),
- onToggle: (id, enabled) => {
-  const toggle = ({ 'law.gravity': ui.gravityLaw, 'law.drag': ui.dragLaw, 'law.collision': ui.collisionLaw, 'law.charge': ui.chargeLaw })[id];
-  if (!toggle) return;
-  toggle.checked = enabled;
-  lawMatrix?.setActiveIds(selectedLawIds());
-  void updateSettings();
- },
-});
-ui.count.addEventListener('change', () => { void init(); });
-ui.seed.addEventListener('keydown', event => { if (event.key === 'Enter') void init(); });
-window.addEventListener('resize', resize);
-resize();
-ui.countOut.textContent = ui.count.value; ui.strengthOut.textContent = Number(ui.strength.value).toFixed(1); ui.speedOut.textContent = Number(ui.speed.value).toFixed(1) + '×';
-void init();
-requestAnimationFrame(frame);
+ui.advancedLaws.addEventListener('click', () => { const opening = ui.lawMatrixPanel.hidden; ui.lawMatrixPanel.hidden = !opening; ui.advancedLaws.setAttribute('aria-expanded', String(opening)); if (opening) lawMatrix?.render(); });
+lawMatrix = mountLawMatrix({ root: ui.lawMatrixRoot, activeIds: selectedLawIds(), onToggle: (id, enabled) => { const toggle = ({ 'law.gravity': ui.gravityLaw, 'law.drag': ui.dragLaw, 'law.collision': ui.collisionLaw, 'law.charge': ui.chargeLaw, 'law.entrainment': ui.entrainmentLaw, 'law.buoyancy': ui.buoyancyLaw, 'law.accretion': ui.accretionLaw, 'law.bond': ui.bondLaw })[id]; if (!toggle) return; toggle.checked = enabled; lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); } });
+ui.count.addEventListener('change', () => { void init(); }); ui.seed.addEventListener('keydown', event => { if (event.key === 'Enter') void init(); });
+window.addEventListener('resize', resize); resize(); ui.countOut.textContent = ui.count.value; ui.strengthOut.textContent = Number(ui.strength.value).toFixed(1); ui.speedOut.textContent = Number(ui.speed.value).toFixed(1) + '×'; void init(); requestAnimationFrame(frame);
