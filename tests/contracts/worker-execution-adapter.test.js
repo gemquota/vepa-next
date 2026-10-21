@@ -55,3 +55,30 @@ test('worker rejects invalid checkpoint atomically without changing live state',
   await worker.dispose();
 });
 
+
+test('checkpoint restore reproduces the same future trajectory as uninterrupted execution', async () => {
+  const resumed = await createWorkerExecutionAdapter({ ...options, workerFactory: makeWorker });
+  const uninterrupted = await createWorkerExecutionAdapter({ ...options, workerFactory: makeWorker });
+
+  for (let i = 0; i < 8; i++) {
+    await resumed.step();
+    await uninterrupted.step();
+  }
+  const checkpoint = await resumed.createSnapshot();
+
+  for (let i = 0; i < 12; i++) {
+    await resumed.step();
+    await uninterrupted.step();
+  }
+  const expectedState = Array.from(await uninterrupted.readState());
+  const expectedStatus = await uninterrupted.getStatus();
+
+  await resumed.restoreSnapshot(checkpoint);
+  for (let i = 0; i < 12; i++) await resumed.step();
+
+  assert.deepEqual(Array.from(await resumed.readState()), expectedState);
+  assert.deepEqual(await resumed.getConfig(), await uninterrupted.getConfig());
+  assert.deepEqual(await resumed.getStatus(), expectedStatus);
+  await resumed.dispose();
+  await uninterrupted.dispose();
+});
