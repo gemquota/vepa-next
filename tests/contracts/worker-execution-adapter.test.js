@@ -46,8 +46,8 @@ test('worker rejects invalid checkpoint atomically without changing live state',
   assert.deepEqual(await worker.getConfig(), beforeConfig);
   assert.equal((await worker.getStatus()).tick, beforeStatus.tick);
 
-  const badConfig = await worker.createSnapshot();
-  badConfig.config = { ...badConfig.config, dt: -1 };
+  const savedConfigSnapshot = await worker.createSnapshot();
+  const badConfig = { ...savedConfigSnapshot, config: { ...savedConfigSnapshot.config, dt: -1 } };
   await assert.rejects(worker.restoreSnapshot(badConfig), /Invalid physics configuration range/);
   assert.deepEqual(Array.from(await worker.readState()), beforeState);
   assert.deepEqual(await worker.getConfig(), beforeConfig);
