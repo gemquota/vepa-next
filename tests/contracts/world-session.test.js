@@ -171,3 +171,111 @@ test('rejected cyclic or non-finite proposal is safely represented in the outcom
   assert.equal(logged.gravity, 'NaN');
   assert.equal(logged.self, '[Circular]');
 });
+
+test('checkpoint restores simulation, config, generation, tick and complete event journal', async () => {
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, String(value)); },
+    removeItem(key) { values.delete(key); },
+  };
+  const store = createSnapshotStore(storage);
+  const source = createWorldSession({
+    worldId: 'world-coordinated-restore',
+    initialConfig: { gravity: 1 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+  });
+  await source.proposeConfig({ gravity: 2 });
+  source.advanceTick();
+  source.recordEvent('world.tick-completed', { tick: 1 }, 'session.world');
+  const state = { positions: new Float32Array([1.5, 2.5, 3.5]) };
+  const saved = source.saveCheckpoint(store, {
+    simulationState: state,
+    prngState: { state: 99 },
+    fidelityPolicy: { mode: 'configured' },
+  });
+  assert.equal(saved.storage.status, 'saved');
+  assert.equal(saved.snapshot.journalEvents.length, 2);
+
+  const runtime = { config: { gravity: 0 }, state: { positions: new Float32Array([0]) } };
+  const target = createWorldSession({
+    worldId: 'world-coordinated-restore',
+    initialConfig: { gravity: 0 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+    applyConfig: async config => { runtime.config = structuredClone(config); },
+    restoreConfig: async config => { runtime.config = structuredClone(config); },
+  });
+  const restored = await target.restoreCheckpoint(store.load().snapshot, {
+    captureSimulationState: async () => structuredClone(runtime.state),
+    restoreSimulationState: async simulationState => { runtime.state = simulationState; },
+  });
+  assert.equal(restored.status, 'restored');
+  assert.equal(target.getSnapshot().tick, 1);
+  assert.equal(target.getSnapshot().generation, 1);
+  assert.deepEqual(target.getSnapshot().config, { gravity: 2 });
+  assert.deepEqual(target.getEvents().map(event => [event.type, event.sequence]), [
+    ['world.config-committed', 0],
+    ['world.tick-completed', 1],
+  ]);
+  assert.ok(runtime.state.positions instanceof Float32Array);
+  assert.deepEqual([...runtime.state.positions], [1.5, 2.5, 3.5]);
+  assert.deepEqual(runtime.config, { gravity: 2 });
+  target.recordEvent('world.after-restore', {}, 'test');
+  assert.equal(target.getEvents().at(-1).sequence, 2);
+});
+
+test('failed checkpoint restore rolls runtime and session metadata back', async () => {
+  const source = createWorldSession({
+    worldId: 'world-restore-rollback',
+    initialConfig: { gravity: 3 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+  });
+  await source.proposeConfig({ gravity: 8 });
+  source.advanceTick();
+  const checkpoint = source.createSnapshot({ simulationState: { particles: [8] } });
+
+  const runtime = { config: { gravity: 1 }, state: { particles: [1] } };
+  const target = createWorldSession({
+    worldId: 'world-restore-rollback',
+    initialConfig: { gravity: 1 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+    applyConfig: async config => { runtime.config = structuredClone(config); },
+    restoreConfig: async config => { runtime.config = structuredClone(config); },
+  });
+  const before = target.getSnapshot();
+  let firstRestore = true;
+  const result = await target.restoreCheckpoint(checkpoint, {
+    captureSimulationState: async () => structuredClone(runtime.state),
+    restoreSimulationState: async (state, context = {}) => {
+      if (firstRestore && !context.rollback) {
+        firstRestore = false;
+        throw new Error('simulated restore failure');
+      }
+      runtime.state = state;
+    },
+  });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reason, 'restore-failed');
+  assert.deepEqual(target.getSnapshot(), before);
+  assert.deepEqual(runtime.config, { gravity: 1 });
+  assert.deepEqual(runtime.state, { particles: [1] });
+});
+
+test('checkpoint with a missing or inconsistent journal is rejected before runtime mutation', async () => {
+  const session = createWorldSession({
+    worldId: 'world-invalid-journal',
+    initialConfig: { gravity: 1 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+  });
+  const checkpoint = session.createSnapshot({ simulationState: { particles: [1] } });
+  const invalid = { ...checkpoint, journalEvents: [{ nope: true }] };
+  const runtime = { config: { gravity: 1 }, state: { particles: [1] } };
+  const result = await session.restoreCheckpoint(invalid, {
+    captureSimulationState: async () => runtime.state,
+    restoreSimulationState: async state => { runtime.state = state; },
+  });
+  assert.equal(result.status, 'rejected');
+  assert.equal(result.reason, 'invalid-snapshot');
+  assert.deepEqual(runtime, { config: { gravity: 1 }, state: { particles: [1] } });
+});
+
