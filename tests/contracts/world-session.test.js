@@ -279,3 +279,30 @@ test('checkpoint with a missing or inconsistent journal is rejected before runti
   assert.deepEqual(runtime, { config: { gravity: 1 }, state: { particles: [1] } });
 });
 
+test('checkpoint capture failure does not invoke restore callbacks or mutate runtime', async () => {
+  const source = createWorldSession({
+    worldId: 'world-capture-failure',
+    initialConfig: { gravity: 2 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+  });
+  const checkpoint = source.createSnapshot({ simulationState: { particles: [2] } });
+  const runtime = { config: { gravity: 1 }, state: { particles: [1] } };
+  let restoreCalls = 0;
+  const target = createWorldSession({
+    worldId: 'world-capture-failure',
+    initialConfig: { gravity: 1 },
+    validateConfig: candidate => ({ valid: true, value: candidate }),
+    applyConfig: async config => { runtime.config = structuredClone(config); },
+    restoreConfig: async config => { restoreCalls++; runtime.config = structuredClone(config); },
+  });
+  const result = await target.restoreCheckpoint(checkpoint, {
+    captureSimulationState: async () => { throw new Error('capture unavailable'); },
+    restoreSimulationState: async state => { restoreCalls++; runtime.state = state; },
+  });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reason, 'capture-failed');
+  assert.equal(restoreCalls, 0);
+  assert.deepEqual(runtime, { config: { gravity: 1 }, state: { particles: [1] } });
+  assert.deepEqual(target.getSnapshot().config, { gravity: 1 });
+});
+
