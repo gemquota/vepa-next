@@ -17,7 +17,7 @@ const ui = {
  reset: document.querySelector('#resetBtn'), pause: document.querySelector('#pauseBtn'),
  save: document.querySelector('#saveBtn'), load: document.querySelector('#loadBtn'), checkpointStatus: document.querySelector('#checkpointStatus'),
  advancedLaws: document.querySelector('#advancedLawsBtn'), lawMatrixPanel: document.querySelector('#lawMatrixPanel'), lawMatrixRoot: document.querySelector('#lawMatrixRoot'),
- gravityLaw: document.querySelector('#gravityLaw'), dragLaw: document.querySelector('#dragLaw'), collisionLaw: document.querySelector('#collisionLaw'),
+ gravityLaw: document.querySelector('#gravityLaw'), dragLaw: document.querySelector('#dragLaw'), collisionLaw: document.querySelector('#collisionLaw'), chargeLaw: document.querySelector('#chargeLaw'),
 };
 
 const WORLD_SIZE = 2000;
@@ -27,7 +27,7 @@ let fpsStart = 0, frameCount = 0, lastStepAt = 0;
 let settingsQueue = Promise.resolve(), lawMatrix = null;
 
 function selectedLawIds() {
- return [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision'].filter(Boolean);
+ return [ui.gravityLaw.checked && 'law.gravity', ui.dragLaw.checked && 'law.drag', ui.collisionLaw.checked && 'law.collision', ui.chargeLaw.checked && 'law.charge'].filter(Boolean);
 }
 
 function resize() {
@@ -75,6 +75,7 @@ function syncControlsFromConfig(config) {
  ui.gravityLaw.checked = config.activeLawIds.includes('law.gravity');
  ui.dragLaw.checked = config.activeLawIds.includes('law.drag');
  ui.collisionLaw.checked = config.activeLawIds.includes('law.collision');
+ ui.chargeLaw.checked = config.activeLawIds.includes('law.charge');
  ui.speedOut.textContent = Number(ui.speed.value).toFixed(1) + '×';
  ui.strengthOut.textContent = Number(ui.strength.value).toFixed(1);
  lawMatrix?.setActiveIds(selectedLawIds());
@@ -86,6 +87,7 @@ function makeConfig() {
   boundaryMode: ui.boundary.value,
   dt: Number(ui.speed.value) * 0.2,
   gravitationalConstant: Number(ui.strength.value) * 250,
+  electricConstant: 50000,
   softening: 15,
   interactionRadius: WORLD_SIZE / 8,
   activeLawIds: selectedLawIds(),
@@ -97,7 +99,7 @@ function makeConfig() {
 function validateConfig(candidate) {
  try {
   const config = validateParticleExecutionConfig(candidate);
-  const unsupported = config.activeLawIds.filter(id => !['law.gravity', 'law.drag', 'law.collision'].includes(id));
+  const unsupported = config.activeLawIds.filter(id => !['law.gravity', 'law.drag', 'law.collision', 'law.charge'].includes(id));
   if (unsupported.length) return { valid: false, reason: 'prototype-solver-unsupported-laws:' + unsupported.join(',') };
   return { valid: true, value: config };
  } catch (error) {
@@ -263,7 +265,7 @@ ui.pause.addEventListener('click', () => {
 for (const [input, output, format] of [[ui.count, ui.countOut, value => value], [ui.strength, ui.strengthOut, value => Number(value).toFixed(1)], [ui.speed, ui.speedOut, value => Number(value).toFixed(1) + '×']]) {
  input.addEventListener('input', () => { output.textContent = format(input.value); if (input !== ui.count) void updateSettings(); });
 }
-for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw]) toggle.addEventListener('change', () => { lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); });
+for (const toggle of [ui.gravityLaw, ui.dragLaw, ui.collisionLaw, ui.chargeLaw]) toggle.addEventListener('change', () => { lawMatrix?.setActiveIds(selectedLawIds()); void updateSettings(); });
 ui.boundary.addEventListener('change', () => { void updateSettings(); });
 ui.advancedLaws.addEventListener('click', () => {
  const opening = ui.lawMatrixPanel.hidden;
@@ -275,7 +277,7 @@ lawMatrix = mountLawMatrix({
  root: ui.lawMatrixRoot,
  activeIds: selectedLawIds(),
  onToggle: (id, enabled) => {
-  const toggle = ({ 'law.gravity': ui.gravityLaw, 'law.drag': ui.dragLaw, 'law.collision': ui.collisionLaw })[id];
+  const toggle = ({ 'law.gravity': ui.gravityLaw, 'law.drag': ui.dragLaw, 'law.collision': ui.collisionLaw, 'law.charge': ui.chargeLaw })[id];
   if (!toggle) return;
   toggle.checked = enabled;
   lawMatrix?.setActiveIds(selectedLawIds());
