@@ -45,3 +45,16 @@ test('collision law activates positional contact correction', () => {
  stepParticleWorld(view, 2, { ...options, activeLawIds: ['law.collision'], gravitationalConstant: 0, resolveContacts: true, contactIterations: 4 });
  assert.ok(view[STRIDE + S.POS_X] - view[S.POS_X] > 4);
 });
+
+test('reflective boundary clamps position and reverses outward velocity', () => {
+ const view = pair(99, 50);
+ view[S.VEL_X] = 5;
+ const result = stepParticleWorld(view, 2, {
+  ...options,
+  boundaryMode: 'reflective',
+  activeLawIds: [],
+ });
+ assert.equal(result.boundaryMode, 'reflective');
+ assert.equal(view[S.POS_X], 100);
+ assert.equal(view[S.VEL_X], -5);
+});
