@@ -74,3 +74,14 @@ test('explicit Euler and semi-implicit Euler are selectable integration contract
   assert.ok(Math.abs(a.readState()[S.POS_X] - 10.2) < 1e-12);
   assert.ok(Math.abs(b.readState()[S.POS_X] - 10.22) < 1e-12);
 });
+
+test('adaptive displacement estimator incorporates modeled acceleration without claiming an ODE error bound', () => {
+  const v = state(), numerics = validateNumericsConfig({ adaptiveSubstepping: true,
+    maxDisplacementFraction: 0.25, maxSubsteps: 8 });
+  const result = chooseAdaptiveSubsteps({ view: v, count: 2, stride: STRIDE, slots: S,
+    dt: 0.5, interactionRadius: 20, numerics, maxAcceleration: 100 });
+  assert.equal(result.maxAcceleration, 100);
+  assert.equal(result.estimatedTravel, 32.5);
+  assert.equal(result.estimator, 'velocity-plus-modeled-pair-acceleration');
+  assert.ok(result.limitations.some(x => x.includes('not a local truncation-error')));
+});
