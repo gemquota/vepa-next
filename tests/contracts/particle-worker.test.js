@@ -7,3 +7,17 @@ function state() { const v=new Float64Array(2*STRIDE); for (const [i,x] of [[0,4
 const m=(id,type,payload)=>({protocolVersion:1,id,type,payload});
 test('worker initializes and advances particle state',async()=>{const h=setup();await h.send(m(1,'INIT',{initialState:state(),config:{worldSize:100,dt:1,interactionRadius:20,resolveContacts:false}}));assert.equal(h.messages[0].ok,true);await h.send(m(2,'STEP'));assert.equal(h.messages[1].payload.metrics.tick,1);assert.ok(h.messages[1].payload.renderState[0]>40);});
 test('worker reports invalid command order',async()=>{const h=setup();await h.send(m(1,'STEP'));assert.equal(h.messages[0].ok,false);assert.match(h.messages[0].error.message,/not initialized/);});
+
+test('worker exposes generation-aware particle lifecycle commands',async()=>{
+ const h=setup();
+ await h.send(m(1,'INIT',{initialState:state(),config:{worldSize:100,dt:1,interactionRadius:20,resolveContacts:false}}));
+ await h.send(m(2,'GET_PARTICLE_IDENTITY',{slot:0}));
+ assert.equal(h.messages[1].payload.id,'particle:0:1');
+ await h.send(m(3,'RETIRE_PARTICLE',{slot:0}));
+ assert.equal(h.messages[2].payload,true);
+ const values=new Float64Array(STRIDE); values[S.MASS]=2; values[S.RADIUS]=0.1;
+ await h.send(m(4,'ALLOCATE_PARTICLE',{slot:0,values:Array.from(values)}));
+ assert.equal(h.messages[3].payload.id,'particle:0:2');
+ await h.send(m(5,'SNAPSHOT'));
+ assert.equal(h.messages[4].payload.identityState.schema,'vepa.particle-identities');
+});
