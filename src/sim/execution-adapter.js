@@ -5,6 +5,7 @@ import { createParticleIdentityAllocator } from './particle-identities.js';
 import { applyV3BehaviorKernel } from './v3-behavior-kernel.js';
 import { validateAdvancedPhysicsConfig } from './advanced-physics.js';
 import { DEFAULT_NUMERICS_CONFIG, validateNumericsConfig, chooseAdaptiveSubsteps, measureParticleState } from './numerics.js';
+import { createEnergyLedger } from './energy-ledger.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
 
@@ -49,6 +50,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
 
   let state = new Float64Array(initialState);
   let tick = 0;
+  const energyAccounts = [['external', 'external-source', true], ['kinetic', 'kinetic', false], ['thermal', 'thermal', false], ['chemical', 'chemical-potential', false], ['gravitational-potential', 'gravitational-potential', true], ['electric-potential', 'electric-potential', true], ['magnetic-field', 'magnetic-field', false], ['radiation', 'radiation', false], ['dissipation', 'dissipation', false], ['deformation', 'deformation', false], ['rest-mass', 'rest-mass', false]];
+  let energyLedger = createEnergyLedger();
+  for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
   const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
   let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
   for (let i = 0; i < particleCount; i++) {
@@ -70,6 +74,13 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     get count() { return particleCount; },
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
+    createEnergyAccount(account) { return energyLedger.createAccount(account); },
+    transferEnergy(transfer) { return energyLedger.transfer({ ...transfer, tick: transfer.tick ?? tick }); },
+    transactEnergy(transfers) { return energyLedger.transact(transfers.map(transfer => ({ ...transfer, tick: transfer.tick ?? tick }))); },
+    getEnergyAccount(id) { return energyLedger.getAccount(id); },
+    getEnergySummary() { return energyLedger.summary(); },
+    auditEnergy() { return energyLedger.audit(); },
+    readEnergyEvents(options) { return energyLedger.listEvents(options); },
     nextRandom(domain, entityId) { return randomStreams.get(domain, entityId).next(); },
     getParticleIdentity(slot) { return particleIdentities.get(slot); },
     applyV3Behaviors(behaviorConfig, pairs = []) {
@@ -157,6 +168,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         }
       }
       tick++;
+      energyLedger.setTick(tick);
       return Object.freeze({
         tick, ...aggregate, substeps: subdivision.substeps,
         requestedSubsteps: subdivision.requestedSubsteps,
@@ -186,6 +198,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         config: copyConfig(activeConfig),
         randomState: randomStreams.snapshot(),
         identityState: particleIdentities.snapshot(),
+        energyLedger: energyLedger.createSnapshot(),
         state: new Float64Array(state),
       });
     },
@@ -193,6 +206,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       if (!snapshot || snapshot.layoutVersion !== PARTICLE_LAYOUT_VERSION || snapshot.stride !== stride || snapshot.count !== particleCount) throw new TypeError('Snapshot layout is incompatible with this execution adapter');
       validateState(snapshot.state, snapshot.tick);
       const nextConfig = validateParticleExecutionConfig(snapshot.config);
+      const nextEnergyLedger = snapshot.energyLedger ? createEnergyLedger({ snapshot: snapshot.energyLedger }) : createEnergyLedger({ tick: snapshot.tick });
       const nextRandomStreams = createDeterministicRandomStreams({
         seed: randomSeed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
@@ -206,6 +220,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       }
       randomStreams.restore(nextRandomStreams.snapshot());
       particleIdentities = nextIdentities;
+      energyLedger = nextEnergyLedger;
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
