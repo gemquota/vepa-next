@@ -2,6 +2,7 @@ import { PARTICLE_STRIDE, PARTICLE_SLOTS as S } from './particle-layout.js';
 import { createSpatialGrid, insertParticle, queryNeighborsOrAll } from './spatial-grid.js';
 import { resolveParticleContacts } from './contact-constraints.js';
 import { applyExtendedLaws } from './extended-laws.js';
+import { applyAdvancedPhysics } from './advanced-physics.js';
 
 const WRAP_MODES = new Set(['toroidal', 'reflective']);
 function wrapPosition(value, size) { return ((value % size) + size) % size; }
@@ -32,6 +33,7 @@ export function stepParticleWorld(view, count, {
   bondStrength = 2,
   bondDamping = 0.15,
   slots = S,
+  advancedPhysics = null,
 } = {}) {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
@@ -148,6 +150,12 @@ export function stepParticleWorld(view, count, {
     accretionRadiusMultiplier, bondStrength, bondDamping, slots,
   });
 
+  const advancedMetrics = applyAdvancedPhysics(view, alive, acceleration, candidates, (x, y, z) => {
+    const result = query(x, y, z);
+    if (result.usedFallback) fallbackQueries++;
+    return result;
+  }, { stride, worldSize, boundaryMode, dt, slots, advancedPhysics });
+
   // Accretion can retire particles, so rebuild the integration list before applying velocities.
   const activeAfterLaws = [];
   for (let i = 0; i < count; i++) {
@@ -183,5 +191,5 @@ export function stepParticleWorld(view, count, {
   if (resolveContacts && activeLawIds.includes('law.collision') && maxRadius > 0 && activeAfterLaws.length > 1 && contactIterations > 0) {
     resolveParticleContacts(view, count, stride, worldSize, boundaryMode === 'toroidal', contactIterations, slots);
   }
-  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode });
+  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode, advancedPhysics: advancedMetrics });
 }
