@@ -11,11 +11,72 @@ import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
 import { createForceWorkJournal } from './force-work-journal.js';
 import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from './periodic-images.js';
+import { calculateEwaldSystem } from './periodic-ewald.js';
 
-function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
+
+function estimateModeledPairAcceleration(state, count, stride, config) {
+  const slots = PARTICLE_SLOTS, alive = [];
+  for (let i = 0; i < count; i++) {
+    const b = i * stride;
+    if (state[b + slots.DEAD] < 0.5 && state[b + slots.MASS] > 0) alive.push(i);
+  }
+  const acceleration = new Float64Array(count * 3);
+  if (config.periodicMode === 'ewald') {
+    const particles = alive.map(i => {
+      const b=i*stride;
+      return { id:'slot:'+i, position:[state[b+slots.POS_X],state[b+slots.POS_Y],state[b+slots.POS_Z]],
+        mass:state[b+slots.MASS], charge:Number.isFinite(state[b+slots.CHARGE])?state[b+slots.CHARGE]:0 };
+    });
+    const common={boxSize:config.worldSize,alpha:config.ewald.alpha??5/config.worldSize,
+      realShell:config.ewald.realShell??2,reciprocalShell:config.ewald.reciprocalShell??5};
+    if(config.activeLawIds.includes('law.gravity')&&config.gravitationalConstant>0&&particles.length>1){
+      const r=calculateEwaldSystem({...common,particles:particles.map(p=>({id:p.id,position:p.position,charge:p.mass})),
+        coupling:-config.gravitationalConstant,neutrality:'uniform-background'});
+      r.forces.forEach((f,n)=>{const i=alive[n],m=particles[n].mass;for(let k=0;k<3;k++)acceleration[i*3+k]+=f.force[k]/m;});
+    }
+    const charged=particles.filter(p=>p.charge!==0);
+    if(config.activeLawIds.includes('law.charge')&&config.electricConstant>0&&charged.length>1){
+      const r=calculateEwaldSystem({...common,particles:charged.map(p=>({id:p.id,position:p.position,charge:p.charge})),
+        coupling:config.electricConstant,neutrality:config.ewald.electricNeutrality??'require',
+        neutralityTolerance:config.ewald.neutralityTolerance??1e-10});
+      r.forces.forEach(f=>{const n=particles.findIndex(p=>p.id===f.entityId),i=alive[n],m=particles[n].mass;for(let k=0;k<3;k++)acceleration[i*3+k]+=f.force[k]/m;});
+    }
+  } else {
+    const size=config.worldSize, radius2=config.interactionRadius**2, soft2=config.softening**2;
+    for(let a=0;a<alive.length;a++)for(let b=a+1;b<alive.length;b++){
+      const i=alive[a],j=alive[b],ai=i*stride,bj=j*stride;
+      let dx=state[bj+slots.POS_X]-state[ai+slots.POS_X],dy=state[bj+slots.POS_Y]-state[ai+slots.POS_Y],dz=state[bj+slots.POS_Z]-state[ai+slots.POS_Z];
+      if(config.boundaryMode==='toroidal'){
+        if(dx>size/2)dx-=size;else if(dx< -size/2)dx+=size;
+        if(dy>size/2)dy-=size;else if(dy< -size/2)dy+=size;
+        if(dz>size/2)dz-=size;else if(dz< -size/2)dz+=size;
+      }
+      const r2=dx*dx+dy*dy+dz*dz;
+      if(r2===0||r2>radius2)continue;
+      const den=Math.pow(r2+soft2,1.5),r=Math.sqrt(r2);
+      const correction=config.cutoffMode==='shifted-force'?1-config.interactionRadius*den/(r*Math.pow(radius2+soft2,1.5)):1;
+      if(config.activeLawIds.includes('law.gravity')&&config.gravitationalConstant>0){
+        const mi=state[ai+slots.MASS],mj=state[bj+slots.MASS],f=config.gravitationalConstant*correction/den;
+        for(let k=0;k<3;k++){const d=[dx,dy,dz][k];acceleration[i*3+k]+=d*f*mj;acceleration[j*3+k]-=d*f*mi;}
+      }
+      if(config.activeLawIds.includes('law.charge')&&config.electricConstant>0){
+        const qi=Number.isFinite(state[ai+slots.CHARGE])?state[ai+slots.CHARGE]:0;
+        const qj=Number.isFinite(state[bj+slots.CHARGE])?state[bj+slots.CHARGE]:0;
+        if(qi&&qj){const mi=state[ai+slots.MASS],mj=state[bj+slots.MASS],f=config.electricConstant*qi*qj*correction/den;
+          for(let k=0;k<3;k++){const d=[dx,dy,dz][k];acceleration[i*3+k]-=d*f/mi;acceleration[j*3+k]+=d*f/mj;}}
+      }
+    }
+  }
+  let maximum=0;
+  for(const i of alive)maximum=Math.max(maximum,Math.hypot(acceleration[i*3],acceleration[i*3+1],acceleration[i*3+2]));
+  return maximum;
+}
+
+function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), ewald: { ...value.ewald }, numerics: { ...value.numerics } }; }
 
 export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
+  if (!['minimum-image','ewald'].includes(config.periodicMode ?? 'minimum-image')) throw new RangeError('Invalid periodicMode');
   if (!['hard','shifted-force'].includes(config.cutoffMode ?? 'hard')) throw new RangeError('Invalid cutoffMode');
   if (!['toroidal', 'reflective'].includes(config.boundaryMode)) throw new RangeError('Invalid boundaryMode');
   if (!Array.isArray(config.activeLawIds) || config.activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(config.activeLawIds).size !== config.activeLawIds.length) throw new TypeError('activeLawIds must be unique non-empty strings');
@@ -26,7 +87,12 @@ export function validateParticleExecutionConfig(config) {
   if (!['dissipation', 'thermal'].includes(config.dragEnergyDestination ?? 'dissipation')) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
-  config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
+  const ewald = { ...(config.ewald ?? {}) };
+  if (!Number.isInteger(ewald.realShell ?? 2) || (ewald.realShell ?? 2) < 0 || (ewald.realShell ?? 2) > 6 || !Number.isInteger(ewald.reciprocalShell ?? 5) || (ewald.reciprocalShell ?? 5) < 1 || (ewald.reciprocalShell ?? 5) > 16) throw new RangeError('Invalid Ewald truncation settings');
+  if (ewald.alpha !== undefined && (!Number.isFinite(ewald.alpha) || ewald.alpha <= 0)) throw new RangeError('ewald.alpha must be positive and finite');
+  if (!['require','uniform-background'].includes(ewald.electricNeutrality ?? 'require')) throw new RangeError('Invalid Ewald electric neutrality policy');
+  if ((config.periodicMode ?? 'minimum-image') === 'ewald' && (config.boundaryMode !== 'toroidal' || config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.advancedPhysics != null || config.activeLawIds.includes('law.collision'))) throw new RangeError('Ewald mode requires toroidal boundaries and only gravity/charge laws');
+  config = { ...config, ewald, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
   if (config.numerics.integrator === 'velocity-verlet' &&
       (config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.boundaryMode !== 'toroidal' || config.advancedPhysics !== null)) {
     throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws with toroidal boundaries');
@@ -128,6 +194,8 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         worldSize: activeConfig.worldSize,
         interactionRadius: activeConfig.interactionRadius,
         cutoffMode: activeConfig.cutoffMode,
+        periodicMode: activeConfig.periodicMode,
+        ewald: activeConfig.ewald,
         softening: activeConfig.softening,
         gravitationalConstant: activeConfig.gravitationalConstant,
         electricConstant: activeConfig.electricConstant,
@@ -217,13 +285,15 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       // Always retain a tick checkpoint: state and its transfer journal commit together.
       const beforeState = new Float64Array(state);
       const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
+      const maxAcceleration = activeConfig.numerics.adaptiveSubstepping
+        ? estimateModeledPairAcceleration(state, particleCount, stride, activeConfig) : 0;
       const subdivision = chooseAdaptiveSubsteps({
         view: state, count: particleCount, stride, slots: PARTICLE_SLOTS,
         dt: activeConfig.dt, interactionRadius: activeConfig.interactionRadius,
-        numerics: activeConfig.numerics,
+        numerics: activeConfig.numerics, maxAcceleration,
       });
       const subDt = activeConfig.dt / subdivision.substeps;
-      let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0,
+      let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0, periodicDiagnostics: null,
         boundaryMode: activeConfig.boundaryMode,
         advancedPhysics: { pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 }, energyTransferCount: 0 };
       const pendingEnergyTransfers = [];
@@ -244,6 +314,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           aggregate.interactions += metrics.interactions;
           aggregate.fallbackQueries += metrics.fallbackQueries;
           aggregate.gridDimension = metrics.gridDimension;
+          aggregate.periodicDiagnostics = metrics.periodicDiagnostics;
           aggregate.energyTransferCount = pendingEnergyTransfers.length;
           for (const key of Object.keys(aggregate.advancedPhysics)) aggregate.advancedPhysics[key] += metrics.advancedPhysics[key] ?? 0;
           if (activeConfig.numerics.rollbackOnNonFinite) measureParticleState(state, particleCount, stride, PARTICLE_SLOTS);
@@ -300,6 +371,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         requestedSubsteps: subdivision.requestedSubsteps,
         stabilityLimited: subdivision.stabilityLimited,
         maxSpeedBefore: subdivision.maxSpeed,
+        maxAccelerationBefore: subdivision.maxAcceleration,
         ...(before && after ? {
           diagnostics: Object.freeze({
             kineticEnergyBefore: before.kineticEnergy,
