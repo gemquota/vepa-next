@@ -71,6 +71,6 @@ test('explicit Euler and semi-implicit Euler are selectable integration contract
     activeLawIds: [], advancedPhysics: { radiation: { enabled: true, direction: [1, 0, 0], pressure: 2 } }, numerics: { integrator: 'semi-implicit-euler' },
   } });
   a.step(); b.step();
-  assert.equal(a.readState()[S.POS_X], 10);
-  assert.ok(Math.abs(b.readState()[S.POS_X] - 10.02) < 1e-12);
+  assert.ok(Math.abs(a.readState()[S.POS_X] - 10.2) < 1e-12);
+  assert.ok(Math.abs(b.readState()[S.POS_X] - 10.22) < 1e-12);
 });
