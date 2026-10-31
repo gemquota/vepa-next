@@ -4,8 +4,9 @@ import { createDeterministicRandomStreams } from '../core/random-streams.js';
 import { createParticleIdentityAllocator } from './particle-identities.js';
 import { applyV3BehaviorKernel } from './v3-behavior-kernel.js';
 import { validateAdvancedPhysicsConfig } from './advanced-physics.js';
+import { DEFAULT_NUMERICS_CONFIG, validateNumericsConfig, chooseAdaptiveSubsteps, measureParticleState } from './numerics.js';
 
-function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics) }; }
+function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
 
 export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
@@ -17,7 +18,7 @@ export function validateParticleExecutionConfig(config) {
   if (config.worldSize <= 0 || config.dt <= 0 || config.gravitationalConstant < 0 || config.electricConstant < 0 || config.dragCoefficient < 0 || config.softening <= 0 || config.interactionRadius <= 0 || config.interactionRadius > config.worldSize / 2) throw new RangeError('Invalid physics configuration range');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
-  config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null) };
+  config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
   return copyConfig(config);
 }
 
@@ -36,6 +37,7 @@ const DEFAULT_CONFIG = Object.freeze({
   resolveContacts: true,
   contactIterations: 2,
   advancedPhysics: null,
+  numerics: DEFAULT_NUMERICS_CONFIG,
 });
 
 /** In-process authoritative execution adapter; designed to be mirrored by a future Worker adapter. */
@@ -118,7 +120,35 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       return copyConfig(activeConfig);
     },
     step() {
-      const metrics = stepParticleWorld(state, particleCount, { ...activeConfig, stride, slots: PARTICLE_SLOTS });
+      const beforeState = activeConfig.numerics.rollbackOnNonFinite ? new Float64Array(state) : null;
+      const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
+      const subdivision = chooseAdaptiveSubsteps({
+        view: state, count: particleCount, stride, slots: PARTICLE_SLOTS,
+        dt: activeConfig.dt, interactionRadius: activeConfig.interactionRadius,
+        numerics: activeConfig.numerics,
+      });
+      const subDt = activeConfig.dt / subdivision.substeps;
+      let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0,
+        boundaryMode: activeConfig.boundaryMode,
+        advancedPhysics: { pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 } };
+      try {
+        for (let stepIndex = 0; stepIndex < subdivision.substeps; stepIndex++) {
+          const metrics = stepParticleWorld(state, particleCount, {
+            ...activeConfig, dt: subDt, integrator: activeConfig.numerics.integrator,
+            stride, slots: PARTICLE_SLOTS,
+          });
+          aggregate.liveCount = metrics.liveCount;
+          aggregate.interactions += metrics.interactions;
+          aggregate.fallbackQueries += metrics.fallbackQueries;
+          aggregate.gridDimension = metrics.gridDimension;
+          for (const key of Object.keys(aggregate.advancedPhysics)) aggregate.advancedPhysics[key] += metrics.advancedPhysics[key] ?? 0;
+          if (activeConfig.numerics.rollbackOnNonFinite) measureParticleState(state, particleCount, stride, PARTICLE_SLOTS);
+        }
+      } catch (error) {
+        if (beforeState) state = beforeState;
+        throw error;
+      }
+      const after = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
       for (let i = 0; i < particleCount; i++) {
         const identity = particleIdentities.get(i);
         const base = i * stride;
@@ -127,7 +157,25 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         }
       }
       tick++;
-      return Object.freeze({ tick, ...metrics });
+      return Object.freeze({
+        tick, ...aggregate, substeps: subdivision.substeps,
+        requestedSubsteps: subdivision.requestedSubsteps,
+        stabilityLimited: subdivision.stabilityLimited,
+        maxSpeedBefore: subdivision.maxSpeed,
+        ...(before && after ? {
+          diagnostics: Object.freeze({
+            kineticEnergyBefore: before.kineticEnergy,
+            kineticEnergyAfter: after.kineticEnergy,
+            kineticEnergyDelta: after.kineticEnergy - before.kineticEnergy,
+            momentumBefore: before.momentum,
+            momentumAfter: after.momentum,
+            momentumDelta: Object.freeze(after.momentum.map((value, i) => value - before.momentum[i])),
+            maxSpeedAfter: after.maxSpeed,
+            liveCountBefore: before.liveCount,
+            liveCountAfter: after.liveCount,
+          }),
+        } : {}),
+      });
     },
     createSnapshot() {
       return Object.freeze({
