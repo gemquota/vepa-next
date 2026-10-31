@@ -27,7 +27,12 @@ export function validateParticleExecutionConfig(config) {
   if (!['dissipation', 'thermal'].includes(config.dragEnergyDestination ?? 'dissipation')) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
-  const ewald = { ...(config.ewald ?? {}) };\n  if (!Number.isInteger(ewald.realShell ?? 2) || (ewald.realShell ?? 2) < 0 || (ewald.realShell ?? 2) > 6 || !Number.isInteger(ewald.reciprocalShell ?? 5) || (ewald.reciprocalShell ?? 5) < 1 || (ewald.reciprocalShell ?? 5) > 16) throw new RangeError('Invalid Ewald truncation settings');\n  if (ewald.alpha !== undefined && (!Number.isFinite(ewald.alpha) || ewald.alpha <= 0)) throw new RangeError('ewald.alpha must be positive and finite');\n  if (!['require','uniform-background'].includes(ewald.electricNeutrality ?? 'require')) throw new RangeError('Invalid Ewald electric neutrality policy');\n  if ((config.periodicMode ?? 'minimum-image') === 'ewald' && (config.boundaryMode !== 'toroidal' || config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.advancedPhysics != null || config.activeLawIds.includes('law.collision'))) throw new RangeError('Ewald mode requires toroidal boundaries and only gravity/charge laws');\n  config = { ...config, ewald, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
+  const ewald = { ...(config.ewald ?? {}) };
+  if (!Number.isInteger(ewald.realShell ?? 2) || (ewald.realShell ?? 2) < 0 || (ewald.realShell ?? 2) > 6 || !Number.isInteger(ewald.reciprocalShell ?? 5) || (ewald.reciprocalShell ?? 5) < 1 || (ewald.reciprocalShell ?? 5) > 16) throw new RangeError('Invalid Ewald truncation settings');
+  if (ewald.alpha !== undefined && (!Number.isFinite(ewald.alpha) || ewald.alpha <= 0)) throw new RangeError('ewald.alpha must be positive and finite');
+  if (!['require','uniform-background'].includes(ewald.electricNeutrality ?? 'require')) throw new RangeError('Invalid Ewald electric neutrality policy');
+  if ((config.periodicMode ?? 'minimum-image') === 'ewald' && (config.boundaryMode !== 'toroidal' || config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.advancedPhysics != null || config.activeLawIds.includes('law.collision'))) throw new RangeError('Ewald mode requires toroidal boundaries and only gravity/charge laws');
+  config = { ...config, ewald, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
   if (config.numerics.integrator === 'velocity-verlet' &&
       (config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.boundaryMode !== 'toroidal' || config.advancedPhysics !== null)) {
     throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws with toroidal boundaries');
@@ -246,7 +251,8 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           aggregate.liveCount = metrics.liveCount;
           aggregate.interactions += metrics.interactions;
           aggregate.fallbackQueries += metrics.fallbackQueries;
-          aggregate.gridDimension = metrics.gridDimension;\n          aggregate.periodicDiagnostics = metrics.periodicDiagnostics;
+          aggregate.gridDimension = metrics.gridDimension;
+          aggregate.periodicDiagnostics = metrics.periodicDiagnostics;
           aggregate.energyTransferCount = pendingEnergyTransfers.length;
           for (const key of Object.keys(aggregate.advancedPhysics)) aggregate.advancedPhysics[key] += metrics.advancedPhysics[key] ?? 0;
           if (activeConfig.numerics.rollbackOnNonFinite) measureParticleState(state, particleCount, stride, PARTICLE_SLOTS);
