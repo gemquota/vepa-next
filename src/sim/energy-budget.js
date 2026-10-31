@@ -117,7 +117,7 @@ export function calculateEnergyBudget(view, count, {
   const kinetic = sum(kineticTerms), gravitationalPotential = sum(gravityTerms), electricPotential = sum(electricTerms);
   return Object.freeze({
     schema: ENERGY_BUDGET_SCHEMA, version: ENERGY_BUDGET_VERSION,
-    unitSystem: p.unitSystem, units: p.units, boundaryMode: p.boundaryMode,
+    unitSystem: p.unitSystem, units: p.units, boundaryMode: p.boundaryMode, profile: p,
     tickIndependent: true, particleCount: alive.length,
     components: Object.freeze({ kinetic, gravitationalPotential, electricPotential }),
     total: sum([kinetic, gravitationalPotential, electricPotential]),
@@ -136,7 +136,7 @@ export function compareEnergyBudgets(before, after, { externalWork = 0, modeledI
   if (!before || !after || before.schema !== ENERGY_BUDGET_SCHEMA || after.schema !== ENERGY_BUDGET_SCHEMA) throw new TypeError('before and after must be energy budget results');
   finite(externalWork, 'externalWork'); finite(modeledInternalTransfers, 'modeledInternalTransfers');
   positive(tolerance, 'tolerance', true);
-  if (before.unitSystem !== after.unitSystem || before.units.energy !== after.units.energy) throw new TypeError('Energy budgets use incompatible units');
+  if (before.unitSystem !== after.unitSystem || before.units.energy !== after.units.energy || JSON.stringify(before.profile) !== JSON.stringify(after.profile)) throw new TypeError('Energy budgets use incompatible units or physical profiles');
   const delta = after.total - before.total;
   const unexplainedResidual = delta - externalWork - modeledInternalTransfers;
   return Object.freeze({
