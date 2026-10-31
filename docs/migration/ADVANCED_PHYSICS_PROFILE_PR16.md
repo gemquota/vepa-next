@@ -45,7 +45,7 @@ runtime.configure({ advancedPhysics });
 - The profile contains plain serializable data and is carried by the execution adapter snapshot/configuration path.
 - Pair calculations use the solver's authoritative spatial-neighbor query and fail closed if a query is incomplete.
 - SPH pressure/viscosity, collision impulses and thermal conduction use pairwise symmetric exchanges. Radiation pressure and magnetic fields are explicit external fields/sources.
-- Phase-change latent heat is debited from the particle's energy slot; the phase marker is stored in the existing phase slot.
+- Phase-change latent heat is transferred from sensible energy to the stored-energy slot and released again on the reverse transition; phase markers use the existing phase slot. Pair chemistry transfers energy between stored chemical energy and sensible heat, rather than creating enthalpy from nothing.
 - Chemistry and nuclear reaction rules are explicit user-authored rules. This is a configurable simulation model, not a claim of validated real-world reaction kinetics, quantum chemistry, nuclear cross sections, or full thermodynamic closure.
 - This PR does not yet implement mutual gravity, adaptive timestep subdivision, a full chemical species database, fission fragment allocation, Maxwell-field evolution, or a full 3D fluid free-surface solver. Those require further solver/data-model work and reference fixtures.
 - Existing world configurations remain valid because `advancedPhysics` defaults to null.
