@@ -149,3 +149,46 @@ export function compareEnergyBudgets(before, after, { externalWork = 0, modeledI
       : 'Residual remains unexplained; it is not automatically corrected or attributed to a physical cause',
   });
 }
+
+
+/** Bounded, snapshotable audit history. Entries are append-only and tick ordered. */
+export function createEnergyBudgetTimeline({ capacity = 4096, snapshot = null } = {}) {
+  if (!Number.isInteger(capacity) || capacity < 1) throw new RangeError('timeline capacity must be a positive integer');
+  let entries = [];
+  if (snapshot !== null) {
+    if (!snapshot || snapshot.schema !== ENERGY_BUDGET_SCHEMA || snapshot.version !== ENERGY_BUDGET_VERSION ||
+        !Array.isArray(snapshot.entries) || snapshot.entries.length > capacity) throw new TypeError('Invalid energy budget timeline snapshot');
+    let lastTick = -1;
+    entries = snapshot.entries.map(entry => {
+      if (!Number.isInteger(entry.tick) || entry.tick < 0 || entry.tick <= lastTick ||
+          !entry.budget || entry.budget.schema !== ENERGY_BUDGET_SCHEMA) throw new TypeError('Invalid energy budget timeline entry');
+      lastTick = entry.tick;
+      return Object.freeze(structuredClone(entry));
+    });
+  }
+  function append({ tick, budget, comparison = null, provenance = null }) {
+    if (!Number.isInteger(tick) || tick < 0) throw new RangeError('tick must be a non-negative integer');
+    if (!budget || budget.schema !== ENERGY_BUDGET_SCHEMA) throw new TypeError('budget must be an energy budget result');
+    if (entries.length && tick <= entries[entries.length - 1].tick) throw new RangeError('timeline ticks must increase strictly');
+    if (entries.length >= capacity) throw new RangeError('Energy budget timeline capacity exceeded');
+    if (provenance !== null && (typeof provenance !== 'object' || Array.isArray(provenance))) throw new TypeError('provenance must be an object or null');
+    const entry = Object.freeze({ tick, budget: structuredClone(budget), comparison: comparison === null ? null : structuredClone(comparison),
+      provenance: provenance === null ? null : structuredClone(provenance) });
+    entries.push(entry);
+    return entry;
+  }
+  function snapshotState() {
+    return Object.freeze({ schema: ENERGY_BUDGET_SCHEMA, version: ENERGY_BUDGET_VERSION,
+      entries: Object.freeze(entries.map(entry => Object.freeze(structuredClone(entry)))) });
+  }
+  return Object.freeze({
+    append,
+    list({ afterTick = -1 } = {}) {
+      if (!Number.isInteger(afterTick) || afterTick < -1) throw new RangeError('afterTick must be an integer >= -1');
+      return Object.freeze(entries.filter(entry => entry.tick > afterTick).map(entry => Object.freeze(structuredClone(entry))));
+    },
+    latest() { return entries.length ? Object.freeze(structuredClone(entries[entries.length - 1])) : null; },
+    createSnapshot: snapshotState,
+    exportJSON() { return JSON.stringify(snapshotState(), null, 2); },
+  });
+}
