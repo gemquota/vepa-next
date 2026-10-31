@@ -290,7 +290,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const subdivision = chooseAdaptiveSubsteps({
         view: state, count: particleCount, stride, slots: PARTICLE_SLOTS,
         dt: activeConfig.dt, interactionRadius: activeConfig.interactionRadius,
-        numerics: activeConfig.numerics,
+        numerics: activeConfig.numerics, maxAcceleration,
       });
       const subDt = activeConfig.dt / subdivision.substeps;
       let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0, periodicDiagnostics: null,
