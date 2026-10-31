@@ -90,3 +90,31 @@ test('execution adapter applies opt-in V3 behavior mutations with checkpointed i
  const snapshot = runtime.createSnapshot();
  assert.equal(snapshot.identityState.active.filter(Boolean).length, 2);
 });
+
+test('energy ledger is integrated into adapter snapshots and advances with simulation ticks', () => {
+ const runtime = createParticleExecutionAdapter({ initialState: initial(), config });
+ runtime.transferEnergy({ source: 'external', destination: 'thermal', amount: 4, cause: 'initial-heating' });
+ runtime.step();
+ assert.equal(runtime.getEnergySummary().tick, 1);
+ assert.equal(runtime.getEnergyAccount('thermal').balance, 4);
+ const snapshot = runtime.createSnapshot();
+ assert.equal(snapshot.energyLedger.version, 1);
+ const restored = createParticleExecutionAdapter({ initialState: initial(), config });
+ restored.restoreSnapshot(snapshot);
+ assert.deepEqual(restored.getEnergySummary(), runtime.getEnergySummary());
+ assert.deepEqual(restored.readEnergyEvents(), runtime.readEnergyEvents());
+ restored.transferEnergy({ source: 'external', destination: 'kinetic', amount: 2, cause: 'external-work' });
+ assert.equal(restored.getEnergyAccount('kinetic').balance, 2);
+});
+
+test('adapter rejects an invalid energy transaction without changing ledger or particle state', () => {
+ const runtime = createParticleExecutionAdapter({ initialState: initial(), config });
+ const before = runtime.readState();
+ assert.throws(() => runtime.transactEnergy([
+  { source: 'external', destination: 'thermal', amount: 2, cause: 'valid' },
+  { source: 'thermal', destination: 'kinetic', amount: 3, cause: 'invalid' },
+ ]), /Insufficient/);
+ assert.equal(runtime.getEnergyAccount('thermal').balance, 0);
+ assert.equal(runtime.readEnergyEvents().length, 0);
+ assert.deepEqual(runtime.readState(), before);
+});
