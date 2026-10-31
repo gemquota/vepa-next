@@ -11,6 +11,66 @@ import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
 import { createForceWorkJournal } from './force-work-journal.js';
 import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from './periodic-images.js';
+import { calculateEwaldSystem } from './periodic-ewald.js';
+
+
+function estimateModeledPairAcceleration(state, count, stride, config) {
+  const slots = PARTICLE_SLOTS, alive = [];
+  for (let i = 0; i < count; i++) {
+    const b = i * stride;
+    if (state[b + slots.DEAD] < 0.5 && state[b + slots.MASS] > 0) alive.push(i);
+  }
+  const acceleration = new Float64Array(count * 3);
+  if (config.periodicMode === 'ewald') {
+    const particles = alive.map(i => {
+      const b=i*stride;
+      return { id:'slot:'+i, position:[state[b+slots.POS_X],state[b+slots.POS_Y],state[b+slots.POS_Z]],
+        mass:state[b+slots.MASS], charge:Number.isFinite(state[b+slots.CHARGE])?state[b+slots.CHARGE]:0 };
+    });
+    const common={boxSize:config.worldSize,alpha:config.ewald.alpha??5/config.worldSize,
+      realShell:config.ewald.realShell??2,reciprocalShell:config.ewald.reciprocalShell??5};
+    if(config.activeLawIds.includes('law.gravity')&&config.gravitationalConstant>0&&particles.length>1){
+      const r=calculateEwaldSystem({...common,particles:particles.map(p=>({id:p.id,position:p.position,charge:p.mass})),
+        coupling:-config.gravitationalConstant,neutrality:'uniform-background'});
+      r.forces.forEach((f,n)=>{const i=alive[n],m=particles[n].mass;for(let k=0;k<3;k++)acceleration[i*3+k]+=f.force[k]/m;});
+    }
+    const charged=particles.filter(p=>p.charge!==0);
+    if(config.activeLawIds.includes('law.charge')&&config.electricConstant>0&&charged.length>1){
+      const r=calculateEwaldSystem({...common,particles:charged.map(p=>({id:p.id,position:p.position,charge:p.charge})),
+        coupling:config.electricConstant,neutrality:config.ewald.electricNeutrality??'require',
+        neutralityTolerance:config.ewald.neutralityTolerance??1e-10});
+      r.forces.forEach(f=>{const n=particles.findIndex(p=>p.id===f.entityId),i=alive[n],m=particles[n].mass;for(let k=0;k<3;k++)acceleration[i*3+k]+=f.force[k]/m;});
+    }
+  } else {
+    const size=config.worldSize, radius2=config.interactionRadius**2, soft2=config.softening**2;
+    for(let a=0;a<alive.length;a++)for(let b=a+1;b<alive.length;b++){
+      const i=alive[a],j=alive[b],ai=i*stride,bj=j*stride;
+      let dx=state[bj+slots.POS_X]-state[ai+slots.POS_X],dy=state[bj+slots.POS_Y]-state[ai+slots.POS_Y],dz=state[bj+slots.POS_Z]-state[ai+slots.POS_Z];
+      if(config.boundaryMode==='toroidal'){
+        if(dx>size/2)dx-=size;else if(dx< -size/2)dx+=size;
+        if(dy>size/2)dy-=size;else if(dy< -size/2)dy+=size;
+        if(dz>size/2)dz-=size;else if(dz< -size/2)dz+=size;
+      }
+      const r2=dx*dx+dy*dy+dz*dz;
+      if(r2===0||r2>radius2)continue;
+      const den=Math.pow(r2+soft2,1.5),r=Math.sqrt(r2);
+      const correction=config.cutoffMode==='shifted-force'?1-config.interactionRadius*den/(r*Math.pow(radius2+soft2,1.5)):1;
+      if(config.activeLawIds.includes('law.gravity')&&config.gravitationalConstant>0){
+        const mi=state[ai+slots.MASS],mj=state[bj+slots.MASS],f=config.gravitationalConstant*correction/den;
+        for(let k=0;k<3;k++){const d=[dx,dy,dz][k];acceleration[i*3+k]+=d*f*mj;acceleration[j*3+k]-=d*f*mi;}
+      }
+      if(config.activeLawIds.includes('law.charge')&&config.electricConstant>0){
+        const qi=Number.isFinite(state[ai+slots.CHARGE])?state[ai+slots.CHARGE]:0;
+        const qj=Number.isFinite(state[bj+slots.CHARGE])?state[bj+slots.CHARGE]:0;
+        if(qi&&qj){const mi=state[ai+slots.MASS],mj=state[bj+slots.MASS],f=config.electricConstant*qi*qj*correction/den;
+          for(let k=0;k<3;k++){const d=[dx,dy,dz][k];acceleration[i*3+k]-=d*f/mi;acceleration[j*3+k]+=d*f/mj;}}
+      }
+    }
+  }
+  let maximum=0;
+  for(const i of alive)maximum=Math.max(maximum,Math.hypot(acceleration[i*3],acceleration[i*3+1],acceleration[i*3+2]));
+  return maximum;
+}
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), ewald: { ...value.ewald }, numerics: { ...value.numerics } }; }
 
@@ -225,7 +285,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       // Always retain a tick checkpoint: state and its transfer journal commit together.
       const beforeState = new Float64Array(state);
       const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
-      const subdivision = chooseAdaptiveSubsteps({
+      const maxAcceleration = activeConfig.numerics.adaptiveSubstepping\n        ? estimateModeledPairAcceleration(state, particleCount, stride, activeConfig) : 0;\n      const subdivision = chooseAdaptiveSubsteps({
         view: state, count: particleCount, stride, slots: PARTICLE_SLOTS,
         dt: activeConfig.dt, interactionRadius: activeConfig.interactionRadius,
         numerics: activeConfig.numerics,
