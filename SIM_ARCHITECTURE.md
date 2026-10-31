@@ -82,6 +82,14 @@ No simulation-critical code may call ambient `Math.random()` or use wall-clock t
 
 The repository now runs `scripts/check-sim-boundaries.mjs` as part of `npm run check`. It rejects ambient `Math.random()`, wall-clock reads and DOM/window references in the deterministic `core`, `sim` and `state` layers, and checks the declared import direction between core, simulation and state modules. The check is intentionally conservative and currently covers JavaScript source under `src/`; it does not yet prove complete dependency closure, detect every dynamic import pattern, validate all domain payload schemas or enforce the full legacy application boundary. Its latest CI run passed at commit `d5fae63d62c3550a1238407f180ffb4d9936b6b8`.
 
+## Legacy V3 particle-buffer migration
+
+- `src/sim/v3-particle-migration.js` accepts only an explicit V3 64-slot interleaved particle buffer and a particle count, then returns a new Float64Array in the current 100-slot layout.
+- Offsets 0–63 are copied unchanged. This preserves the 42 cached per-particle DNA values at offsets 8–49 and the remaining legacy particle fields. Appended offsets 64–99 are initialized to zero; this is an initialization policy, not a reconstruction of newer state.
+- The adapter rejects unsupported typed arrays, incorrect lengths, invalid particle counts and non-finite values. It does not mutate the source.
+- This adapter does not migrate the separate species-level packed DNA buffer, law bitmasks, world configuration, PRNG state, worker lifecycle or snapshot/save envelopes. Those require independent versioned contracts and source fixtures. In particular, the V3 worker's 42 named DNA traits must not be conflated with the current 64-trait species genome schema.
+- Contract tests cover slot preservation, multi-particle offsets, cached DNA, zero defaults, immutability and invalid inputs. Full V3 save compatibility and stable physics parity remain unverified.
+
 ## Checkpoint serialization and recovery
 
 - `src/state/snapshot.js` defines the versioned `vepa.world-snapshot` envelope. Schema v2 canonicalizes object keys, checks finite numeric values, detects accidental corruption with a non-cryptographic checksum, and encodes supported numeric typed arrays as tagged JSON arrays that `restoreSnapshotValue` can reconstruct.
