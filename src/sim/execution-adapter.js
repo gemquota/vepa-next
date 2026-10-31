@@ -371,6 +371,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         requestedSubsteps: subdivision.requestedSubsteps,
         stabilityLimited: subdivision.stabilityLimited,
         maxSpeedBefore: subdivision.maxSpeed,
+        maxAccelerationBefore: subdivision.maxAcceleration,
         ...(before && after ? {
           diagnostics: Object.freeze({
             kineticEnergyBefore: before.kineticEnergy,
