@@ -214,7 +214,8 @@ export function stepParticleWorld(view, count, {
         view[b + slot] = afterWrap;
       }
       else if (view[b + slot] < 0 || view[b + slot] > worldSize) {
-        const lower = view[b + slot] < 0;
+        const beforePosition = view[b + slot];
+        const lower = beforePosition < 0;
         const wall = lower ? 0 : worldSize;
         const velocitySlot = slot === slots.POS_X ? slots.VEL_X : slot === slots.POS_Y ? slots.VEL_Y : slots.VEL_Z;
         const beforeVelocity = view[b + velocitySlot];
@@ -226,7 +227,7 @@ export function stepParticleWorld(view, count, {
         view[b + velocitySlot] = afterVelocity;
         if (boundaryEvents) boundaryEvents.push({
           kind: 'reflective-wall-impulse', worldId, entityId, substepIndex, particleIndex: i,
-          axis, wall: lower ? 'lower' : 'upper', positionBefore: view[b + slot],
+          axis, wall: lower ? 'lower' : 'upper', positionBefore: beforePosition,
           impulse: mass * (afterVelocity - beforeVelocity),
           kineticEnergyDelta: 0.5 * mass * (afterVelocity * afterVelocity - beforeVelocity * beforeVelocity),
           work: 0,
