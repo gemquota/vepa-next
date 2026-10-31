@@ -52,3 +52,31 @@ test('keyed random draws are repeatable and included in checkpoints', () => {
  assert.deepEqual(Array.from({ length: 8 }, () => restored.nextRandom('mutation', 'particle-1')), expected);
  assert.equal(checkpoint.randomState.schema, 'vepa.random-streams');
 });
+
+test('particle identities survive checkpoints and change when a slot is reused', () => {
+ const runtime = createParticleExecutionAdapter({ initialState: initial(), config });
+ const first = runtime.getParticleIdentity(0);
+ assert.equal(first.id, 'particle:0:1');
+ assert.equal(runtime.retireParticle(0), true);
+ const values = new Float64Array(STRIDE);
+ values[S.MASS] = 2;
+ values[S.RADIUS] = 0.1;
+ values[S.DEAD] = 0;
+ const second = runtime.allocateParticle(0, values);
+ assert.equal(second.id, 'particle:0:2');
+ assert.equal(runtime.getParticleIdentity(0).id, second.id);
+ const snapshot = runtime.createSnapshot();
+ const restored = createParticleExecutionAdapter({ initialState: initial(), config });
+ restored.restoreSnapshot(snapshot);
+ assert.equal(restored.getParticleIdentity(0).id, second.id);
+ assert.equal(restored.retireParticle(0), true);
+ assert.equal(restored.retireParticle(0), false);
+});
+
+test('particle allocation validates the complete live slot before mutation', () => {
+ const runtime = createParticleExecutionAdapter({ initialState: initial(), config });
+ const before = runtime.readState();
+ assert.throws(() => runtime.allocateParticle(0, new Float64Array(STRIDE)), /already alive/);
+ assert.throws(() => runtime.allocateParticle(1, [1, 2]), /exactly stride/);
+ assert.deepEqual(runtime.readState(), before);
+});
