@@ -40,6 +40,7 @@ test('biology and chemistry draw shapes match the audited source ordering', () =
   const chaos = r.chaosGate('p');
   assert.equal(typeof chaos.gate, 'number');
   assert.equal(chaos.vector().length, 3);
+  assert.throws(() => chaos.vector(), /already been consumed/);
   assert.equal(typeof r.allotropy('p1', 'p2'), 'number');
   assert.equal(typeof r.phaseThrough('p1', 'p2'), 'number');
   assert.equal(r.exothermicHeat('p1', 'p2').length, 2);
