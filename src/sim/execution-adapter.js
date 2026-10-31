@@ -17,6 +17,7 @@ export function validateParticleExecutionConfig(config) {
     if (!Number.isFinite(config[key])) throw new RangeError(key + ' must be finite');
   }
   if (config.worldSize <= 0 || config.dt <= 0 || config.gravitationalConstant < 0 || config.electricConstant < 0 || config.dragCoefficient < 0 || config.softening <= 0 || config.interactionRadius <= 0 || config.interactionRadius > config.worldSize / 2) throw new RangeError('Invalid physics configuration range');
+  if (!['dissipation', 'thermal'].includes(config.dragEnergyDestination ?? 'dissipation')) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
   config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG = Object.freeze({
   resolveContacts: true,
   contactIterations: 2,
   advancedPhysics: null,
+  dragEnergyDestination: 'dissipation',
   numerics: DEFAULT_NUMERICS_CONFIG,
 });
 
@@ -131,7 +133,8 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       return copyConfig(activeConfig);
     },
     step() {
-      const beforeState = activeConfig.numerics.rollbackOnNonFinite ? new Float64Array(state) : null;
+      // Always retain a tick checkpoint: state and its transfer journal commit together.
+      const beforeState = new Float64Array(state);
       const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
       const subdivision = chooseAdaptiveSubsteps({
         view: state, count: particleCount, stride, slots: PARTICLE_SLOTS,
@@ -141,25 +144,52 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const subDt = activeConfig.dt / subdivision.substeps;
       let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0,
         boundaryMode: activeConfig.boundaryMode,
-        advancedPhysics: { pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 } };
+        advancedPhysics: { pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 }, energyTransferCount: 0 };
+      const pendingEnergyTransfers = [];
       try {
         for (let stepIndex = 0; stepIndex < subdivision.substeps; stepIndex++) {
           const metrics = stepParticleWorld(state, particleCount, {
             ...activeConfig, dt: subDt, integrator: activeConfig.numerics.integrator,
-            stride, slots: PARTICLE_SLOTS,
+            stride, slots: PARTICLE_SLOTS, energyTransfers: pendingEnergyTransfers,
           });
           aggregate.liveCount = metrics.liveCount;
           aggregate.interactions += metrics.interactions;
           aggregate.fallbackQueries += metrics.fallbackQueries;
           aggregate.gridDimension = metrics.gridDimension;
+          aggregate.energyTransferCount = pendingEnergyTransfers.length;
           for (const key of Object.keys(aggregate.advancedPhysics)) aggregate.advancedPhysics[key] += metrics.advancedPhysics[key] ?? 0;
           if (activeConfig.numerics.rollbackOnNonFinite) measureParticleState(state, particleCount, stride, PARTICLE_SLOTS);
         }
       } catch (error) {
-        if (beforeState) state = beforeState;
+        state = beforeState;
         throw error;
       }
-      const after = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
+      let after = null;
+      try {
+        after = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
+        if (pendingEnergyTransfers.length) {
+          // These are signed flow accounts, not claims about complete physical inventories.
+          // The event journal is the authoritative provenance record for each subsystem transfer.
+          const accountIds = new Set();
+          for (const transfer of pendingEnergyTransfers) {
+            accountIds.add(transfer.source);
+            accountIds.add(transfer.destination);
+          }
+          for (const id of [...accountIds].sort()) {
+            try { energyLedger.getAccount(id); }
+            catch {
+              const type = id.split(':', 1)[0] || 'unclassified';
+              energyLedger.createAccount({ id, type, allowNegative: true });
+            }
+          }
+          energyLedger.transact(pendingEnergyTransfers.map(transfer => ({
+            ...transfer, tick,
+          })));
+        }
+      } catch (error) {
+        state = beforeState;
+        throw error;
+      }
       for (let i = 0; i < particleCount; i++) {
         const identity = particleIdentities.get(i);
         const base = i * stride;

@@ -35,6 +35,8 @@ export function stepParticleWorld(view, count, {
   slots = S,
   advancedPhysics = null,
   integrator = 'semi-implicit-euler',
+  energyTransfers = null,
+  dragEnergyDestination = 'dissipation',
 } = {}) {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
@@ -48,6 +50,8 @@ export function stepParticleWorld(view, count, {
       !Number.isFinite(interactionRadius) || interactionRadius <= 0 || interactionRadius > worldSize / 2) {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
   }
+  if (energyTransfers !== null && !Array.isArray(energyTransfers)) throw new TypeError('energyTransfers must be an array or null');
+  if (!['dissipation', 'thermal'].includes(dragEnergyDestination)) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
   if (!['explicit-euler', 'semi-implicit-euler'].includes(integrator)) throw new RangeError('integrator must be explicit-euler or semi-implicit-euler');
   if (!Array.isArray(activeLawIds) || activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(activeLawIds).size !== activeLawIds.length) {
@@ -156,7 +160,7 @@ export function stepParticleWorld(view, count, {
     const result = query(x, y, z);
     if (result.usedFallback) fallbackQueries++;
     return result;
-  }, { stride, worldSize, boundaryMode, dt, slots, advancedPhysics });
+  }, { stride, worldSize, boundaryMode, dt, slots, advancedPhysics, energyTransfers });
 
   // Accretion can retire particles, so rebuild the integration list before applying velocities.
   const activeAfterLaws = [];
@@ -171,8 +175,19 @@ export function stepParticleWorld(view, count, {
     view[b + slots.VEL_Y] += acceleration[a + 1] * dt;
     view[b + slots.VEL_Z] += acceleration[a + 2] * dt;
     if (activeLawIds.includes('law.drag') && dragCoefficient > 0) {
+      const beforeDrag = 0.5 * view[b + slots.MASS] * (
+        view[b + slots.VEL_X] ** 2 + view[b + slots.VEL_Y] ** 2 + view[b + slots.VEL_Z] ** 2);
       const damping = Math.exp(-dragCoefficient * dt);
       view[b + slots.VEL_X] *= damping; view[b + slots.VEL_Y] *= damping; view[b + slots.VEL_Z] *= damping;
+      const afterDrag = 0.5 * view[b + slots.MASS] * (
+        view[b + slots.VEL_X] ** 2 + view[b + slots.VEL_Y] ** 2 + view[b + slots.VEL_Z] ** 2);
+      const dissipated = beforeDrag - afterDrag;
+      if (energyTransfers && dissipated > 0) energyTransfers.push({
+        source: 'kinetic:particle:' + i,
+        destination: dragEnergyDestination + ':particle:' + i,
+        amount: dissipated, cause: 'drag-dissipation',
+        metadata: { particleIndex: i, destination: dragEnergyDestination },
+      });
     }
     const positionVx = integrator === 'explicit-euler' ? oldVx : view[b + slots.VEL_X];
     const positionVy = integrator === 'explicit-euler' ? oldVy : view[b + slots.VEL_Y];
@@ -197,5 +212,5 @@ export function stepParticleWorld(view, count, {
   if (resolveContacts && activeLawIds.includes('law.collision') && maxRadius > 0 && activeAfterLaws.length > 1 && contactIterations > 0) {
     resolveParticleContacts(view, count, stride, worldSize, boundaryMode === 'toroidal', contactIterations, slots);
   }
-  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode, advancedPhysics: advancedMetrics });
+  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode, advancedPhysics: advancedMetrics, energyTransfers: energyTransfers?.length ?? 0 });
 }
