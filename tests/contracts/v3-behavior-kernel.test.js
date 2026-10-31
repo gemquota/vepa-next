@@ -39,7 +39,7 @@ test('reproduction allocates a new generation and initializes a live child', () 
   f.state[2 * PARTICLE_STRIDE + S.DEAD] = 1;
   f.state[2 * PARTICLE_STRIDE + S.MASS] = 0;
   f.identities.release(f.identities.get(2));
-  const result = applyV3BehaviorKernel({ ...f, dt:1, config:{ features:{ reproduction:true }, parameters:{ spawnRate:1, worldWidth:100, worldHeight:100, worldDepth:100 } } });
+  const result = applyV3BehaviorKernel({ ...f, dt:1, config:{ features:{ reproduction:true }, parameters:{ spawnRate:100, worldWidth:100, worldHeight:100, worldDepth:100 } } });
   assert.equal(result.applied.reproduction, 1);
   assert.equal(f.identities.get(2).id, 'particle:2:2');
   assert.equal(f.state[2 * PARTICLE_STRIDE + S.DEAD], 0);
