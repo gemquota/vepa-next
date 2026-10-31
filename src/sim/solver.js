@@ -34,6 +34,7 @@ export function stepParticleWorld(view, count, {
   bondDamping = 0.15,
   slots = S,
   advancedPhysics = null,
+  integrator = 'semi-implicit-euler',
 } = {}) {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
@@ -48,6 +49,7 @@ export function stepParticleWorld(view, count, {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
   }
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
+  if (!['explicit-euler', 'semi-implicit-euler'].includes(integrator)) throw new RangeError('integrator must be explicit-euler or semi-implicit-euler');
   if (!Array.isArray(activeLawIds) || activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(activeLawIds).size !== activeLawIds.length) {
     throw new TypeError('activeLawIds must be a unique array of non-empty strings');
   }
@@ -164,6 +166,7 @@ export function stepParticleWorld(view, count, {
   }
   for (const i of activeAfterLaws) {
     const b = i * stride, a = i * 3;
+    const oldVx = view[b + slots.VEL_X], oldVy = view[b + slots.VEL_Y], oldVz = view[b + slots.VEL_Z];
     view[b + slots.VEL_X] += acceleration[a] * dt;
     view[b + slots.VEL_Y] += acceleration[a + 1] * dt;
     view[b + slots.VEL_Z] += acceleration[a + 2] * dt;
@@ -171,9 +174,12 @@ export function stepParticleWorld(view, count, {
       const damping = Math.exp(-dragCoefficient * dt);
       view[b + slots.VEL_X] *= damping; view[b + slots.VEL_Y] *= damping; view[b + slots.VEL_Z] *= damping;
     }
-    view[b + slots.POS_X] += view[b + slots.VEL_X] * dt;
-    view[b + slots.POS_Y] += view[b + slots.VEL_Y] * dt;
-    view[b + slots.POS_Z] += view[b + slots.VEL_Z] * dt;
+    const positionVx = integrator === 'explicit-euler' ? oldVx : view[b + slots.VEL_X];
+    const positionVy = integrator === 'explicit-euler' ? oldVy : view[b + slots.VEL_Y];
+    const positionVz = integrator === 'explicit-euler' ? oldVz : view[b + slots.VEL_Z];
+    view[b + slots.POS_X] += positionVx * dt;
+    view[b + slots.POS_Y] += positionVy * dt;
+    view[b + slots.POS_Z] += positionVz * dt;
     for (const slot of [slots.POS_X, slots.POS_Y, slots.POS_Z]) {
       if (boundaryMode === 'toroidal') view[b + slot] = wrapPosition(view[b + slot], worldSize);
       else if (view[b + slot] < 0) {
