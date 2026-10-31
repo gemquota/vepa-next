@@ -2,6 +2,7 @@ import { PARTICLE_LAYOUT_VERSION, PARTICLE_STRIDE, PARTICLE_SLOTS } from './part
 import { stepParticleWorld } from './solver.js';
 import { createDeterministicRandomStreams } from '../core/random-streams.js';
 import { createParticleIdentityAllocator } from './particle-identities.js';
+import { applyV3BehaviorKernel } from './v3-behavior-kernel.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds] }; }
 
@@ -66,6 +67,14 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     getConfig() { return copyConfig(activeConfig); },
     nextRandom(domain, entityId) { return randomStreams.get(domain, entityId).next(); },
     getParticleIdentity(slot) { return particleIdentities.get(slot); },
+    applyV3Behaviors(behaviorConfig, pairs = []) {
+      return applyV3BehaviorKernel({
+        state, count: particleCount, stride, dt: activeConfig.dt,
+        identities: particleIdentities, streams: randomStreams,
+        worldId: behaviorConfig?.worldId ?? 'world',
+        config: behaviorConfig, pairs,
+      });
+    },
     allocateParticle(slot, values) {
       if (!Number.isInteger(slot) || slot < 0 || slot >= particleCount) throw new RangeError('particle slot is outside execution capacity');
       if (!ArrayBuffer.isView(values) && !Array.isArray(values)) throw new TypeError('particle values must be an array or typed array');
