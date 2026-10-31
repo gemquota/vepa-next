@@ -90,6 +90,14 @@ The repository now runs `scripts/check-sim-boundaries.mjs` as part of `npm run c
 - This adapter does not migrate the separate species-level packed DNA buffer, law bitmasks, world configuration, PRNG state, worker lifecycle or snapshot/save envelopes. Those require independent versioned contracts and source fixtures. In particular, the V3 worker's 42 named DNA traits must not be conflated with the current 64-trait species genome schema.
 - Contract tests cover slot preservation, multi-particle offsets, cached DNA, zero defaults, immutability and invalid inputs. Full V3 save compatibility and stable physics parity remain unverified.
 
+## Legacy V3 species-DNA migration
+
+- The V3 species DNA adapter accepts a packed Uint16Array and explicit species count. Each species record is 64 uint16 values, matching the V3 worker addressing. The pinned V3 source does not declare a canonical species-buffer capacity, so missing counts and non-exact lengths are rejected.
+- The 42 shared traits keep their indices. Two semantic ranges changed: trait 29 (base radius, V3 0.5–10; current 0.2–4) and trait 33 (magnetic moment, V3 0–1; current -1–1). These are decoded to floats and re-encoded rather than copied raw.
+- Traits 42–63 receive current schema defaults. This is an explicit defaulting policy, not historical reconstruction.
+- Tests cover unchanged trait preservation, both range conversions, appended defaults, multiple species, source immutability and malformed inputs. Fixtures are synthetic: the pinned V3 repository does not contain a canonical app-side allocator, preset or save fixture establishing capacity.
+- This adapter does not migrate species metadata, particle state, law state, PRNG state or world save envelopes.
+
 ## Checkpoint serialization and recovery
 
 - `src/state/snapshot.js` defines the versioned `vepa.world-snapshot` envelope. Schema v2 canonicalizes object keys, checks finite numeric values, detects accidental corruption with a non-cryptographic checksum, and encodes supported numeric typed arrays as tagged JSON arrays that `restoreSnapshotValue` can reconstruct.
