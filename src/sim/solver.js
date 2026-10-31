@@ -37,6 +37,10 @@ export function stepParticleWorld(view, count, {
   integrator = 'semi-implicit-euler',
   energyTransfers = null,
   dragEnergyDestination = 'dissipation',
+  boundaryEvents = null,
+  entityIds = null,
+  worldId = 'world',
+  substepIndex = 0,
 } = {}) {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
@@ -51,6 +55,9 @@ export function stepParticleWorld(view, count, {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
   }
   if (energyTransfers !== null && !Array.isArray(energyTransfers)) throw new TypeError('energyTransfers must be an array or null');
+  if (boundaryEvents !== null && !Array.isArray(boundaryEvents)) throw new TypeError('boundaryEvents must be an array or null');
+  if (typeof worldId !== 'string' || !worldId || !Number.isInteger(substepIndex) || substepIndex < 0) throw new TypeError('Invalid solver evidence identity');
+  if (entityIds !== null && (!Array.isArray(entityIds) || entityIds.length < count || entityIds.some((id, i) => i < count && (typeof id !== 'string' || !id)))) throw new TypeError('entityIds must contain stable non-empty identities for every particle');
   if (!['dissipation', 'thermal'].includes(dragEnergyDestination)) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
   if (!['explicit-euler', 'semi-implicit-euler'].includes(integrator)) throw new RangeError('integrator must be explicit-euler or semi-implicit-euler');
@@ -196,15 +203,34 @@ export function stepParticleWorld(view, count, {
     view[b + slots.POS_Y] += positionVy * dt;
     view[b + slots.POS_Z] += positionVz * dt;
     for (const slot of [slots.POS_X, slots.POS_Y, slots.POS_Z]) {
-      if (boundaryMode === 'toroidal') view[b + slot] = wrapPosition(view[b + slot], worldSize);
-      else if (view[b + slot] < 0) {
-        view[b + slot] = 0;
+      if (boundaryMode === 'toroidal') {
+        const beforeWrap = view[b + slot];
+        const afterWrap = wrapPosition(beforeWrap, worldSize);
+        if (afterWrap !== beforeWrap && boundaryEvents) boundaryEvents.push({
+          kind: 'toroidal-wrap', worldId, entityId: entityIds?.[i] ?? 'slot:' + i,
+          substepIndex, particleIndex: i, axis: slot === slots.POS_X ? 'x' : slot === slots.POS_Y ? 'y' : 'z',
+          positionBefore: beforeWrap, positionAfter: afterWrap, work: 0,
+        });
+        view[b + slot] = afterWrap;
+      }
+      else if (view[b + slot] < 0 || view[b + slot] > worldSize) {
+        const lower = view[b + slot] < 0;
+        const wall = lower ? 0 : worldSize;
         const velocitySlot = slot === slots.POS_X ? slots.VEL_X : slot === slots.POS_Y ? slots.VEL_Y : slots.VEL_Z;
-        view[b + velocitySlot] = Math.abs(view[b + velocitySlot]);
-      } else if (view[b + slot] > worldSize) {
-        view[b + slot] = worldSize;
-        const velocitySlot = slot === slots.POS_X ? slots.VEL_X : slot === slots.POS_Y ? slots.VEL_Y : slots.VEL_Z;
-        view[b + velocitySlot] = -Math.abs(view[b + velocitySlot]);
+        const beforeVelocity = view[b + velocitySlot];
+        const afterVelocity = lower ? Math.abs(beforeVelocity) : -Math.abs(beforeVelocity);
+        const mass = view[b + slots.MASS];
+        const axis = slot === slots.POS_X ? 'x' : slot === slots.POS_Y ? 'y' : 'z';
+        const entityId = entityIds?.[i] ?? 'slot:' + i;
+        view[b + slot] = wall;
+        view[b + velocitySlot] = afterVelocity;
+        if (boundaryEvents) boundaryEvents.push({
+          kind: 'reflective-wall-impulse', worldId, entityId, substepIndex, particleIndex: i,
+          axis, wall: lower ? 'lower' : 'upper', positionBefore: view[b + slot],
+          impulse: mass * (afterVelocity - beforeVelocity),
+          kineticEnergyDelta: 0.5 * mass * (afterVelocity * afterVelocity - beforeVelocity * beforeVelocity),
+          work: 0,
+        });
       }
     }
   }
