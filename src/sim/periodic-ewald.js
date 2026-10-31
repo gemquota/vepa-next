@@ -60,7 +60,7 @@ export function calculateEwaldSystem(options={}){
       const d=[pi.position[0]-pj.position[0]-ix*L,pi.position[1]-pj.position[1]-iy*L,pi.position[2]-pj.position[2]-iz*L];
       const r2=d[0]**2+d[1]**2+d[2]**2;
       if(r2===0)throw new RangeError('coincident particles are unsupported by point-particle Ewald');
-      const r=Math.sqrt(r2), e=Math.exp(-(a*r)**2), c=erfc(a*r);
+      const r=Math.sqrt(r2), e=Math.exp(-Math.pow(a*r,2)), c=erfc(a*r);
       realEnergy.push(K*q*c/r);
       const f=K*q*(c/(r2*r)+pref*e/r2);
       for(let axis=0;axis<3;axis++){forces[i][axis]+=f*d[axis];forces[j][axis]-=f*d[axis];}
