@@ -1,4 +1,5 @@
 import { PARTICLE_SLOTS as S, PARTICLE_STRIDE } from './particle-layout.js';
+import { calculateEwaldSystem } from './periodic-ewald.js';
 
 export const ENERGY_BUDGET_SCHEMA = 'vepa.energy-budget';
 export const ENERGY_BUDGET_VERSION = 1;
@@ -34,6 +35,8 @@ export function validateEnergyBudgetProfile(profile = {}) {
     worldSize: profile.worldSize ?? 2000,
     interactionRadius: profile.interactionRadius ?? 250,
     cutoffMode: profile.cutoffMode ?? 'hard',
+    periodicMode: profile.periodicMode ?? 'minimum-image',
+    ewald: { ...(profile.ewald ?? {}) },
     softening: profile.softening ?? 1,
     gravitationalConstant: profile.gravitationalConstant ?? 1,
     electricConstant: profile.electricConstant ?? 50000,
@@ -45,6 +48,8 @@ export function validateEnergyBudgetProfile(profile = {}) {
   if (profile.version !== undefined && profile.version !== ENERGY_BUDGET_VERSION) throw new TypeError('Unsupported energy budget version');
   if (typeof p.unitSystem !== 'string' || !p.unitSystem.trim()) throw new TypeError('unitSystem must be a non-empty label');
   for (const key of ['length', 'mass', 'time', 'charge', 'energy']) if (typeof p.units[key] !== 'string' || !p.units[key].trim()) throw new TypeError('units.' + key + ' must be a non-empty label');
+  if (!['minimum-image','ewald'].includes(p.periodicMode)) throw new RangeError('Unsupported periodic mode');
+  if (p.periodicMode === 'ewald' && p.boundaryMode !== 'toroidal') throw new RangeError('Ewald energy audit requires toroidal boundaries');
   if (!['hard','shifted-force'].includes(p.cutoffMode)) throw new RangeError('Unsupported cutoff mode');
   if (!['toroidal', 'reflective'].includes(p.boundaryMode)) throw new RangeError('Unsupported energy audit boundary mode');
   positive(p.worldSize, 'worldSize'); positive(p.interactionRadius, 'interactionRadius');
@@ -87,6 +92,48 @@ export function calculateEnergyBudget(view, count, {
     if (mass < 0) throw new RangeError('particle mass cannot be negative');
     kineticTerms.push(0.5 * mass * (vx * vx + vy * vy + vz * vz));
     alive.push(i);
+  }
+  if (p.periodicMode === 'ewald') {
+    const e = p.ewald;
+    const common = { boxSize: p.worldSize, alpha: e.alpha ?? 5 / p.worldSize,
+      realShell: e.realShell ?? 2, reciprocalShell: e.reciprocalShell ?? 5 };
+    const particles = alive.map(i => {
+      const b = i * stride;
+      return { id: 'slot:' + i, position: [view[b + slots.POS_X], view[b + slots.POS_Y], view[b + slots.POS_Z]],
+        mass: view[b + slots.MASS], charge: Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0 };
+    });
+    let gravitationalPotential = 0, electricPotential = 0, periodicAssumptions = [];
+    if (gravity && particles.length > 1) {
+      const result = calculateEwaldSystem({ ...common,
+        particles: particles.map(x => ({ id: x.id, position: x.position, charge: x.mass })),
+        coupling: -p.gravitationalConstant, neutrality: 'uniform-background' });
+      gravitationalPotential = result.components.total;
+      periodicAssumptions.push('Gravity uses periodic Poisson with uniform mean-density subtraction');
+    }
+    const charged = particles.filter(x => x.charge !== 0);
+    if (electric && charged.length > 1) {
+      const result = calculateEwaldSystem({ ...common,
+        particles: charged.map(x => ({ id: x.id, position: x.position, charge: x.charge })),
+        coupling: p.electricConstant, neutrality: e.electricNeutrality ?? 'require',
+        neutralityTolerance: e.neutralityTolerance ?? 1e-10 });
+      electricPotential = result.components.total;
+      periodicAssumptions.push('Electrostatics uses the selected neutrality/background convention');
+    }
+    const kinetic = sum(kineticTerms);
+    return Object.freeze({
+      schema: ENERGY_BUDGET_SCHEMA, version: ENERGY_BUDGET_VERSION,
+      unitSystem: p.unitSystem, units: p.units, boundaryMode: p.boundaryMode, profile: p,
+      tickIndependent: true, particleCount: alive.length,
+      components: Object.freeze({ kinetic, gravitationalPotential, electricPotential }),
+      total: sum([kinetic, gravitationalPotential, electricPotential]),
+      assumptions: Object.freeze([
+        'Kinetic energy uses live particle mass and velocity slots',
+        'Periodic Ewald point-particle 1/r model; no softening or finite cutoff',
+        'Real and reciprocal truncations are empirical; no rigorous error bound is asserted',
+        ...periodicAssumptions,
+        'Other non-conservative and extended physics accounts are not inferred',
+      ]),
+    });
   }
   const gravityTerms = [], electricTerms = [];
   const cutoff2 = p.interactionRadius * p.interactionRadius;
