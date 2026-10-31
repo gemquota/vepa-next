@@ -39,3 +39,15 @@ test('coincident particles and unsupported truncations fail closed',()=>{
  assert.throws(()=>calculateEwaldSystem({...base,particles:[{id:'a',charge:1,position:[1,1,1]},{id:'b',charge:-1,position:[1,1,1]}]}),/coincident/i);
  assert.throws(()=>calculateEwaldSystem({...neutral,reciprocalShell:17}),/reciprocalShell/i);
 });
+
+test('structure-factor reciprocal forces preserve zero net internal force for multi-particle systems',()=>{
+ const r=calculateEwaldSystem({...base,particles:[
+  {id:'a',charge:1,position:[1,2,3]},
+  {id:'b',charge:-0.4,position:[4,5,6]},
+  {id:'c',charge:-0.6,position:[7,3,2]},
+ ]});
+ const net=r.forces.reduce((sum,x)=>sum.map((v,k)=>v+x.force[k]),[0,0,0]);
+ assert.ok(net.every(v=>Math.abs(v)<1e-10));
+ assert.equal(r.reciprocalVectorIdentities.length,r.reciprocalVectorCount);
+ assert.ok(r.realImageIdentities.every(x=>typeof x.image==='string'));
+});
