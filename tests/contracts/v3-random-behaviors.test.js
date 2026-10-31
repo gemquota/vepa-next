@@ -37,7 +37,9 @@ test('biology and chemistry draw shapes match the audited source ordering', () =
   assert.equal(r.meltJitter('p').length, 3);
   assert.equal(r.boilJitter('p').length, 3);
   assert.equal(r.intrinsicJitter('p').length, 3);
-  assert.equal(r.chaosPerturbation('p').vector.length, 3);
+  const chaos = r.chaosGate('p');
+  assert.equal(typeof chaos.gate, 'number');
+  assert.equal(chaos.vector().length, 3);
   assert.equal(typeof r.allotropy('p1', 'p2'), 'number');
   assert.equal(typeof r.phaseThrough('p1', 'p2'), 'number');
   assert.equal(r.exothermicHeat('p1', 'p2').length, 2);
