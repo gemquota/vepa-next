@@ -52,8 +52,8 @@ test('snapshot restore preserves active identities and future generations', () =
     schema: PARTICLE_IDENTITY_SCHEMA,
     version: 1,
     capacity: 3,
-    generations: [1, 2, 0],
-    active: [true, true, false],
+    generations: [1, 0, 2],
+    active: [true, false, true],
   });
 });
 
