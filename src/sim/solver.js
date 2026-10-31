@@ -23,6 +23,7 @@ export function stepParticleWorld(view, count, {
   dragCoefficient = 0.015,
   softening = 1,
   interactionRadius = worldSize / 8,
+  cutoffMode = 'hard',
   activeLawIds = ['law.gravity'],
   resolveContacts = true,
   contactIterations = 2,
@@ -55,6 +56,7 @@ export function stepParticleWorld(view, count, {
       !Number.isFinite(interactionRadius) || interactionRadius <= 0 || interactionRadius > worldSize / 2) {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
   }
+  if (!['hard','shifted-force'].includes(cutoffMode)) throw new RangeError('cutoffMode must be hard or shifted-force');
   if (energyTransfers !== null && !Array.isArray(energyTransfers)) throw new TypeError('energyTransfers must be an array or null');
   if (boundaryEvents !== null && !Array.isArray(boundaryEvents)) throw new TypeError('boundaryEvents must be an array or null');
   if (forceWorkEvents !== null && !Array.isArray(forceWorkEvents)) throw new TypeError('forceWorkEvents must be an array or null');
@@ -124,8 +126,9 @@ export function stepParticleWorld(view, count, {
         const chargeB = Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0;
         if (chargeA === 0 || chargeB === 0) continue;
         const denominator = Math.pow(distanceSquared + softening * softening, 1.5);
-        const factorA = -electricConstant * chargeA * chargeB / (view[a + slots.MASS] * denominator);
-        const factorB = electricConstant * chargeA * chargeB / (view[b + slots.MASS] * denominator);
+        const cutoffCorrection = cutoffMode === 'shifted-force' ? 1 - interactionRadius * denominator / (Math.sqrt(distanceSquared) * Math.pow(interactionRadius * interactionRadius + softening * softening, 1.5)) : 1;
+        const factorA = -electricConstant * chargeA * chargeB * cutoffCorrection / (view[a + slots.MASS] * denominator);
+        const factorB = electricConstant * chargeA * chargeB * cutoffCorrection / (view[b + slots.MASS] * denominator);
         acceleration[i * 3] += dx * factorA; acceleration[i * 3 + 1] += dy * factorA; acceleration[i * 3 + 2] += dz * factorA;
         acceleration[j * 3] += dx * factorB; acceleration[j * 3 + 1] += dy * factorB; acceleration[j * 3 + 2] += dz * factorB;
         forcePairs.push({ law: 'electric', i, j, dx, dy, dz, distanceSquared,
@@ -153,8 +156,9 @@ export function stepParticleWorld(view, count, {
         if (distanceSquared === 0 || distanceSquared > interactionRadius * interactionRadius) continue;
         const denominator = Math.pow(distanceSquared + softening * softening, 1.5);
         const massA = view[a + slots.MASS], massB = view[b + slots.MASS];
-        const factorA = gravitationalConstant * massB / denominator;
-        const factorB = gravitationalConstant * massA / denominator;
+        const cutoffCorrection = cutoffMode === 'shifted-force' ? 1 - interactionRadius * denominator / (Math.sqrt(distanceSquared) * Math.pow(interactionRadius * interactionRadius + softening * softening, 1.5)) : 1;
+        const factorA = gravitationalConstant * massB * cutoffCorrection / denominator;
+        const factorB = gravitationalConstant * massA * cutoffCorrection / denominator;
         acceleration[i * 3] += dx * factorA; acceleration[i * 3 + 1] += dy * factorA; acceleration[i * 3 + 2] += dz * factorA;
         acceleration[j * 3] -= dx * factorB; acceleration[j * 3 + 1] -= dy * factorB; acceleration[j * 3 + 2] -= dz * factorB;
         forcePairs.push({ law: 'gravity', i, j, dx, dy, dz, distanceSquared,
@@ -256,7 +260,10 @@ export function stepParticleWorld(view, count, {
       if (r2 === 0 || r2 > interactionRadius * interactionRadius) return 0;
       const softened = Math.sqrt(r2 + softening * softening);
       const cutoff = Math.sqrt(interactionRadius * interactionRadius + softening * softening);
-      return pair.strength * (1 / softened - 1 / cutoff);
+      const base = pair.strength * (1 / softened - 1 / cutoff);
+      return cutoffMode === 'shifted-force'
+        ? base + pair.strength * (Math.sqrt(r2) - interactionRadius) * interactionRadius / Math.pow(interactionRadius * interactionRadius + softening * softening, 1.5)
+        : base;
     };
     for (const pair of forcePairs) {
       const a = pair.i * stride, b = pair.j * stride;
@@ -297,7 +304,8 @@ export function stepParticleWorld(view, count, {
         const denominator = Math.pow(r2 + softening*softening, 1.5);
         if (activeLawIds.includes('law.gravity') && gravitationalConstant > 0) {
           const mi=view[a+slots.MASS], mj=view[b+slots.MASS];
-          const f=gravitationalConstant/denominator;
+          const correction=cutoffMode === 'shifted-force' ? 1-interactionRadius*denominator/(Math.sqrt(r2)*Math.pow(interactionRadius*interactionRadius+softening*softening,1.5)) : 1;
+          const f=gravitationalConstant*correction/denominator;
           nextAcceleration[i*3]+=dx*f*mj; nextAcceleration[i*3+1]+=dy*f*mj; nextAcceleration[i*3+2]+=dz*f*mj;
           nextAcceleration[j*3]-=dx*f*mi; nextAcceleration[j*3+1]-=dy*f*mi; nextAcceleration[j*3+2]-=dz*f*mi;
         }
@@ -305,7 +313,8 @@ export function stepParticleWorld(view, count, {
           const qi=Number.isFinite(view[a+slots.CHARGE])?view[a+slots.CHARGE]:0;
           const qj=Number.isFinite(view[b+slots.CHARGE])?view[b+slots.CHARGE]:0;
           if (qi!==0 && qj!==0) {
-            const f=electricConstant*qi*qj/denominator;
+            const correction=cutoffMode === 'shifted-force' ? 1-interactionRadius*denominator/(Math.sqrt(r2)*Math.pow(interactionRadius*interactionRadius+softening*softening,1.5)) : 1;
+            const f=electricConstant*qi*qj*correction/denominator;
             nextAcceleration[i*3]-=dx*f/view[a+slots.MASS]; nextAcceleration[i*3+1]-=dy*f/view[a+slots.MASS]; nextAcceleration[i*3+2]-=dz*f/view[a+slots.MASS];
             nextAcceleration[j*3]+=dx*f/view[b+slots.MASS]; nextAcceleration[j*3+1]+=dy*f/view[b+slots.MASS]; nextAcceleration[j*3+2]+=dz*f/view[b+slots.MASS];
           }
