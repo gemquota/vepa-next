@@ -122,20 +122,21 @@ export function calculatePeriodicImageSystem({
   if (!Array.isArray(particles)) throw new TypeError('particles must be an array');
   if (typeof pairStrength !== 'function') throw new TypeError('pairStrength must be a function');
   const ids = new Set();
+  for (const particle of particles) {
+    if (!particle || typeof particle.id !== 'string' || !particle.id) throw new TypeError('each particle requires a stable non-empty id');
+    if (ids.has(particle.id)) throw new TypeError('particle ids must be unique');
+    ids.add(particle.id);
+    if (!Array.isArray(particle.position) || particle.position.length !== 3) throw new TypeError('particle position must have three components');
+  }
   const forceTerms = particles.map(() => [[], [], []]);
   const pairEvidence = [];
   let potential = 0, potentialCorrection = 0;
   for (let i = 0; i < particles.length; i++) {
     const a = particles[i];
     if (!a || typeof a.id !== 'string' || !a.id) throw new TypeError('each particle requires a stable non-empty id');
-    if (ids.has(a.id)) throw new TypeError('particle ids must be unique');
-    ids.add(a.id);
     if (!Array.isArray(a.position) || a.position.length !== 3) throw new TypeError('particle position must have three components');
     for (let j = i + 1; j < particles.length; j++) {
       const b = particles[j];
-      if (!b || typeof b.id !== 'string' || !b.id || !Array.isArray(b.position) || b.position.length !== 3) {
-        throw new TypeError('each particle requires a stable id and three-component position');
-      }
       const strength = finite(pairStrength(a, b), 'pair strength');
       const result = calculatePeriodicImagePair({
         first: a.position, second: b.position, boxSize, softening, shell, strength,
