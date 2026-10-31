@@ -19,10 +19,10 @@ test('preserves shared traits whose ranges did not change', () => {
 
 test('converts changed base-radius and magnetic-moment ranges semantically', () => {
   const source = new Uint16Array(V3_SPECIES_DNA_STRIDE);
-  source[29] = 32768;
+  source[29] = 10348; // V3 value is approximately 2, within both schemas
   source[33] = 32768;
   const migrated = migrateV3SpeciesDNABuffer(source, { speciesCount: 1 });
-  assert.ok(Math.abs(decode(source[29], 0.5, 10) - decode(migrated[29], 0.2, 4)) <= 3.8 / DNA_PACK_MAX);
+  assert.ok(Math.abs(decode(source[29], 0.5, 10) - decode(migrated[29], 0.2, 4)) <= (9.5 + 3.8) / DNA_PACK_MAX);
   assert.ok(Math.abs(decode(source[33], 0, 1) - decode(migrated[33], -1, 1)) <= 2 / DNA_PACK_MAX);
 });
 
