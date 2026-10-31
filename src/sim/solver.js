@@ -145,7 +145,7 @@ export function stepParticleWorld(view, count, {
   }, {
     stride, worldSize, boundaryMode, interactionRadius, softening, dt, activeLawIds,
     entrainmentCoefficient, buoyancyCoefficient, ambientTemperature,
-    accretionRadiusMultiplier, bondStrength, bondDamping,
+    accretionRadiusMultiplier, bondStrength, bondDamping, slots,
   });
 
   // Accretion can retire particles, so rebuild the integration list before applying velocities.

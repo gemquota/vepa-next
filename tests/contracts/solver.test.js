@@ -85,3 +85,19 @@ test('charge, gravity and drag compose in one deterministic solver step', () => 
  assert.ok(Math.abs(view[STRIDE + S.VEL_Y]) < 2);
 });
 
+
+
+test('extended laws honor a caller-supplied particle slot layout', () => {
+ const stride = STRIDE + 1;
+ const slots = Object.fromEntries(Object.entries(S).map(([key, index]) => [key, index + 1]));
+ const view = new Float64Array(stride);
+ view[slots.POS_X] = 50; view[slots.POS_Y] = 50; view[slots.POS_Z] = 50;
+ view[slots.MASS] = 2; view[slots.RADIUS] = 0.1; view[slots.TEMPERATURE] = 10;
+ const result = stepParticleWorld(view, 1, {
+  ...options, stride, slots, activeLawIds: ['law.buoyancy'],
+  buoyancyCoefficient: 2, ambientTemperature: 0,
+ });
+ assert.equal(result.liveCount, 1);
+ assert.equal(view[slots.VEL_Y], 10);
+ assert.equal(view[slots.POS_Y], 60);
+});
