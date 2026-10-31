@@ -103,3 +103,68 @@ test('execution adapter records, exports and snapshot-restores audit history', (
   assert.equal(JSON.parse(restored.exportEnergyBudgetAudit()).entries.length, 2);
   assert.throws(() => runtime.auditEnergyBudget(), /ticks must increase/i);
 });
+
+import { createEnergyLifecycleAudit } from '../../src/sim/energy-lifecycle-audit.js';
+
+test('lifecycle audit validates event provenance, filters and bounded overflow', () => {
+  const audit = createEnergyLifecycleAudit({ capacity: 2 });
+  audit.record({ kind: 'external-work', sourceId: 'engine:thruster-A', tick: 0, work: 3,
+    kineticEnergyDelta: 3, momentumDelta: [1, 0, 0], energyUnit: 'J*' });
+  audit.record({ kind: 'boundary-flux', sourceId: 'wall:left', tick: 1, work: -1 });
+  assert.equal(audit.summary().eventCount, 2);
+  assert.equal(audit.list({ kind: 'external-work', sourceId: 'engine:thruster-A' })[0].work, 3);
+  assert.throws(() => audit.record({ kind: 'source-work', sourceId: 'third', tick: 2 }), /capacity/i);
+  assert.throws(() => audit.record({ kind: 'magnetic-field-work', sourceId: 'bad', tick: 2, work: Infinity }), /finite/i);
+});
+
+test('lifecycle audit snapshots preserve deterministic event sequence and reject corruption', () => {
+  const audit = createEnergyLifecycleAudit();
+  audit.record({ kind: 'accretion', sourceId: 'accretion:disk-1', entityId: 'p1', targetId: 'p2',
+    tick: 4, massDelta: 2, kineticEnergyDelta: 5, momentumDelta: [2, 0, 0] });
+  const snapshot = audit.createSnapshot();
+  const restored = createEnergyLifecycleAudit({ snapshot });
+  assert.deepEqual(restored.list(), audit.list());
+  assert.throws(() => createEnergyLifecycleAudit({ snapshot: { ...snapshot, sequence: 9 } }), /sequence/i);
+});
+
+test('adapter automatically accounts particle creation and retirement with measured mass, kinetic energy and momentum', () => {
+  const state = world([{ x: 10, vx: 2, mass: 3 }]);
+  const runtime = createParticleExecutionAdapter({ initialState: state, config: {
+    worldSize: 100, interactionRadius: 10, boundaryMode: 'reflective',
+    gravitationalConstant: 0, electricConstant: 0, dragCoefficient: 0,
+    activeLawIds: [], resolveContacts: false, contactIterations: 0,
+  } });
+  const original = runtime.readEnergyLifecycleEvents();
+  assert.equal(original.length, 0);
+  runtime.retireParticle(0);
+  const retired = runtime.readEnergyLifecycleEvents({ kind: 'particle-retired' })[0];
+  assert.equal(retired.massDelta, -3);
+  assert.equal(retired.kineticEnergyDelta, -6);
+  assert.deepEqual(retired.momentumDelta, [-6, 0, 0]);
+  const values = new Float64Array(PARTICLE_STRIDE);
+  values[S.MASS] = 2; values[S.VEL_Y] = 3; values[S.DEAD] = 0;
+  runtime.allocateParticle(0, values);
+  const created = runtime.readEnergyLifecycleEvents({ kind: 'particle-created' })[0];
+  assert.equal(created.massDelta, 2);
+  assert.equal(created.kineticEnergyDelta, 9);
+  assert.deepEqual(created.momentumDelta, [0, 6, 0]);
+});
+
+test('adapter source and accretion events survive snapshots and JSON export', () => {
+  const state = world([{ x: 0, vx: 1 }]);
+  const runtime = createParticleExecutionAdapter({ initialState: state, config: {
+    worldSize: 100, interactionRadius: 10, boundaryMode: 'reflective',
+    gravitationalConstant: 0, electricConstant: 0, dragCoefficient: 0,
+    activeLawIds: [], resolveContacts: false, contactIterations: 0,
+  } });
+  runtime.recordEnergySourceEvent({ kind: 'magnetic-field-work', sourceId: 'field:uniform-1',
+    work: 0.25, kineticEnergyDelta: 0.25, provenance: { provider: 'test-field' } });
+  runtime.recordAccretionEvent({ sourceId: 'accretion:cloud-2', entityId: 'p1', targetId: 'p0',
+    massDelta: 1, thermalEnergyDelta: 4, energyUnit: 'J*' });
+  const snapshot = runtime.createSnapshot();
+  const restored = createParticleExecutionAdapter({ initialState: state, config: runtime.getConfig() });
+  restored.restoreSnapshot(snapshot);
+  assert.deepEqual(restored.readEnergyLifecycleEvents(), runtime.readEnergyLifecycleEvents());
+  assert.equal(restored.getEnergyLifecycleSummary().byKind.accretion, 1);
+  assert.equal(JSON.parse(restored.exportEnergyLifecycleAudit()).events.length, 2);
+});

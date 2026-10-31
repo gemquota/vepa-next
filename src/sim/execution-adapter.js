@@ -7,6 +7,7 @@ import { validateAdvancedPhysicsConfig } from './advanced-physics.js';
 import { DEFAULT_NUMERICS_CONFIG, validateNumericsConfig, chooseAdaptiveSubsteps, measureParticleState } from './numerics.js';
 import { createEnergyLedger } from './energy-ledger.js';
 import { calculateEnergyBudget, compareEnergyBudgets, createEnergyBudgetTimeline } from './energy-budget.js';
+import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
 
@@ -56,6 +57,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   const energyAccounts = [['external', 'external-source', true], ['kinetic', 'kinetic', false], ['thermal', 'thermal', false], ['chemical', 'chemical-potential', false], ['gravitational-potential', 'gravitational-potential', true], ['electric-potential', 'electric-potential', true], ['magnetic-field', 'magnetic-field', false], ['radiation', 'radiation', false], ['dissipation', 'dissipation', false], ['deformation', 'deformation', false], ['rest-mass', 'rest-mass', false]];
   let energyLedger = createEnergyLedger();
   let energyBudgetTimeline = createEnergyBudgetTimeline();
+  let energyLifecycleAudit = createEnergyLifecycleAudit();
   for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
   const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
   let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
@@ -85,6 +87,19 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     getEnergySummary() { return energyLedger.summary(); },
     auditEnergy() { return energyLedger.audit(); },
     readEnergyEvents(options) { return energyLedger.listEvents(options); },
+    recordEnergySourceEvent(event) {
+      return energyLifecycleAudit.record({ ...event, tick: event.tick ?? tick });
+    },
+    recordAccretionEvent({ sourceId, entityId, targetId, massDelta, kineticEnergyDelta = 0,
+      thermalEnergyDelta = 0, chemicalEnergyDelta = 0, radiationEnergyDelta = 0,
+      momentumDelta = [0, 0, 0], energyUnit = null, provenance = null, metadata = null } = {}) {
+      return energyLifecycleAudit.record({ kind: 'accretion', sourceId, entityId, targetId,
+        tick, massDelta, kineticEnergyDelta, thermalEnergyDelta, chemicalEnergyDelta,
+        radiationEnergyDelta, momentumDelta, energyUnit, provenance, metadata });
+    },
+    readEnergyLifecycleEvents(options) { return energyLifecycleAudit.list(options); },
+    getEnergyLifecycleSummary() { return energyLifecycleAudit.summary(); },
+    exportEnergyLifecycleAudit() { return energyLifecycleAudit.exportJSON(); },
     auditEnergyBudget({ profile = {}, externalWork = 0, modeledInternalTransfers = 0, tolerance = 1e-10, provenance = null } = {}) {
       const auditProfile = {
         unitSystem: 'simulation',
@@ -125,13 +140,33 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const base = slot * stride;
       if (values[PARTICLE_SLOTS.DEAD] >= 0.5 || values[PARTICLE_SLOTS.MASS] <= 0) throw new TypeError('new particle values must describe a live particle');
       const identity = particleIdentities.allocate(slot);
+      const previous = state.slice(base, base + stride);
       state.set(values, base);
+      const mass = values[PARTICLE_SLOTS.MASS];
+      const vx = values[PARTICLE_SLOTS.VEL_X], vy = values[PARTICLE_SLOTS.VEL_Y], vz = values[PARTICLE_SLOTS.VEL_Z];
+      try {
+        energyLifecycleAudit.record({ kind: 'particle-created', sourceId: 'particle-creation',
+          entityId: String(identity), tick, massDelta: mass,
+          kineticEnergyDelta: 0.5 * mass * (vx * vx + vy * vy + vz * vz),
+          momentumDelta: [mass * vx, mass * vy, mass * vz],
+          metadata: { slot, speciesId: values[PARTICLE_SLOTS.SPECIES_ID] } });
+      } catch (error) {
+        state.set(previous, base);
+        particleIdentities.release(identity);
+        throw error;
+      }
       return identity;
     },
     retireParticle(slot) {
       const identity = particleIdentities.get(slot);
       if (!identity) return false;
       const base = slot * stride;
+      const mass = state[base + PARTICLE_SLOTS.MASS];
+      const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
+      energyLifecycleAudit.record({ kind: 'particle-retired', sourceId: 'particle-retirement',
+        entityId: String(identity), tick, massDelta: -mass,
+        kineticEnergyDelta: -0.5 * mass * (vx * vx + vy * vy + vz * vz),
+        momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot } });
       state[base + PARTICLE_SLOTS.DEAD] = 1;
       state[base + PARTICLE_SLOTS.MASS] = 0;
       return particleIdentities.release(identity);
@@ -254,6 +289,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         identityState: particleIdentities.snapshot(),
         energyLedger: energyLedger.createSnapshot(),
         energyBudgetTimeline: energyBudgetTimeline.createSnapshot(),
+        energyLifecycleAudit: energyLifecycleAudit.createSnapshot(),
         state: new Float64Array(state),
       });
     },
@@ -263,6 +299,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const nextConfig = validateParticleExecutionConfig(snapshot.config);
       const nextEnergyLedger = snapshot.energyLedger ? createEnergyLedger({ snapshot: snapshot.energyLedger }) : createEnergyLedger({ tick: snapshot.tick });
       const nextEnergyBudgetTimeline = createEnergyBudgetTimeline({ snapshot: snapshot.energyBudgetTimeline ?? null });
+      const nextEnergyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: snapshot.energyLifecycleAudit ?? null });
       const nextRandomStreams = createDeterministicRandomStreams({
         seed: randomSeed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
@@ -278,6 +315,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       particleIdentities = nextIdentities;
       energyLedger = nextEnergyLedger;
       energyBudgetTimeline = nextEnergyBudgetTimeline;
+      energyLifecycleAudit = nextEnergyLifecycleAudit;
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
