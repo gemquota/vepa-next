@@ -51,17 +51,27 @@ export function measureParticleState(view, count, stride, slots) {
   return Object.freeze({ kineticEnergy, momentum: Object.freeze([px, py, pz]), maxSpeed, liveCount });
 }
 
-export function chooseAdaptiveSubsteps({ view, count, stride, slots, dt, interactionRadius, numerics }) {
+export function chooseAdaptiveSubsteps({ view, count, stride, slots, dt, interactionRadius, numerics, maxAcceleration = 0 }) {
   const state = measureParticleState(view, count, stride, slots);
-  if (!numerics.adaptiveSubstepping || state.maxSpeed === 0) {
-    return Object.freeze({ substeps: 1, requestedSubsteps: 1, stabilityLimited: false, maxSpeed: state.maxSpeed });
+  if (!Number.isFinite(maxAcceleration) || maxAcceleration < 0) throw new RangeError('maxAcceleration must be finite and non-negative');
+  if (!numerics.adaptiveSubstepping) {
+    return Object.freeze({ substeps: 1, requestedSubsteps: 1, stabilityLimited: false, maxSpeed: state.maxSpeed, maxAcceleration });
   }
   const maxDisplacement = interactionRadius * numerics.maxDisplacementFraction;
-  const requestedSubsteps = Math.max(1, Math.ceil(state.maxSpeed * dt / maxDisplacement));
+  const estimatedTravel = state.maxSpeed * dt + 0.5 * maxAcceleration * dt * dt;
+  const requestedSubsteps = Math.max(1, Math.ceil(estimatedTravel / maxDisplacement));
   return Object.freeze({
     substeps: Math.min(requestedSubsteps, numerics.maxSubsteps),
     requestedSubsteps,
     stabilityLimited: requestedSubsteps > numerics.maxSubsteps,
     maxSpeed: state.maxSpeed,
+    maxAcceleration,
+    estimatedTravel,
+    estimator: 'velocity-plus-modeled-pair-acceleration',
+    limitations: Object.freeze([
+      'Acceleration estimate includes only the configured gravity and charge pair laws',
+      'It is a displacement heuristic, not a local truncation-error or CFL bound',
+      'Extended laws, contacts, drag and future force changes may exceed the estimate',
+    ]),
   });
 }
