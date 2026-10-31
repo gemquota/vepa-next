@@ -103,7 +103,7 @@ export function createEnergyLedger({ tick = 0, snapshot = null, maxEvents = 1000
       const eventTick = entry.tick ?? currentTick;
       if (source === destination) throw new RangeError('Energy transfer source and destination must differ');
       if (amount <= 0) throw new RangeError('Energy transfer amount must be positive');
-      if (!Number.isInteger(eventTick) || eventTick < 0 || eventTick < currentTick) throw new RangeError('Energy transfer tick must be an integer >= current tick');
+      if (!Number.isInteger(eventTick) || eventTick < 0 || eventTick !== currentTick) throw new RangeError('Energy transfer tick must equal the current ledger tick');
       if (entry.metadata != null && (typeof entry.metadata !== 'object' || Array.isArray(entry.metadata))) throw new TypeError('transfer.metadata must be an object or null');
       const from = readAccount(source), to = readAccount(destination);
       const fromBalance = projected.has(source) ? projected.get(source) : from.balance;
