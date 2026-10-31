@@ -82,3 +82,21 @@ test('checkpoint restore reproduces the same future trajectory as uninterrupted 
   await resumed.dispose();
   await uninterrupted.dispose();
 });
+
+test('worker and in-process keyed random streams match and survive snapshot restore', async () => {
+  const worker = await createWorkerExecutionAdapter({ ...options, randomSeed: 987, workerFactory: makeWorker });
+  const local = await createWorkerExecutionAdapter({ ...options, randomSeed: 987, workerFactory: () => { throw new Error('unavailable'); } });
+  assert.equal(await worker.nextRandom('mutation', 'particle-4'), await local.nextRandom('mutation', 'particle-4'));
+  await worker.nextRandom('thermal', 'particle-4');
+  await local.nextRandom('thermal', 'particle-4');
+  const checkpoint = await worker.createSnapshot();
+  const expectedValues = [];
+  for (let i = 0; i < 10; i++) expectedValues.push(await worker.nextRandom('mutation', 'particle-4'));
+  await worker.nextRandom('mutation', 'particle-4');
+  await worker.restoreSnapshot(checkpoint);
+  const actualValues = [];
+  for (let i = 0; i < 10; i++) actualValues.push(await worker.nextRandom('mutation', 'particle-4'));
+  assert.deepEqual(actualValues, expectedValues);
+  await worker.dispose();
+  await local.dispose();
+});
