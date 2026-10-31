@@ -3,6 +3,7 @@ import { createSpatialGrid, insertParticle, queryNeighborsOrAll } from './spatia
 import { resolveParticleContacts } from './contact-constraints.js';
 import { applyExtendedLaws } from './extended-laws.js';
 import { applyAdvancedPhysics } from './advanced-physics.js';
+import { calculateEwaldSystem } from './periodic-ewald.js';
 
 const WRAP_MODES = new Set(['toroidal', 'reflective']);
 function wrapPosition(value, size) { return ((value % size) + size) % size; }
@@ -10,6 +11,42 @@ function shortestDelta(delta, size) {
   if (delta > size / 2) return delta - size;
   if (delta < -size / 2) return delta + size;
   return delta;
+}
+
+
+function calculatePeriodicAcceleration(view, indices, count, stride, slots, worldSize, gravitationalConstant, electricConstant, ewald) {
+  const acceleration = new Float64Array(count * 3);
+  let gravityEnergy = 0, electricEnergy = 0, interactions = 0;
+  const particles = indices.map(i => {
+    const b = i * stride;
+    return { id: ewald.entityIds?.[i] ?? 'slot:' + i,
+      position: [view[b + slots.POS_X], view[b + slots.POS_Y], view[b + slots.POS_Z]],
+      mass: view[b + slots.MASS], charge: Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0 };
+  });
+  const common = { boxSize: worldSize, alpha: ewald.alpha ?? 5 / worldSize,
+    realShell: ewald.realShell ?? 2, reciprocalShell: ewald.reciprocalShell ?? 5 };
+  if (gravitationalConstant > 0 && particles.length > 1) {
+    const result = calculateEwaldSystem({ ...common, particles: particles.map(p => ({ id: p.id, position: p.position, charge: p.mass })),
+      coupling: -gravitationalConstant, neutrality: 'uniform-background' });
+    gravityEnergy = result.components.total; interactions += result.pairImageCount;
+    result.forces.forEach((entry, n) => {
+      const i = indices[n], mass = particles[n].mass;
+      for (let axis = 0; axis < 3; axis++) acceleration[i * 3 + axis] += entry.force[axis] / mass;
+    });
+  }
+  const charged = particles.filter(p => p.charge !== 0);
+  if (electricConstant > 0 && charged.length > 1) {
+    const result = calculateEwaldSystem({ ...common, particles: charged.map(p => ({ id: p.id, position: p.position, charge: p.charge })),
+      coupling: electricConstant, neutrality: ewald.electricNeutrality ?? 'require',
+      neutralityTolerance: ewald.neutralityTolerance ?? 1e-10 });
+    electricEnergy = result.components.total; interactions += result.pairImageCount;
+    result.forces.forEach(entry => {
+      const n = indices.findIndex(i => (ewald.entityIds?.[i] ?? 'slot:' + i) === entry.entityId);
+      const i = indices[n], mass = particles[n].mass;
+      for (let axis = 0; axis < 3; axis++) acceleration[i * 3 + axis] += entry.force[axis] / mass;
+    });
+  }
+  return { acceleration, interactions, gravityEnergy, electricEnergy };
 }
 
 /** Deterministic bounded particle solver. Laws are explicit, composable runtime capabilities. */
@@ -56,7 +93,7 @@ export function stepParticleWorld(view, count, {
       !Number.isFinite(interactionRadius) || interactionRadius <= 0 || interactionRadius > worldSize / 2) {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
   }
-  if (!['hard','shifted-force'].includes(cutoffMode)) throw new RangeError('cutoffMode must be hard or shifted-force');
+  if (!['minimum-image','ewald'].includes(periodicMode)) throw new RangeError('periodicMode must be minimum-image or ewald');\n  if (!['hard','shifted-force'].includes(cutoffMode)) throw new RangeError('cutoffMode must be hard or shifted-force');
   if (energyTransfers !== null && !Array.isArray(energyTransfers)) throw new TypeError('energyTransfers must be an array or null');
   if (boundaryEvents !== null && !Array.isArray(boundaryEvents)) throw new TypeError('boundaryEvents must be an array or null');
   if (forceWorkEvents !== null && !Array.isArray(forceWorkEvents)) throw new TypeError('forceWorkEvents must be an array or null');
@@ -65,7 +102,7 @@ export function stepParticleWorld(view, count, {
   if (!['dissipation', 'thermal'].includes(dragEnergyDestination)) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
   if (!['explicit-euler', 'semi-implicit-euler', 'velocity-verlet'].includes(integrator)) throw new RangeError('integrator must be explicit-euler, semi-implicit-euler or velocity-verlet');
-  if (integrator === 'velocity-verlet' &&
+  if (periodicMode === 'ewald' && (boundaryMode !== 'toroidal' || activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || advancedPhysics !== null || (activeLawIds.includes('law.collision') && resolveContacts))) throw new RangeError('Ewald mode supports only toroidal gravity/charge without contacts or advanced physics');\n  if (integrator === 'velocity-verlet' &&
       (activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || boundaryMode !== 'toroidal' || activeLawIds.includes('law.collision') || advancedPhysics !== null)) {
     throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws');
   }
@@ -106,6 +143,19 @@ export function stepParticleWorld(view, count, {
   const candidates = new Int32Array(count);
   const query = (x, y, z) => queryNeighborsOrAll(grid, x, y, z, candidates, count);
 
+  let periodicDiagnostics = null;
+  if (periodicMode === 'ewald') {
+    const result = calculatePeriodicAcceleration(view, alive, count, stride, slots, worldSize,
+      activeLawIds.includes('law.gravity') ? gravitationalConstant : 0,
+      activeLawIds.includes('law.charge') ? electricConstant : 0,
+      { ...ewald, entityIds });
+    acceleration.set(result.acceleration);
+    interactions += result.interactions;
+    periodicDiagnostics = Object.freeze({ method: '3d-ewald-point-particles',
+      gravitationalPotential: result.gravityEnergy, electricPotential: result.electricEnergy,
+      realShell: ewald.realShell ?? 2, reciprocalShell: ewald.reciprocalShell ?? 5,
+      alpha: ewald.alpha ?? 5 / worldSize, empiricalTruncationOnly: true });
+  } else {
   if (activeLawIds.includes('law.charge') && electricConstant > 0) {
     for (const i of alive) {
       const a = i * stride;
@@ -166,6 +216,9 @@ export function stepParticleWorld(view, count, {
         interactions++;
       }
     }
+  }
+
+
   }
 
   interactions += applyExtendedLaws(view, alive, acceleration, candidates, (x, y, z) => {
@@ -289,6 +342,13 @@ export function stepParticleWorld(view, count, {
 
   if (integrator === 'velocity-verlet') {
     const nextAcceleration = new Float64Array(count * 3);
+    if (periodicMode === 'ewald') {
+      const result = calculatePeriodicAcceleration(view, activeAfterLaws, count, stride, slots, worldSize,
+        activeLawIds.includes('law.gravity') ? gravitationalConstant : 0,
+        activeLawIds.includes('law.charge') ? electricConstant : 0,
+        { ...ewald, entityIds });
+      nextAcceleration.set(result.acceleration);
+    } else {
     for (let p = 0; p < activeAfterLaws.length; p++) {
       const i = activeAfterLaws[p], a = i * stride;
       for (let q = p + 1; q < activeAfterLaws.length; q++) {
@@ -321,6 +381,8 @@ export function stepParticleWorld(view, count, {
         }
       }
     }
+
+    }
     for (const i of activeAfterLaws) {
       const b=i*stride,a=i*3;
       view[b+slots.VEL_X]+=0.5*(acceleration[a]+nextAcceleration[a])*dt;
@@ -332,5 +394,5 @@ export function stepParticleWorld(view, count, {
   if (resolveContacts && activeLawIds.includes('law.collision') && maxRadius > 0 && activeAfterLaws.length > 1 && contactIterations > 0) {
     resolveParticleContacts(view, count, stride, worldSize, boundaryMode === 'toroidal', contactIterations, slots);
   }
-  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode, advancedPhysics: advancedMetrics, energyTransfers: energyTransfers?.length ?? 0 });
+  return Object.freeze({ liveCount: activeAfterLaws.length, interactions, fallbackQueries, gridDimension: dim, boundaryMode, periodicDiagnostics, advancedPhysics: advancedMetrics, energyTransfers: energyTransfers?.length ?? 0 });
 }
