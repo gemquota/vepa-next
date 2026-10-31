@@ -76,3 +76,30 @@ test('rejects comparisons across incompatible energy units', () => {
   const b = calculateEnergyBudget(world([{ vx: 1 }]), 1, { profile: { ...profile, units: { ...profile.units, energy: 'other' } } });
   assert.throws(() => compareEnergyBudgets(a, b), /incompatible units/i);
 });
+
+import { createParticleExecutionAdapter } from '../../src/sim/execution-adapter.js';
+
+test('execution adapter records, exports and snapshot-restores audit history', () => {
+  const state = world([{ x: 10, vx: 1 }, { x: 12, vx: -1 }]);
+  const runtime = createParticleExecutionAdapter({
+    initialState: state,
+    config: { worldSize: 100, interactionRadius: 10, boundaryMode: 'reflective',
+      gravitationalConstant: 0, electricConstant: 0, dragCoefficient: 0,
+      activeLawIds: [], resolveContacts: false, contactIterations: 0 },
+  });
+  const baseline = runtime.auditEnergyBudget({ provenance: { kind: 'baseline' } });
+  assert.equal(baseline.comparison, null);
+  runtime.step();
+  const next = runtime.auditEnergyBudget({ provenance: { kind: 'post-step' } });
+  assert.equal(next.entry.tick, 1);
+  assert.equal(next.comparison.delta, 0);
+  assert.equal(runtime.readEnergyBudgetTimeline().length, 2);
+  const exported = JSON.parse(runtime.exportEnergyBudgetAudit());
+  assert.equal(exported.entries.length, 2);
+  const snapshot = runtime.createSnapshot();
+  const restored = createParticleExecutionAdapter({ initialState: state, config: runtime.getConfig() });
+  restored.restoreSnapshot(snapshot);
+  assert.deepEqual(restored.readEnergyBudgetTimeline(), runtime.readEnergyBudgetTimeline());
+  assert.equal(JSON.parse(restored.exportEnergyBudgetAudit()).entries.length, 2);
+  assert.throws(() => runtime.auditEnergyBudget(), /ticks must increase/i);
+});
