@@ -49,7 +49,7 @@ export function applyV3BehaviorKernel({
     const rate = finite(p.senescenceRate ?? 0, 'senescenceRate', 0);
     for (const i of live) {
       const b = i * stride, identity = identities.get(i);
-      if (identity && state[b + S.AGE] >= finite(p.senescenceAge ?? Infinity, 'senescenceAge') &&
+      if (identity && state[b + S.AGE] >= finite(p.senescenceAge ?? Number.MAX_VALUE, 'senescenceAge') &&
           random.senescenceDeath(identity.id) < clamp01(rate * dt)) {
         state[b + S.DEAD] = 1; state[b + S.MASS] = 0; identities.release(identity); record('senescence');
       }
@@ -122,6 +122,7 @@ export function applyV3BehaviorKernel({
   for (const i of live) {
     const b = i * stride, id = identities.get(i);
     if (!id || state[b + S.DEAD] >= 0.5) continue;
+    state[b + S.AGE] += dt;
     // 6. Heat jitter.
     if (enabled(config, 'heat')) {
       const scale = finite(p.heatJitter ?? 0, 'heatJitter', 0), v = random.heatJitter(id.id);
@@ -203,9 +204,10 @@ export function applyV3BehaviorKernel({
     const a = pair.a * stride, b = pair.b * stride;
     const idA = identities.get(pair.a), idB = identities.get(pair.b);
     if (!idA || !idB || state[a + S.DEAD] >= 0.5 || state[b + S.DEAD] >= 0.5) continue;
+    const owner = idA.id < idB.id ? a : b;
     if (enabled(config, 'allotropy') && pair.distance < finite(p.allotropyRadius ?? 10, 'allotropyRadius', 0) &&
         random.allotropy(idA.id, idB.id) < clamp01(finite(p.allotropyRate ?? 0.01, 'allotropyRate', 0) * dt)) {
-      state[a + S.SPECIES_ID] = (state[a + S.SPECIES_ID] + 1) % 12; record('allotropy');
+      state[owner + S.SPECIES_ID] = (state[owner + S.SPECIES_ID] + 1) % 12; record('allotropy');
     }
     let phaseThrough = false;
     if (enabled(config, 'phaseThrough')) {
@@ -215,8 +217,8 @@ export function applyV3BehaviorKernel({
     if (enabled(config, 'exothermicHeat') && pair.distance < finite(p.exothermicRadius ?? 25, 'exothermicRadius', 0) && !phaseThrough) {
       const heat = finite(pair.heatOutput ?? p.heatOutput ?? 0.1, 'heatOutput') * finite(p.exothermicScale ?? 0.05, 'exothermicScale');
       const v = random.exothermicHeat(idA.id, idB.id);
-      state[a + S.VEL_X] += (v[0] - 0.5) * heat;
-      state[a + S.VEL_Y] += (v[1] - 0.5) * heat; record('exothermicHeat');
+      state[owner + S.VEL_X] += (v[0] - 0.5) * heat;
+      state[owner + S.VEL_Y] += (v[1] - 0.5) * heat; record('exothermicHeat');
     }
   }
   return Object.freeze({ applied: Object.freeze({ ...summary }), liveCount: live.filter(i => state[i * stride + S.DEAD] < 0.5 && state[i * stride + S.MASS] > 0).length });
