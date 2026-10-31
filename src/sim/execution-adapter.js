@@ -47,9 +47,10 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 
 /** In-process authoritative execution adapter; designed to be mirrored by a future Worker adapter. */
-export function createParticleExecutionAdapter({ initialState, count, stride = PARTICLE_STRIDE, config = {}, randomSeed = 0 } = {}) {
+export function createParticleExecutionAdapter({ initialState, count, stride = PARTICLE_STRIDE, config = {}, randomSeed = 0, worldId = 'world' } = {}) {
   if (!ArrayBuffer.isView(initialState) || initialState instanceof DataView) throw new TypeError('initialState must be a numeric typed array');
   if (!Number.isInteger(stride) || stride < 1) throw new RangeError('stride must be a positive integer');
+  if (typeof worldId !== 'string' || !worldId.trim()) throw new TypeError('worldId must be a non-empty string');
   const particleCount = count ?? initialState.length / stride;
   if (!Number.isInteger(particleCount) || particleCount < 0 || initialState.length !== particleCount * stride) throw new RangeError('initialState length must equal count * stride');
 
@@ -220,7 +221,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           const metrics = stepParticleWorld(state, particleCount, {
             ...activeConfig, dt: subDt, integrator: activeConfig.numerics.integrator,
             stride, slots: PARTICLE_SLOTS, energyTransfers: pendingEnergyTransfers,
-            boundaryEvents: pendingBoundaryEvents, entityIds, worldId: 'world', substepIndex: stepIndex,
+            boundaryEvents: pendingBoundaryEvents, entityIds, worldId, substepIndex: stepIndex,
           });
           aggregate.liveCount = metrics.liveCount;
           aggregate.interactions += metrics.interactions;
