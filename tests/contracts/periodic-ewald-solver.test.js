@@ -23,7 +23,8 @@ test('opt-in Ewald mode drives the authoritative solver and returns world/subste
  assert.equal(result.periodicDiagnostics.worldId,'ewald-test');
  assert.equal(result.periodicDiagnostics.substepIndex,0);
  assert.equal(result.periodicDiagnostics.entityIds.length,2);
- assert.ok(result.interactions>0);\n assert.ok(result.maxAccelerationBefore>0);
+ assert.ok(result.interactions>0);
+ assert.ok(result.maxAccelerationBefore>0);
 });
 
 test('Ewald energy budget uses the same periodic model and explicit background conventions',()=>{
