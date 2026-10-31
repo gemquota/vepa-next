@@ -10,7 +10,7 @@ import { calculateEnergyBudget, compareEnergyBudgets, createEnergyBudgetTimeline
 import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
 import { createForceWorkJournal } from './force-work-journal.js';
-import { calculatePeriodicImagePair, estimatePeriodicImageConvergence } from './periodic-images.js';
+import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from './periodic-images.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
 
@@ -119,6 +119,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     getForceWorkSummary() { return forceWorkJournal.summary(); },
     exportForceWorkJournal() { return forceWorkJournal.exportJSON(); },
     calculatePeriodicImagePair(options) { return calculatePeriodicImagePair(options); },
+    calculatePeriodicImageSystem(options) { return calculatePeriodicImageSystem(options); },
     estimatePeriodicImageConvergence(options, policy) { return estimatePeriodicImageConvergence(options, policy); },
     auditEnergyBudget({ profile = {}, externalWork = 0, modeledInternalTransfers = 0, tolerance = 1e-10, provenance = null } = {}) {
       const auditProfile = {
