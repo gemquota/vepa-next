@@ -297,7 +297,7 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       const dm = view[b + slots.MASS] * rule.massDefectFraction;
       view[b + slots.MASS] -= dm;
       view[b + slots.ENERGY] += dm * (rule.speedOfLightSquared ?? 1);
-      if (energyTransfers && dm > 0) energyTransfers.push({ source: 'rest-mass:particle:' + i, destination: 'radiation:particle:' + i, amount: dm * (rule.speedOfLightSquared ?? 1), cause: 'radioactive-mass-defect', metadata: { particleIndex: i, massDefect: dm, speedOfLightSquared: rule.speedOfLightSquared ?? 1 } });
+      if (energyTransfers && dm * (rule.speedOfLightSquared ?? 1) > 0) energyTransfers.push({ source: 'rest-mass:particle:' + i, destination: 'radiation:particle:' + i, amount: dm * (rule.speedOfLightSquared ?? 1), cause: 'radioactive-mass-defect', metadata: { particleIndex: i, massDefect: dm, speedOfLightSquared: rule.speedOfLightSquared ?? 1 } });
       view[b + slots.SPECIES_ID] = rule.productSpeciesId;
       view[b + slots.RADIATION_EXPOSURE] -= 1;
       decays++;
