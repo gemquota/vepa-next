@@ -33,6 +33,7 @@ export function validateEnergyBudgetProfile(profile = {}) {
     boundaryMode: profile.boundaryMode ?? 'toroidal',
     worldSize: profile.worldSize ?? 2000,
     interactionRadius: profile.interactionRadius ?? 250,
+    cutoffMode: profile.cutoffMode ?? 'hard',
     softening: profile.softening ?? 1,
     gravitationalConstant: profile.gravitationalConstant ?? 1,
     electricConstant: profile.electricConstant ?? 50000,
@@ -44,6 +45,7 @@ export function validateEnergyBudgetProfile(profile = {}) {
   if (profile.version !== undefined && profile.version !== ENERGY_BUDGET_VERSION) throw new TypeError('Unsupported energy budget version');
   if (typeof p.unitSystem !== 'string' || !p.unitSystem.trim()) throw new TypeError('unitSystem must be a non-empty label');
   for (const key of ['length', 'mass', 'time', 'charge', 'energy']) if (typeof p.units[key] !== 'string' || !p.units[key].trim()) throw new TypeError('units.' + key + ' must be a non-empty label');
+  if (!['hard','shifted-force'].includes(p.cutoffMode)) throw new RangeError('Unsupported cutoff mode');
   if (!['toroidal', 'reflective'].includes(p.boundaryMode)) throw new RangeError('Unsupported energy audit boundary mode');
   positive(p.worldSize, 'worldSize'); positive(p.interactionRadius, 'interactionRadius');
   if (p.interactionRadius > p.worldSize / 2) throw new RangeError('interactionRadius cannot exceed worldSize / 2');
@@ -103,14 +105,16 @@ export function calculateEnergyBudget(view, count, {
       if (r2 === 0 || r2 > cutoff2) continue;
       const softened = Math.sqrt(r2 + soft2);
       const cutoffSoftened = Math.sqrt(cutoff2 + soft2);
+      const radius = Math.sqrt(r2);
+      const shifted = p.cutoffMode === 'shifted-force' ? (radius - p.interactionRadius) * p.interactionRadius / Math.pow(cutoff2 + soft2, 1.5) : 0;
       if (gravity) {
         const product = view[ai + slots.MASS] * view[bj + slots.MASS];
-        gravityTerms.push(-p.gravitationalConstant * product * (1 / softened - 1 / cutoffSoftened));
+        gravityTerms.push(-p.gravitationalConstant * product * (1 / softened - 1 / cutoffSoftened + shifted));
       }
       if (electric) {
         const qa = Number.isFinite(view[ai + slots.CHARGE]) ? view[ai + slots.CHARGE] : 0;
         const qb = Number.isFinite(view[bj + slots.CHARGE]) ? view[bj + slots.CHARGE] : 0;
-        electricTerms.push(p.electricConstant * qa * qb * (1 / softened - 1 / cutoffSoftened));
+        electricTerms.push(p.electricConstant * qa * qb * (1 / softened - 1 / cutoffSoftened + shifted));
       }
     }
   }
@@ -123,8 +127,8 @@ export function calculateEnergyBudget(view, count, {
     total: sum([kinetic, gravitationalPotential, electricPotential]),
     assumptions: Object.freeze([
       'Kinetic energy uses live particle mass and velocity slots',
-      gravity ? 'Gravity potential matches the softened pair force and finite interaction cutoff' : 'Gravity potential excluded because law.gravity is inactive',
-      electric ? 'Electric potential matches the softened pair force and finite interaction cutoff' : 'Electric potential excluded because law.charge is inactive',
+      gravity ? 'Gravity potential matches the softened pair force and selected finite-cutoff model (' + p.cutoffMode + ')' : 'Gravity potential excluded because law.gravity is inactive',
+      electric ? 'Electric potential matches the softened pair force and selected finite-cutoff model (' + p.cutoffMode + ')' : 'Electric potential excluded because law.charge is inactive',
       p.boundaryMode === 'toroidal' ? 'Toroidal minimum-image convention; no explicit periodic-image lattice sum' : 'Reflective boundaries do not add wall or boundary potential',
       'Only listed conservative pair laws are included; drag, contacts, SPH, fields, radiation, lifecycle and legacy energy slots are not inferred',
     ]),
