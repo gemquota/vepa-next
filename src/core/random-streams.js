@@ -72,6 +72,16 @@ export function createDeterministicRandomStreams({ seed = 0, snapshot = undefine
           (previous !== null && entry.key <= previous)) {
         throw new TypeError('Invalid deterministic random-stream entry');
       }
+      let parsedKey;
+      try { parsedKey = JSON.parse(entry.key); } catch { throw new TypeError('Invalid deterministic random-stream key'); }
+      if (!Array.isArray(parsedKey) || parsedKey.length !== 3 ||
+          typeof parsedKey[0] !== 'string' || !parsedKey[0] ||
+          !['string', 'number'].includes(parsedKey[1]) ||
+          (parsedKey[1] === 'string' ? typeof parsedKey[2] !== 'string' || !parsedKey[2] :
+            !Number.isSafeInteger(parsedKey[2]) || parsedKey[2] < 0) ||
+          streamKey(parsedKey[0], parsedKey[2]) !== entry.key) {
+        throw new TypeError('Invalid deterministic random-stream key');
+      }
       previous = entry.key;
       const stream = new SplitMix32(0).restore({
         algorithm: 'splitmix32-v1',
@@ -101,7 +111,7 @@ export function createDeterministicRandomStreams({ seed = 0, snapshot = undefine
       const entries = Array.from(streams, ([key, stream]) => ({
         key,
         state: stream.snapshot().state,
-      })).sort((a, b) => a.key.localeCompare(b.key));
+      })).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
       return Object.freeze({
         schema: RANDOM_STREAMS_SCHEMA,
         version: RANDOM_STREAMS_VERSION,
