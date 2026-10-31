@@ -128,6 +128,8 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         worldSize: activeConfig.worldSize,
         interactionRadius: activeConfig.interactionRadius,
         cutoffMode: activeConfig.cutoffMode,
+        periodicMode: activeConfig.periodicMode,
+        ewald: activeConfig.ewald,
         softening: activeConfig.softening,
         gravitationalConstant: activeConfig.gravitationalConstant,
         electricConstant: activeConfig.electricConstant,
