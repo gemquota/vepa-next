@@ -3,7 +3,7 @@ export const LIFECYCLE_AUDIT_VERSION = 1;
 
 const finite = (v, label) => {
   if (!Number.isFinite(v)) throw new RangeError(label + ' must be finite');
-  return v;
+  return v === 0 ? 0 : v;
 };
 const label = (v, name) => {
   if (typeof v !== 'string' || !v.trim()) throw new TypeError(name + ' must be a non-empty string');
