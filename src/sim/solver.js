@@ -80,6 +80,8 @@ export function stepParticleWorld(view, count, {
   entityIds = null,
   worldId = 'world',
   substepIndex = 0,
+  periodicMode = 'minimum-image',
+  ewald = {},
 } = {}) {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
@@ -103,7 +105,6 @@ export function stepParticleWorld(view, count, {
   if (!['dissipation', 'thermal'].includes(dragEnergyDestination)) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
   if (!['explicit-euler', 'semi-implicit-euler', 'velocity-verlet'].includes(integrator)) throw new RangeError('integrator must be explicit-euler, semi-implicit-euler or velocity-verlet');
-  if (periodicMode === 'ewald' && (boundaryMode !== 'toroidal' || activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || advancedPhysics !== null || (activeLawIds.includes('law.collision') && resolveContacts))) throw new RangeError('Ewald mode supports only toroidal gravity/charge without contacts or advanced physics');
   if (integrator === 'velocity-verlet' &&
       (activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || boundaryMode !== 'toroidal' || activeLawIds.includes('law.collision') || advancedPhysics !== null)) {
     throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws');
