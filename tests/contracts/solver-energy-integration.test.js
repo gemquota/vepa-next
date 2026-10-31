@@ -30,7 +30,7 @@ function makeWorld(particles, config = {}) {
       worldSize: 100, interactionRadius: 10, dt: 1,
       gravitationalConstant: 0, electricConstant: 0, dragCoefficient: 0,
       activeLawIds: [], resolveContacts: false, contactIterations: 0,
-      numerics: { adaptiveSubsteps: false, diagnostics: true, rollbackOnNonFinite: true },
+      numerics: { adaptiveSubstepping: false, diagnostics: true, rollbackOnNonFinite: true },
       ...config,
     },
   });
