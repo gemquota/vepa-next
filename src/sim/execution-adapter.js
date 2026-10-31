@@ -3,8 +3,9 @@ import { stepParticleWorld } from './solver.js';
 import { createDeterministicRandomStreams } from '../core/random-streams.js';
 import { createParticleIdentityAllocator } from './particle-identities.js';
 import { applyV3BehaviorKernel } from './v3-behavior-kernel.js';
+import { validateAdvancedPhysicsConfig } from './advanced-physics.js';
 
-function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds] }; }
+function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics) }; }
 
 export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
@@ -16,6 +17,7 @@ export function validateParticleExecutionConfig(config) {
   if (config.worldSize <= 0 || config.dt <= 0 || config.gravitationalConstant < 0 || config.electricConstant < 0 || config.dragCoefficient < 0 || config.softening <= 0 || config.interactionRadius <= 0 || config.interactionRadius > config.worldSize / 2) throw new RangeError('Invalid physics configuration range');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
+  config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null) };
   return copyConfig(config);
 }
 
@@ -33,6 +35,7 @@ const DEFAULT_CONFIG = Object.freeze({
   activeLawIds: ['law.gravity'],
   resolveContacts: true,
   contactIterations: 2,
+  advancedPhysics: null,
 });
 
 /** In-process authoritative execution adapter; designed to be mirrored by a future Worker adapter. */
