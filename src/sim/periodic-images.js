@@ -110,3 +110,68 @@ export function estimatePeriodicImageConvergence(options, { shells = [0, 1, 2] }
     interpretation: 'Observed shell stability only; no mathematical truncation-error bound is asserted',
   });
 }
+
+
+/**
+ * O(n^2) independent system reference. pairStrength receives the two particle
+ * records and must return the signed potential coefficient for that pair.
+ */
+export function calculatePeriodicImageSystem({
+  particles, boxSize, softening, shell = 0, pairStrength,
+} = {}) {
+  if (!Array.isArray(particles)) throw new TypeError('particles must be an array');
+  if (typeof pairStrength !== 'function') throw new TypeError('pairStrength must be a function');
+  const ids = new Set();
+  const forceTerms = particles.map(() => [[], [], []]);
+  const pairEvidence = [];
+  let potential = 0, potentialCorrection = 0;
+  for (let i = 0; i < particles.length; i++) {
+    const a = particles[i];
+    if (!a || typeof a.id !== 'string' || !a.id) throw new TypeError('each particle requires a stable non-empty id');
+    if (ids.has(a.id)) throw new TypeError('particle ids must be unique');
+    ids.add(a.id);
+    if (!Array.isArray(a.position) || a.position.length !== 3) throw new TypeError('particle position must have three components');
+    for (let j = i + 1; j < particles.length; j++) {
+      const b = particles[j];
+      if (!b || typeof b.id !== 'string' || !b.id || !Array.isArray(b.position) || b.position.length !== 3) {
+        throw new TypeError('each particle requires a stable id and three-component position');
+      }
+      const strength = finite(pairStrength(a, b), 'pair strength');
+      const result = calculatePeriodicImagePair({
+        first: a.position, second: b.position, boxSize, softening, shell, strength,
+      });
+      result.forceOnFirst.forEach((value, axis) => {
+        forceTerms[i][axis].push(value);
+        forceTerms[j][axis].push(-value);
+      });
+      const y = result.potential - potentialCorrection;
+      const next = potential + y;
+      potentialCorrection = (next - potential) - y;
+      potential = next;
+      pairEvidence.push(Object.freeze({
+        pairId: a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id,
+        entityA: a.id, entityB: b.id, shell,
+        imageCount: result.imageCount,
+        forceOnA: result.forceOnFirst,
+        potential: result.potential,
+      }));
+    }
+  }
+  return Object.freeze({
+    schema: PERIODIC_IMAGE_SCHEMA, version: PERIODIC_IMAGE_VERSION,
+    convention: 'symmetric-cubic-finite-shell',
+    shell, particleCount: particles.length, pairCount: pairEvidence.length,
+    forces: Object.freeze(forceTerms.map((terms, index) => Object.freeze({
+      entityId: particles[index].id,
+      force: Object.freeze(terms.map(compensated)),
+    }))),
+    potential,
+    pairEvidence: Object.freeze(pairEvidence),
+    errorBound: null,
+    limitations: Object.freeze([
+      'Distinct-particle pairs only; self-image forces and energies are excluded',
+      'Finite symmetric cubic image shell only; no infinite-lattice guarantee',
+      'Shell differences are empirical and are not rigorous truncation-error bounds',
+    ]),
+  });
+}
