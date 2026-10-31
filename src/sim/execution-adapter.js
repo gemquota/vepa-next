@@ -25,6 +25,10 @@ export function validateParticleExecutionConfig(config) {
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
   config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
+  if (config.numerics.integrator === 'velocity-verlet' &&
+      (config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.boundaryMode !== 'toroidal' || config.advancedPhysics !== null)) {
+    throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws with toroidal boundaries');
+  }
   return copyConfig(config);
 }
 

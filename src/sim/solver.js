@@ -62,7 +62,11 @@ export function stepParticleWorld(view, count, {
   if (entityIds !== null && (!Array.isArray(entityIds) || entityIds.length < count || entityIds.some((id, i) => i < count && (typeof id !== 'string' || !id)))) throw new TypeError('entityIds must contain stable non-empty identities for every particle');
   if (!['dissipation', 'thermal'].includes(dragEnergyDestination)) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
-  if (!['explicit-euler', 'semi-implicit-euler'].includes(integrator)) throw new RangeError('integrator must be explicit-euler or semi-implicit-euler');
+  if (!['explicit-euler', 'semi-implicit-euler', 'velocity-verlet'].includes(integrator)) throw new RangeError('integrator must be explicit-euler, semi-implicit-euler or velocity-verlet');
+  if (integrator === 'velocity-verlet' &&
+      (activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || boundaryMode !== 'toroidal' || activeLawIds.includes('law.collision') || advancedPhysics !== null)) {
+    throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws');
+  }
   if (!Array.isArray(activeLawIds) || activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(activeLawIds).size !== activeLawIds.length) {
     throw new TypeError('activeLawIds must be a unique array of non-empty strings');
   }
@@ -185,9 +189,11 @@ export function stepParticleWorld(view, count, {
   for (const i of activeAfterLaws) {
     const b = i * stride, a = i * 3;
     const oldVx = view[b + slots.VEL_X], oldVy = view[b + slots.VEL_Y], oldVz = view[b + slots.VEL_Z];
-    view[b + slots.VEL_X] += acceleration[a] * dt;
-    view[b + slots.VEL_Y] += acceleration[a + 1] * dt;
-    view[b + slots.VEL_Z] += acceleration[a + 2] * dt;
+    if (integrator !== 'velocity-verlet') {
+      view[b + slots.VEL_X] += acceleration[a] * dt;
+      view[b + slots.VEL_Y] += acceleration[a + 1] * dt;
+      view[b + slots.VEL_Z] += acceleration[a + 2] * dt;
+    }
     if (activeLawIds.includes('law.drag') && dragCoefficient > 0) {
       const beforeDrag = 0.5 * view[b + slots.MASS] * (
         view[b + slots.VEL_X] ** 2 + view[b + slots.VEL_Y] ** 2 + view[b + slots.VEL_Z] ** 2);
@@ -203,12 +209,13 @@ export function stepParticleWorld(view, count, {
         metadata: { particleIndex: i, destination: dragEnergyDestination },
       });
     }
-    const positionVx = integrator === 'explicit-euler' ? oldVx : view[b + slots.VEL_X];
-    const positionVy = integrator === 'explicit-euler' ? oldVy : view[b + slots.VEL_Y];
-    const positionVz = integrator === 'explicit-euler' ? oldVz : view[b + slots.VEL_Z];
-    view[b + slots.POS_X] += positionVx * dt;
-    view[b + slots.POS_Y] += positionVy * dt;
-    view[b + slots.POS_Z] += positionVz * dt;
+    const positionVx = integrator === 'velocity-verlet' || integrator === 'explicit-euler' ? oldVx : view[b + slots.VEL_X];
+    const positionVy = integrator === 'velocity-verlet' || integrator === 'explicit-euler' ? oldVy : view[b + slots.VEL_Y];
+    const positionVz = integrator === 'velocity-verlet' || integrator === 'explicit-euler' ? oldVz : view[b + slots.VEL_Z];
+    const half = integrator === 'velocity-verlet' ? 0.5 * dt * dt : 0;
+    view[b + slots.POS_X] += positionVx * dt + acceleration[a] * half;
+    view[b + slots.POS_Y] += positionVy * dt + acceleration[a + 1] * half;
+    view[b + slots.POS_Z] += positionVz * dt + acceleration[a + 2] * half;
     for (const slot of [slots.POS_X, slots.POS_Y, slots.POS_Z]) {
       if (boundaryMode === 'toroidal') {
         const beforeWrap = view[b + slot];
@@ -270,6 +277,46 @@ export function stepParticleWorld(view, count, {
         potentialDelta: potentialAfter - potentialBefore,
         conservativeWork: potentialBefore - potentialAfter,
       });
+    }
+  }
+
+  if (integrator === 'velocity-verlet') {
+    const nextAcceleration = new Float64Array(count * 3);
+    for (let p = 0; p < activeAfterLaws.length; p++) {
+      const i = activeAfterLaws[p], a = i * stride;
+      for (let q = p + 1; q < activeAfterLaws.length; q++) {
+        const j = activeAfterLaws[q], b = j * stride;
+        let dx = view[b + slots.POS_X] - view[a + slots.POS_X];
+        let dy = view[b + slots.POS_Y] - view[a + slots.POS_Y];
+        let dz = view[b + slots.POS_Z] - view[a + slots.POS_Z];
+        if (boundaryMode === 'toroidal') {
+          dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize);
+        }
+        const r2 = dx*dx + dy*dy + dz*dz;
+        if (r2 === 0 || r2 > interactionRadius*interactionRadius) continue;
+        const denominator = Math.pow(r2 + softening*softening, 1.5);
+        if (activeLawIds.includes('law.gravity') && gravitationalConstant > 0) {
+          const mi=view[a+slots.MASS], mj=view[b+slots.MASS];
+          const f=gravitationalConstant/denominator;
+          nextAcceleration[i*3]+=dx*f*mj; nextAcceleration[i*3+1]+=dy*f*mj; nextAcceleration[i*3+2]+=dz*f*mj;
+          nextAcceleration[j*3]-=dx*f*mi; nextAcceleration[j*3+1]-=dy*f*mi; nextAcceleration[j*3+2]-=dz*f*mi;
+        }
+        if (activeLawIds.includes('law.charge') && electricConstant > 0) {
+          const qi=Number.isFinite(view[a+slots.CHARGE])?view[a+slots.CHARGE]:0;
+          const qj=Number.isFinite(view[b+slots.CHARGE])?view[b+slots.CHARGE]:0;
+          if (qi!==0 && qj!==0) {
+            const f=electricConstant*qi*qj/denominator;
+            nextAcceleration[i*3]-=dx*f/view[a+slots.MASS]; nextAcceleration[i*3+1]-=dy*f/view[a+slots.MASS]; nextAcceleration[i*3+2]-=dz*f/view[a+slots.MASS];
+            nextAcceleration[j*3]+=dx*f/view[b+slots.MASS]; nextAcceleration[j*3+1]+=dy*f/view[b+slots.MASS]; nextAcceleration[j*3+2]+=dz*f/view[b+slots.MASS];
+          }
+        }
+      }
+    }
+    for (const i of activeAfterLaws) {
+      const b=i*stride,a=i*3;
+      view[b+slots.VEL_X]+=0.5*(acceleration[a]+nextAcceleration[a])*dt;
+      view[b+slots.VEL_Y]+=0.5*(acceleration[a+1]+nextAcceleration[a+1])*dt;
+      view[b+slots.VEL_Z]+=0.5*(acceleration[a+2]+nextAcceleration[a+2])*dt;
     }
   }
 

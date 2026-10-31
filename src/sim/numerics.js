@@ -15,8 +15,8 @@ export const DEFAULT_NUMERICS_CONFIG = Object.freeze({
 export function validateNumericsConfig(config = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('numerics must be an object');
   const result = { ...DEFAULT_NUMERICS_CONFIG, ...config };
-  if (!['explicit-euler', 'semi-implicit-euler'].includes(result.integrator)) {
-    throw new RangeError('numerics.integrator must be explicit-euler or semi-implicit-euler');
+  if (!['explicit-euler', 'semi-implicit-euler', 'velocity-verlet'].includes(result.integrator)) {
+    throw new RangeError('numerics.integrator must be explicit-euler, semi-implicit-euler or velocity-verlet');
   }
   if (typeof result.adaptiveSubstepping !== 'boolean' ||
       typeof result.rollbackOnNonFinite !== 'boolean' || typeof result.diagnostics !== 'boolean') {
