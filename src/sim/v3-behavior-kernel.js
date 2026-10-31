@@ -122,7 +122,7 @@ export function applyV3BehaviorKernel({
   for (const i of live) {
     const b = i * stride, id = identities.get(i);
     if (!id || state[b + S.DEAD] >= 0.5) continue;
-    state[b + S.AGE] += dt;
+    if (enabled(config, 'senescence')) state[b + S.AGE] += dt;
     // 6. Heat jitter.
     if (enabled(config, 'heat')) {
       const scale = finite(p.heatJitter ?? 0, 'heatJitter', 0), v = random.heatJitter(id.id);
