@@ -19,7 +19,7 @@ function calculatePeriodicAcceleration(view, indices, count, stride, slots, worl
   let gravityEnergy = 0, electricEnergy = 0, interactions = 0;
   const particles = indices.map(index => {
     const b = index * stride;
-    return { id: 'slot:' + index,
+    return { id: 'slot:' + index + '|' + String(ewald.entityIds?.[index] ?? 'unallocated'),
       position: [view[b + slots.POS_X], view[b + slots.POS_Y], view[b + slots.POS_Z]],
       mass: view[b + slots.MASS], charge: Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0 };
   });
