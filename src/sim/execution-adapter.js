@@ -285,7 +285,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       // Always retain a tick checkpoint: state and its transfer journal commit together.
       const beforeState = new Float64Array(state);
       const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
-      const maxAcceleration = activeConfig.numerics.adaptiveSubstepping\n        ? estimateModeledPairAcceleration(state, particleCount, stride, activeConfig) : 0;\n      const subdivision = chooseAdaptiveSubsteps({
+      const maxAcceleration = activeConfig.numerics.adaptiveSubstepping
+        ? estimateModeledPairAcceleration(state, particleCount, stride, activeConfig) : 0;
+      const subdivision = chooseAdaptiveSubsteps({
         view: state, count: particleCount, stride, slots: PARTICLE_SLOTS,
         dt: activeConfig.dt, interactionRadius: activeConfig.interactionRadius,
         numerics: activeConfig.numerics,
