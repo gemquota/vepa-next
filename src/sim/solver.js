@@ -109,6 +109,7 @@ export function stepParticleWorld(view, count, {
   if (!Array.isArray(activeLawIds) || activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(activeLawIds).size !== activeLawIds.length) {
     throw new TypeError('activeLawIds must be a unique array of non-empty strings');
   }
+  if (periodicMode === 'ewald' && (boundaryMode !== 'toroidal' || activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || advancedPhysics !== null || (activeLawIds.includes('law.collision') && resolveContacts))) throw new RangeError('Ewald mode supports only toroidal gravity/charge without contacts or advanced physics');
   if (!Number.isInteger(contactIterations) || contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   for (const key of ['POS_X','POS_Y','POS_Z','VEL_X','VEL_Y','VEL_Z','MASS','DEAD','RADIUS','CHARGE','TEMPERATURE','BOND_PARTNER_1']) {
     if (!Number.isInteger(slots[key]) || slots[key] < 0 || slots[key] >= stride) throw new TypeError('Invalid particle slot: ' + key);
