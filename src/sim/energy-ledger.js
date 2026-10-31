@@ -62,6 +62,8 @@ export function createEnergyLedger({ tick = 0, snapshot = null, maxEvents = 1000
       return cloneEvent(event);
     });
     if (nextEvents.length > maxEvents) throw new RangeError('Snapshot exceeds maxEvents');
+    if (value.sequence !== undefined && value.sequence !== lastSequence) throw new TypeError('Snapshot sequence does not match its event journal');
+    if (nextEvents.some(event => event.tick > value.tick)) throw new TypeError('Snapshot contains an event beyond its current tick');
     return { accounts: nextAccounts, events: nextEvents, tick: value.tick, sequence: lastSequence };
   }
 
@@ -134,10 +136,17 @@ export function createEnergyLedger({ tick = 0, snapshot = null, maxEvents = 1000
   }
   function summary() {
     const values = [...accounts.values()];
+    const totalsByType = new Map();
+    for (const account of values) {
+      if (!totalsByType.has(account.type)) totalsByType.set(account.type, []);
+      totalsByType.get(account.type).push(account.balance);
+    }
+    const typeTotals = Object.freeze(Object.fromEntries([...totalsByType].sort(([a], [b]) => a.localeCompare(b)).map(([type, balances]) => [type, compensatedSum(balances)])));
     return Object.freeze({
       schema: ENERGY_LEDGER_SCHEMA, version: ENERGY_LEDGER_VERSION, tick: currentTick,
       accountCount: values.length, eventCount: events.length,
       totalBalance: compensatedSum(values.map(account => account.balance)),
+      totalsByType: typeTotals,
       accounts: Object.freeze(values.map(account => Object.freeze({ ...account }))),
     });
   }
