@@ -35,8 +35,8 @@ test('velocity Verlet reduces two-body orbital energy drift against semi-implici
   const euler=createParticleExecutionAdapter({initialState:initial,count:2,config:config('semi-implicit-euler')});
   const e0=totalEnergy(initial);
   for(let i=0;i<1200;i++){verlet.step();euler.step();}
-  const verletDrift=Math.abs(totalEnergy(verlet.getState())-e0);
-  const eulerDrift=Math.abs(totalEnergy(euler.getState())-e0);
+  const verletDrift=Math.abs(totalEnergy(verlet.readState())-e0);
+  const eulerDrift=Math.abs(totalEnergy(euler.readState())-e0);
   assert.ok(verletDrift<eulerDrift, 'Verlet drift '+verletDrift+' should be below Euler drift '+eulerDrift);
 });
 
