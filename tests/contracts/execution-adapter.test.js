@@ -80,3 +80,13 @@ test('particle allocation validates the complete live slot before mutation', () 
  assert.throws(() => runtime.allocateParticle(1, [1, 2]), /exactly stride/);
  assert.deepEqual(runtime.readState(), before);
 });
+
+test('execution adapter applies opt-in V3 behavior mutations with checkpointed identities', () => {
+ const runtime = createParticleExecutionAdapter({ initialState: initial(), config, randomSeed: 77 });
+ const before = runtime.readState();
+ const result = runtime.applyV3Behaviors({ features: { heat: true }, parameters: { heatJitter: 0.5 }, worldId: 'contract-world' });
+ assert.equal(result.applied.heat, 2);
+ assert.notDeepEqual(runtime.readState(), before);
+ const snapshot = runtime.createSnapshot();
+ assert.equal(snapshot.identityState.active.filter(Boolean).length, 2);
+});
