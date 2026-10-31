@@ -64,13 +64,13 @@ test('explicit Euler and semi-implicit Euler are selectable integration contract
   initial[S.VEL_X] = 2;
   const a = createParticleExecutionAdapter({ initialState: initial, config: {
     ...base, worldSize: 100, dt: 0.1, interactionRadius: 20,
-    activeLawIds: [], numerics: { integrator: 'explicit-euler' },
+    activeLawIds: [], advancedPhysics: { radiation: { enabled: true, direction: [1, 0, 0], pressure: 2 } }, numerics: { integrator: 'explicit-euler' },
   } });
   const b = createParticleExecutionAdapter({ initialState: initial, config: {
     ...base, worldSize: 100, dt: 0.1, interactionRadius: 20,
-    activeLawIds: [], numerics: { integrator: 'semi-implicit-euler' },
+    activeLawIds: [], advancedPhysics: { radiation: { enabled: true, direction: [1, 0, 0], pressure: 2 } }, numerics: { integrator: 'semi-implicit-euler' },
   } });
   a.step(); b.step();
-  assert.equal(a.readState()[S.POS_X], 10.2);
-  assert.equal(b.readState()[S.POS_X], 10.2);
+  assert.equal(a.readState()[S.POS_X], 10);
+  assert.ok(Math.abs(b.readState()[S.POS_X] - 10.02) < 1e-12);
 });
