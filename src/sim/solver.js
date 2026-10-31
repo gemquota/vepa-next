@@ -154,7 +154,8 @@ export function stepParticleWorld(view, count, {
     periodicDiagnostics = Object.freeze({ method: '3d-ewald-point-particles',
       gravitationalPotential: result.gravityEnergy, electricPotential: result.electricEnergy,
       realShell: ewald.realShell ?? 2, reciprocalShell: ewald.reciprocalShell ?? 5,
-      alpha: ewald.alpha ?? 5 / worldSize, empiricalTruncationOnly: true });
+      alpha: ewald.alpha ?? 5 / worldSize, empiricalTruncationOnly: true, worldId, substepIndex,
+      entityIds: Object.freeze(alive.map(i => entityIds?.[i] ?? 'slot:' + i)) });
   } else {
   if (activeLawIds.includes('law.charge') && electricConstant > 0) {
     for (const i of alive) {
