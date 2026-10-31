@@ -56,10 +56,9 @@ export function createV3RandomBehaviorStreams({ streams, worldId }) {
     meltJitter(particleId) { return vector3(draw('thermal.melt', requireId(particleId, 'particleId'))); },
     boilJitter(particleId) { return vector3(draw('thermal.boil', requireId(particleId, 'particleId'))); },
     intrinsicJitter(particleId) { return vector3(draw('physics.intrinsic-jitter', requireId(particleId, 'particleId'))); },
-    chaosPerturbation(particleId) {
+    chaosGate(particleId) {
       const r = draw('chaos.perturbation', requireId(particleId, 'particleId'));
-      const gate = r.next();
-      return Object.freeze({ gate, vector: gate < 1 ? vector3(r) : null });
+      return Object.freeze({ gate: r.next(), vector: () => vector3(r) });
     },
     allotropy(pairA, pairB) {
       return draw('chemistry.allotropy', pairId(pairA, pairB)).next();
