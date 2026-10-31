@@ -17,13 +17,13 @@ const config={worldSize:10,interactionRadius:5,dt:1e-4,gravitationalConstant:0.1
   numerics:{integrator:'velocity-verlet',adaptiveSubstepping:false}};
 
 test('opt-in Ewald mode drives the authoritative solver and returns world/substep diagnostics',()=>{
- const adapter=createParticleExecutionAdapter({initialState:makeState(),count:2,config,worldId:'ewald-test'});
+ const adapter=createParticleExecutionAdapter({initialState:makeState(),count:2,config:{...config,numerics:{integrator:'velocity-verlet',adaptiveSubstepping:true}},worldId:'ewald-test'});
  const result=adapter.step();
  assert.equal(result.periodicDiagnostics.method,'3d-ewald-point-particles');
  assert.equal(result.periodicDiagnostics.worldId,'ewald-test');
  assert.equal(result.periodicDiagnostics.substepIndex,0);
  assert.equal(result.periodicDiagnostics.entityIds.length,2);
- assert.ok(result.interactions>0);
+ assert.ok(result.interactions>0);\n assert.ok(result.maxAccelerationBefore>0);
 });
 
 test('Ewald energy budget uses the same periodic model and explicit background conventions',()=>{
