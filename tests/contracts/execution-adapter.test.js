@@ -39,3 +39,16 @@ test('restore rejects a mismatched particle layout before replacing state', () =
  assert.throws(() => runtime.restoreSnapshot({ ...snapshot, stride: 99 }), /incompatible/);
  assert.equal(runtime.readState()[S.POS_X], 40);
 });
+
+test('keyed random draws are repeatable and included in checkpoints', () => {
+ const a = createParticleExecutionAdapter({ initialState: initial(), config, randomSeed: 1234 });
+ const b = createParticleExecutionAdapter({ initialState: initial(), config, randomSeed: 1234 });
+ assert.equal(a.nextRandom('mutation', 'particle-1'), b.nextRandom('mutation', 'particle-1'));
+ a.nextRandom('thermal', 'particle-1');
+ const checkpoint = a.createSnapshot();
+ const expected = Array.from({ length: 8 }, () => a.nextRandom('mutation', 'particle-1'));
+ const restored = createParticleExecutionAdapter({ initialState: initial(), config, randomSeed: 1234 });
+ restored.restoreSnapshot(checkpoint);
+ assert.deepEqual(Array.from({ length: 8 }, () => restored.nextRandom('mutation', 'particle-1')), expected);
+ assert.equal(checkpoint.randomState.schema, 'vepa.random-streams');
+});
