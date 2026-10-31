@@ -9,6 +9,7 @@ import { createEnergyLedger } from './energy-ledger.js';
 import { calculateEnergyBudget, compareEnergyBudgets, createEnergyBudgetTimeline } from './energy-budget.js';
 import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
+import { createForceWorkJournal } from './force-work-journal.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
 
@@ -61,6 +62,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   let energyBudgetTimeline = createEnergyBudgetTimeline();
   let energyLifecycleAudit = createEnergyLifecycleAudit();
   let solverEnergyEvidence = createSolverEnergyEvidence();
+  let forceWorkJournal = createForceWorkJournal();
   for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
   const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
   let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
@@ -106,6 +108,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     readSolverEnergyEvidence(options) { return solverEnergyEvidence.list(options); },
     getSolverEnergyEvidenceSummary() { return solverEnergyEvidence.summary(); },
     exportSolverEnergyEvidence() { return solverEnergyEvidence.exportJSON(); },
+    readForceWorkEvents(options) { return forceWorkJournal.list(options); },
+    getForceWorkSummary() { return forceWorkJournal.summary(); },
+    exportForceWorkJournal() { return forceWorkJournal.exportJSON(); },
     auditEnergyBudget({ profile = {}, externalWork = 0, modeledInternalTransfers = 0, tolerance = 1e-10, provenance = null } = {}) {
       const auditProfile = {
         unitSystem: 'simulation',
@@ -212,6 +217,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         advancedPhysics: { pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 }, energyTransferCount: 0 };
       const pendingEnergyTransfers = [];
       const pendingBoundaryEvents = [];
+      const pendingForceWorkEvents = [];
       const entityIds = Array.from({ length: particleCount }, (_, slot) => {
         const identity = particleIdentities.get(slot);
         return identity ? String(identity) : 'unallocated-slot:' + slot;
@@ -221,7 +227,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           const metrics = stepParticleWorld(state, particleCount, {
             ...activeConfig, dt: subDt, integrator: activeConfig.numerics.integrator,
             stride, slots: PARTICLE_SLOTS, energyTransfers: pendingEnergyTransfers,
-            boundaryEvents: pendingBoundaryEvents, entityIds, worldId, substepIndex: stepIndex,
+            boundaryEvents: pendingBoundaryEvents, forceWorkEvents: pendingForceWorkEvents, entityIds, worldId, substepIndex: stepIndex,
           });
           aggregate.liveCount = metrics.liveCount;
           aggregate.interactions += metrics.interactions;
@@ -238,6 +244,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       let after = null;
       const beforeLedgerSnapshot = energyLedger.createSnapshot();
       const beforeEvidenceSnapshot = solverEnergyEvidence.createSnapshot();
+      const beforeForceWorkSnapshot = forceWorkJournal.createSnapshot();
       try {
         after = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
         if (pendingEnergyTransfers.length) {
@@ -260,10 +267,12 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           })));
         }
         solverEnergyEvidence.appendBatch(pendingBoundaryEvents);
+        forceWorkJournal.appendBatch(pendingForceWorkEvents);
       } catch (error) {
         state = beforeState;
         energyLedger = createEnergyLedger({ snapshot: beforeLedgerSnapshot });
         solverEnergyEvidence = createSolverEnergyEvidence({ snapshot: beforeEvidenceSnapshot });
+        forceWorkJournal = createForceWorkJournal({ snapshot: beforeForceWorkSnapshot });
         throw error;
       }
       for (let i = 0; i < particleCount; i++) {
@@ -308,6 +317,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         energyBudgetTimeline: energyBudgetTimeline.createSnapshot(),
         energyLifecycleAudit: energyLifecycleAudit.createSnapshot(),
         solverEnergyEvidence: solverEnergyEvidence.createSnapshot(),
+        forceWorkJournal: forceWorkJournal.createSnapshot(),
         state: new Float64Array(state),
       });
     },
@@ -319,6 +329,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const nextEnergyBudgetTimeline = createEnergyBudgetTimeline({ snapshot: snapshot.energyBudgetTimeline ?? null });
       const nextEnergyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: snapshot.energyLifecycleAudit ?? null });
       const nextSolverEnergyEvidence = createSolverEnergyEvidence({ snapshot: snapshot.solverEnergyEvidence ?? null });
+      const nextForceWorkJournal = createForceWorkJournal({ snapshot: snapshot.forceWorkJournal ?? null });
       const nextRandomStreams = createDeterministicRandomStreams({
         seed: randomSeed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
@@ -336,6 +347,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       energyBudgetTimeline = nextEnergyBudgetTimeline;
       energyLifecycleAudit = nextEnergyLifecycleAudit;
       solverEnergyEvidence = nextSolverEnergyEvidence;
+      forceWorkJournal = nextForceWorkJournal;
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
