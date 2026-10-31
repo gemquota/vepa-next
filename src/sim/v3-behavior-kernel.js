@@ -221,5 +221,10 @@ export function applyV3BehaviorKernel({
       state[owner + S.VEL_Y] += (v[1] - 0.5) * heat; record('exothermicHeat');
     }
   }
-  return Object.freeze({ applied: Object.freeze({ ...summary }), liveCount: live.filter(i => state[i * stride + S.DEAD] < 0.5 && state[i * stride + S.MASS] > 0).length });
+  let liveCount = 0;
+  for (let i = 0; i < count; i++) {
+    const b = i * stride;
+    if (state[b + S.DEAD] < 0.5 && state[b + S.MASS] > 0) liveCount++;
+  }
+  return Object.freeze({ applied: Object.freeze({ ...summary }), liveCount });
 }
