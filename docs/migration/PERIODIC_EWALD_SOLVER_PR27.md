@@ -25,3 +25,7 @@ Real-space integer image vectors and reciprocal integer vectors are explicitly t
 ## Adaptive stepping
 
 When adaptive substepping is enabled, the execution adapter estimates the maximum acceleration from the configured gravity/charge pair model (including the Ewald model when selected) and combines it with the current maximum speed using `v_max * dt + 0.5 * a_max * dt²`. This is used as a deterministic displacement heuristic. It is **not** a local truncation-error estimator, a rigorous CFL condition, or a bound on unmodeled extended laws, contacts, drag, or future force changes. The step result reports the modeled acceleration estimate and its limitations.
+
+## Reciprocal-space acceleration
+
+The reciprocal contribution uses deterministic per-wavevector structure factors, reducing that part from a pairwise (O(N^2 K)) evaluation to (O(NK)), where (K) is the number of retained reciprocal vectors. Real-space work remains a direct pair/image calculation and is (O(N^2 I)), where (I=(2s+1)^3) for real shell (s). This is a deterministic acceleration, not a claim of large-scale linear complexity.
