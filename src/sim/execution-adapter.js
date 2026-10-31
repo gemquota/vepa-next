@@ -12,11 +12,11 @@ import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
 import { createForceWorkJournal } from './force-work-journal.js';
 import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from './periodic-images.js';
 
-function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), numerics: { ...value.numerics } }; }
+function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds], advancedPhysics: value.advancedPhysics == null ? null : structuredClone(value.advancedPhysics), ewald: { ...value.ewald }, numerics: { ...value.numerics } }; }
 
 export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
-  if (!['hard','shifted-force'].includes(config.cutoffMode ?? 'hard')) throw new RangeError('Invalid cutoffMode');
+  if (!['minimum-image','ewald'].includes(config.periodicMode ?? 'minimum-image')) throw new RangeError('Invalid periodicMode');\n  if (!['hard','shifted-force'].includes(config.cutoffMode ?? 'hard')) throw new RangeError('Invalid cutoffMode');
   if (!['toroidal', 'reflective'].includes(config.boundaryMode)) throw new RangeError('Invalid boundaryMode');
   if (!Array.isArray(config.activeLawIds) || config.activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(config.activeLawIds).size !== config.activeLawIds.length) throw new TypeError('activeLawIds must be unique non-empty strings');
   for (const key of ['worldSize', 'dt', 'gravitationalConstant', 'electricConstant', 'dragCoefficient', 'softening', 'interactionRadius']) {
@@ -26,7 +26,7 @@ export function validateParticleExecutionConfig(config) {
   if (!['dissipation', 'thermal'].includes(config.dragEnergyDestination ?? 'dissipation')) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
   if (!Number.isInteger(config.contactIterations) || config.contactIterations < 0) throw new RangeError('contactIterations must be a non-negative integer');
   if (typeof config.resolveContacts !== 'boolean') throw new TypeError('resolveContacts must be boolean');
-  config = { ...config, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
+  const ewald = { ...(config.ewald ?? {}) };\n  if (!Number.isInteger(ewald.realShell ?? 2) || (ewald.realShell ?? 2) < 0 || (ewald.realShell ?? 2) > 6 || !Number.isInteger(ewald.reciprocalShell ?? 5) || (ewald.reciprocalShell ?? 5) < 1 || (ewald.reciprocalShell ?? 5) > 16) throw new RangeError('Invalid Ewald truncation settings');\n  if (ewald.alpha !== undefined && (!Number.isFinite(ewald.alpha) || ewald.alpha <= 0)) throw new RangeError('ewald.alpha must be positive and finite');\n  if (!['require','uniform-background'].includes(ewald.electricNeutrality ?? 'require')) throw new RangeError('Invalid Ewald electric neutrality policy');\n  if ((config.periodicMode ?? 'minimum-image') === 'ewald' && (config.boundaryMode !== 'toroidal' || config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.advancedPhysics != null || config.activeLawIds.includes('law.collision'))) throw new RangeError('Ewald mode requires toroidal boundaries and only gravity/charge laws');\n  config = { ...config, ewald, advancedPhysics: validateAdvancedPhysicsConfig(config.advancedPhysics ?? null), numerics: validateNumericsConfig(config.numerics ?? DEFAULT_NUMERICS_CONFIG) };
   if (config.numerics.integrator === 'velocity-verlet' &&
       (config.activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || config.boundaryMode !== 'toroidal' || config.advancedPhysics !== null)) {
     throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws with toroidal boundaries');
@@ -223,7 +223,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         numerics: activeConfig.numerics,
       });
       const subDt = activeConfig.dt / subdivision.substeps;
-      let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0,
+      let aggregate = { liveCount: 0, interactions: 0, fallbackQueries: 0, gridDimension: 0, periodicDiagnostics: null,
         boundaryMode: activeConfig.boundaryMode,
         advancedPhysics: { pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 }, energyTransferCount: 0 };
       const pendingEnergyTransfers = [];
@@ -243,7 +243,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           aggregate.liveCount = metrics.liveCount;
           aggregate.interactions += metrics.interactions;
           aggregate.fallbackQueries += metrics.fallbackQueries;
-          aggregate.gridDimension = metrics.gridDimension;
+          aggregate.gridDimension = metrics.gridDimension;\n          aggregate.periodicDiagnostics = metrics.periodicDiagnostics;
           aggregate.energyTransferCount = pendingEnergyTransfers.length;
           for (const key of Object.keys(aggregate.advancedPhysics)) aggregate.advancedPhysics[key] += metrics.advancedPhysics[key] ?? 0;
           if (activeConfig.numerics.rollbackOnNonFinite) measureParticleState(state, particleCount, stride, PARTICLE_SLOTS);
