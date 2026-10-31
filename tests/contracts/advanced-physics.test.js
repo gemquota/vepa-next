@@ -65,14 +65,17 @@ test('phase transitions consume configured latent heat exactly once', () => {
   assert.equal(first.advancedPhysics.phaseChanges, 1);
   assert.equal(view[S.PHASE_1], 2);
   assert.equal(view[S.ENERGY], 15);
+  assert.equal(view[S.STORED_ENERGY], 5);
   const second = stepParticleWorld(view, 2, { ...base, advancedPhysics: profile });
   assert.equal(second.advancedPhysics.phaseChanges, 0);
   assert.equal(view[S.ENERGY], 15);
+  assert.equal(view[S.STORED_ENERGY], 5);
 });
 
 test('pair chemistry advances deterministic reaction progress and applies enthalpy', () => {
   const view = pair();
   view[S.SPECIES_ID] = 1; view[STRIDE + S.SPECIES_ID] = 2;
+  view[S.STORED_ENERGY] = 10; view[STRIDE + S.STORED_ENERGY] = 10;
   const result = stepParticleWorld(view, 2, { ...base, advancedPhysics: { chemistry: {
     enabled: true, reactions: [{ speciesA: 1, speciesB: 2, productA: 3, productB: 4, rate: 1, energy: 6 }],
   } } });
@@ -80,6 +83,8 @@ test('pair chemistry advances deterministic reaction progress and applies enthal
   assert.equal(view[S.SPECIES_ID], 3);
   assert.equal(view[STRIDE + S.SPECIES_ID], 4);
   assert.equal(view[S.ENERGY] + view[STRIDE + S.ENERGY], 46);
+  assert.equal(view[S.STORED_ENERGY] + view[STRIDE + S.STORED_ENERGY], 14);
+  assert.equal(view[S.ENERGY] + view[STRIDE + S.ENERGY] + view[S.STORED_ENERGY] + view[STRIDE + S.STORED_ENERGY], 60);
 });
 
 test('radioactive decay converts configured mass defect into energy', () => {
