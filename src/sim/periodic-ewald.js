@@ -79,14 +79,15 @@ export function calculateEwaldSystem(options={}){
     const k=kv.map(v=>2*Math.PI*v/L), k2=k[0]**2+k[1]**2+k[2]**2;
     const weight=Math.exp(-k2/(4*a*a))/k2;
     const phases=particles.map(x=>k[0]*x.position[0]+k[1]*x.position[1]+k[2]*x.position[2]);
-    // Diagonal structure-factor contribution plus distinct-pair cross terms.
-    reciprocalEnergy.push(K*(4*Math.PI/V)*weight*sum(particles.map(x=>x.charge*x.charge)));
-    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
-      const q=particles[i].charge*particles[j].charge, phase=phases[i]-phases[j];
-      const factor=K*(8*Math.PI/V)*weight*q;
-      reciprocalEnergy.push(factor*Math.cos(phase));
-      const f=factor*Math.sin(phase);
-      for(let axis=0;axis<3;axis++){forces[i][axis]+=f*k[axis];forces[j][axis]-=f*k[axis];}
+    const cosineTerms=particles.map((x,i)=>x.charge*Math.cos(phases[i]));
+    const sineTerms=particles.map((x,i)=>x.charge*Math.sin(phases[i]));
+    const structureCos=sum(cosineTerms), structureSin=sum(sineTerms);
+    // One deterministic structure-factor pass gives O(N) work per reciprocal vector.
+    reciprocalEnergy.push(K*(4*Math.PI/V)*weight*(structureCos**2+structureSin**2));
+    for(let i=0;i<n;i++){
+      const f=K*(8*Math.PI/V)*weight*particles[i].charge*
+        (structureCos*Math.sin(phases[i])-structureSin*Math.cos(phases[i]));
+      for(let axis=0;axis<3;axis++)forces[i][axis]+=f*k[axis];
     }
   }
   const selfEnergy=-K*a/rootPi*sum(particles.map(x=>x.charge*x.charge));
