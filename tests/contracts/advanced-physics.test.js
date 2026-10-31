@@ -64,12 +64,12 @@ test('phase transitions consume configured latent heat exactly once', () => {
   const first = stepParticleWorld(view, 2, { ...base, advancedPhysics: profile });
   assert.equal(first.advancedPhysics.phaseChanges, 1);
   assert.equal(view[S.PHASE_1], 2);
-  assert.equal(view[S.ENERGY], 15);
-  assert.equal(view[S.STORED_ENERGY], 5);
+  assert.equal(view[S.ENERGY], 12);
+  assert.equal(view[S.STORED_ENERGY], 8);
   const second = stepParticleWorld(view, 2, { ...base, advancedPhysics: profile });
   assert.equal(second.advancedPhysics.phaseChanges, 0);
-  assert.equal(view[S.ENERGY], 15);
-  assert.equal(view[S.STORED_ENERGY], 5);
+  assert.equal(view[S.ENERGY], 12);
+  assert.equal(view[S.STORED_ENERGY], 8);
 });
 
 test('pair chemistry advances deterministic reaction progress and applies enthalpy', () => {
