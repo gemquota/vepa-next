@@ -212,10 +212,16 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       if (!material) continue;
       const temperature = view[b + slots.TEMPERATURE], phase = view[b + slots.PHASE_1];
       if (temperature >= material.boilPoint && phase < 2 && view[b + slots.ENERGY] >= (material.latentVaporization ?? 0)) {
-        view[b + slots.ENERGY] -= material.latentVaporization ?? 0; view[b + slots.PHASE_1] = 2; phaseChanges++;
+        view[b + slots.ENERGY] -= material.latentVaporization ?? 0; view[b + slots.STORED_ENERGY] += material.latentVaporization ?? 0; view[b + slots.PHASE_1] = 2; phaseChanges++;
       } else if (temperature >= material.meltPoint && phase < 1 && view[b + slots.ENERGY] >= (material.latentFusion ?? 0)) {
-        view[b + slots.ENERGY] -= material.latentFusion ?? 0; view[b + slots.PHASE_1] = 1; phaseChanges++;
-      } else if (temperature < material.meltPoint && phase > 0) {
+        view[b + slots.ENERGY] -= material.latentFusion ?? 0; view[b + slots.STORED_ENERGY] += material.latentFusion ?? 0; view[b + slots.PHASE_1] = 1; phaseChanges++;
+      } else if (temperature < material.boilPoint && phase >= 2) {
+        const released = Math.min(material.latentVaporization ?? 0, Math.max(0, view[b + slots.STORED_ENERGY]));
+        view[b + slots.STORED_ENERGY] -= released; view[b + slots.ENERGY] += released;
+        view[b + slots.PHASE_1] = 1; phaseChanges++;
+      } else if (temperature < material.meltPoint && phase >= 1) {
+        const released = Math.min(material.latentFusion ?? 0, Math.max(0, view[b + slots.STORED_ENERGY]));
+        view[b + slots.STORED_ENERGY] -= released; view[b + slots.ENERGY] += released;
         view[b + slots.PHASE_1] = 0; phaseChanges++;
       }
     }
@@ -233,10 +239,14 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
         view[owner + slots.PHASE_2] += r.rate * dt;
         if (view[owner + slots.PHASE_2] < 1) continue;
         const energy = r.energy ?? 0;
+        if (energy > 0 && view[p.a + slots.STORED_ENERGY] + view[p.b + slots.STORED_ENERGY] < energy) continue;
         if (energy < 0 && view[p.a + slots.ENERGY] + view[p.b + slots.ENERGY] < -energy) continue;
         view[p.a + slots.SPECIES_ID] = forward ? r.productA : r.productB;
         view[p.b + slots.SPECIES_ID] = forward ? r.productB : r.productA;
+        // Exothermic reactions convert stored chemical energy to heat; endothermic
+        // reactions store heat as chemical potential. The pair total is conserved.
         view[p.a + slots.ENERGY] += energy / 2; view[p.b + slots.ENERGY] += energy / 2;
+        view[p.a + slots.STORED_ENERGY] -= energy / 2; view[p.b + slots.STORED_ENERGY] -= energy / 2;
         view[owner + slots.PHASE_2] -= 1;
         reactions++;
         break;
