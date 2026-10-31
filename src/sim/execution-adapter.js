@@ -1,5 +1,6 @@
 import { PARTICLE_LAYOUT_VERSION, PARTICLE_STRIDE, PARTICLE_SLOTS } from './particle-layout.js';
 import { stepParticleWorld } from './solver.js';
+import { createDeterministicRandomStreams } from '../core/random-streams.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds] }; }
 
@@ -33,7 +34,7 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 
 /** In-process authoritative execution adapter; designed to be mirrored by a future Worker adapter. */
-export function createParticleExecutionAdapter({ initialState, count, stride = PARTICLE_STRIDE, config = {} } = {}) {
+export function createParticleExecutionAdapter({ initialState, count, stride = PARTICLE_STRIDE, config = {}, randomSeed = 0 } = {}) {
   if (!ArrayBuffer.isView(initialState) || initialState instanceof DataView) throw new TypeError('initialState must be a numeric typed array');
   if (!Number.isInteger(stride) || stride < 1) throw new RangeError('stride must be a positive integer');
   const particleCount = count ?? initialState.length / stride;
@@ -41,6 +42,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
 
   let state = new Float64Array(initialState);
   let tick = 0;
+  const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
   let activeConfig = validateParticleExecutionConfig({ ...DEFAULT_CONFIG, ...config, activeLawIds: config.activeLawIds ?? DEFAULT_CONFIG.activeLawIds });
 
   function validateState(nextState, nextTick) {
@@ -54,6 +56,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     get count() { return particleCount; },
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
+    nextRandom(domain, entityId) { return randomStreams.get(domain, entityId).next(); },
     readState() { return new Float64Array(state); },
     readRenderState() {
       const render = new Float32Array(particleCount * RENDER_STRIDE);
@@ -86,6 +89,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         count: particleCount,
         tick,
         config: copyConfig(activeConfig),
+        randomState: randomStreams.snapshot(),
         state: new Float64Array(state),
       });
     },
@@ -93,6 +97,11 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       if (!snapshot || snapshot.layoutVersion !== PARTICLE_LAYOUT_VERSION || snapshot.stride !== stride || snapshot.count !== particleCount) throw new TypeError('Snapshot layout is incompatible with this execution adapter');
       validateState(snapshot.state, snapshot.tick);
       const nextConfig = validateParticleExecutionConfig(snapshot.config);
+      const nextRandomStreams = createDeterministicRandomStreams({
+        seed: randomSeed,
+        ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
+      });
+      randomStreams.restore(nextRandomStreams.snapshot());
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
