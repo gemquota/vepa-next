@@ -38,6 +38,7 @@ export function stepParticleWorld(view, count, {
   energyTransfers = null,
   dragEnergyDestination = 'dissipation',
   boundaryEvents = null,
+  forceWorkEvents = null,
   entityIds = null,
   worldId = 'world',
   substepIndex = 0,
@@ -56,6 +57,7 @@ export function stepParticleWorld(view, count, {
   }
   if (energyTransfers !== null && !Array.isArray(energyTransfers)) throw new TypeError('energyTransfers must be an array or null');
   if (boundaryEvents !== null && !Array.isArray(boundaryEvents)) throw new TypeError('boundaryEvents must be an array or null');
+  if (forceWorkEvents !== null && !Array.isArray(forceWorkEvents)) throw new TypeError('forceWorkEvents must be an array or null');
   if (typeof worldId !== 'string' || !worldId || !Number.isInteger(substepIndex) || substepIndex < 0) throw new TypeError('Invalid solver evidence identity');
   if (entityIds !== null && (!Array.isArray(entityIds) || entityIds.length < count || entityIds.some((id, i) => i < count && (typeof id !== 'string' || !id)))) throw new TypeError('entityIds must contain stable non-empty identities for every particle');
   if (!['dissipation', 'thermal'].includes(dragEnergyDestination)) throw new RangeError('dragEnergyDestination must be dissipation or thermal');
@@ -94,6 +96,7 @@ export function stepParticleWorld(view, count, {
 
   let interactions = 0;
   let fallbackQueries = 0;
+  const forcePairs = [];
   const candidates = new Int32Array(count);
   const query = (x, y, z) => queryNeighborsOrAll(grid, x, y, z, candidates, count);
 
@@ -121,6 +124,8 @@ export function stepParticleWorld(view, count, {
         const factorB = electricConstant * chargeA * chargeB / (view[b + slots.MASS] * denominator);
         acceleration[i * 3] += dx * factorA; acceleration[i * 3 + 1] += dy * factorA; acceleration[i * 3 + 2] += dz * factorA;
         acceleration[j * 3] += dx * factorB; acceleration[j * 3 + 1] += dy * factorB; acceleration[j * 3 + 2] += dz * factorB;
+        forcePairs.push({ law: 'electric', i, j, dx, dy, dz, distanceSquared,
+          strength: electricConstant * chargeA * chargeB });
         interactions++;
       }
     }
@@ -148,6 +153,8 @@ export function stepParticleWorld(view, count, {
         const factorB = gravitationalConstant * massA / denominator;
         acceleration[i * 3] += dx * factorA; acceleration[i * 3 + 1] += dy * factorA; acceleration[i * 3 + 2] += dz * factorA;
         acceleration[j * 3] -= dx * factorB; acceleration[j * 3 + 1] -= dy * factorB; acceleration[j * 3 + 2] -= dz * factorB;
+        forcePairs.push({ law: 'gravity', i, j, dx, dy, dz, distanceSquared,
+          strength: -gravitationalConstant * massA * massB });
         interactions++;
       }
     }
@@ -233,6 +240,36 @@ export function stepParticleWorld(view, count, {
           work: 0,
         });
       }
+    }
+  }
+
+  if (forceWorkEvents) {
+    const pairPotential = (pair, x, y, z) => {
+      const r2 = x * x + y * y + z * z;
+      if (r2 === 0 || r2 > interactionRadius * interactionRadius) return 0;
+      const softened = Math.sqrt(r2 + softening * softening);
+      const cutoff = Math.sqrt(interactionRadius * interactionRadius + softening * softening);
+      return pair.strength * (1 / softened - 1 / cutoff);
+    };
+    for (const pair of forcePairs) {
+      const a = pair.i * stride, b = pair.j * stride;
+      let dx = view[b + slots.POS_X] - view[a + slots.POS_X];
+      let dy = view[b + slots.POS_Y] - view[a + slots.POS_Y];
+      let dz = view[b + slots.POS_Z] - view[a + slots.POS_Z];
+      if (boundaryMode === 'toroidal') {
+        dx = shortestDelta(dx, worldSize); dy = shortestDelta(dy, worldSize); dz = shortestDelta(dz, worldSize);
+      }
+      const potentialBefore = pairPotential(pair, pair.dx, pair.dy, pair.dz);
+      const potentialAfter = pairPotential(pair, dx, dy, dz);
+      const idA = entityIds?.[pair.i] ?? 'slot:' + pair.i;
+      const idB = entityIds?.[pair.j] ?? 'slot:' + pair.j;
+      forceWorkEvents.push({
+        kind: 'pair-force-work', law: pair.law, worldId, entityA: idA, entityB: idB,
+        pairId: idA < idB ? idA + '|' + idB : idB + '|' + idA,
+        substepIndex, potentialBefore, potentialAfter,
+        potentialDelta: potentialAfter - potentialBefore,
+        conservativeWork: potentialBefore - potentialAfter,
+      });
     }
   }
 
