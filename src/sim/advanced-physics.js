@@ -85,7 +85,7 @@ function displacement(view, a, b, slots, worldSize, toroidal) {
  * solver before position integration. Pair forces are accumulated symmetrically.
  */
 export function applyAdvancedPhysics(view, alive, acceleration, candidates, queryNeighbors, {
-  stride, worldSize, boundaryMode, dt, slots = S, advancedPhysics,
+  stride, worldSize, boundaryMode, dt, slots = S, advancedPhysics, energyTransfers = null,
 } = {}) {
   const cfg = validateAdvancedPhysicsConfig(advancedPhysics);
   if (!cfg) return Object.freeze({ pairs: 0, thermalTransfers: 0, reactions: 0, decays: 0, phaseChanges: 0 });
@@ -137,6 +137,11 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       acceleration[i * 3] -= push * nx / mi; acceleration[i * 3 + 1] -= push * ny / mi; acceleration[i * 3 + 2] -= push * nz / mi;
       acceleration[j * 3] += push * nx / mj; acceleration[j * 3 + 1] += push * ny / mj; acceleration[j * 3 + 2] += push * nz / mj;
       const visc = viscosity * w;
+      const dvx = view[b + slots.VEL_X] - view[a + slots.VEL_X];
+      const dvy = view[b + slots.VEL_Y] - view[a + slots.VEL_Y];
+      const dvz = view[b + slots.VEL_Z] - view[a + slots.VEL_Z];
+      const viscousHeat = Math.max(0, visc * (dvx * dvx + dvy * dvy + dvz * dvz) * dt);
+      if (energyTransfers && viscousHeat > 0) energyTransfers.push({ source: 'kinetic:pair:' + i + ':' + j, destination: 'thermal:pair:' + i + ':' + j, amount: viscousHeat, cause: 'sph-viscous-dissipation', metadata: { particleA: i, particleB: j } });
       const fx = visc * (view[b + slots.VEL_X] - view[a + slots.VEL_X]);
       const fy = visc * (view[b + slots.VEL_Y] - view[a + slots.VEL_Y]);
       const fz = visc * (view[b + slots.VEL_Z] - view[a + slots.VEL_Z]);
@@ -169,6 +174,12 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       else transfer = -Math.min(-transfer, Math.max(0, view[p.a + slots.ENERGY]));
       view[p.a + slots.ENERGY] += transfer;
       view[p.b + slots.ENERGY] -= transfer;
+      if (energyTransfers && transfer !== 0) energyTransfers.push({
+        source: (transfer > 0 ? 'thermal:particle:' + p.j : 'thermal:particle:' + p.i),
+        destination: (transfer > 0 ? 'thermal:particle:' + p.i : 'thermal:particle:' + p.j),
+        amount: Math.abs(transfer), cause: 'thermal-conduction',
+        metadata: { particleA: p.i, particleB: p.j },
+      });
       view[p.a + slots.TEMPERATURE] += transfer / heatCapacity;
       view[p.b + slots.TEMPERATURE] -= transfer / heatCapacity;
       if (transfer !== 0) thermalTransfers++;
@@ -183,6 +194,8 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       if (!(p.distance > 1e-12 && p.distance < minDistance)) continue;
       const mi = view[p.a + slots.MASS], mj = view[p.b + slots.MASS];
       const invI = 1 / mi, invJ = 1 / mj;
+      const kineticBefore = 0.5 * mi * (view[p.a + slots.VEL_X] ** 2 + view[p.a + slots.VEL_Y] ** 2 + view[p.a + slots.VEL_Z] ** 2)
+        + 0.5 * mj * (view[p.b + slots.VEL_X] ** 2 + view[p.b + slots.VEL_Y] ** 2 + view[p.b + slots.VEL_Z] ** 2);
       const nx = p.dx / p.distance, ny = p.dy / p.distance, nz = p.dz / p.distance;
       const rvx = view[p.b + slots.VEL_X] - view[p.a + slots.VEL_X];
       const rvy = view[p.b + slots.VEL_Y] - view[p.a + slots.VEL_Y];
@@ -201,6 +214,15 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
         view[p.a + slots.VEL_X] += fx * invI; view[p.a + slots.VEL_Y] += fy * invI; view[p.a + slots.VEL_Z] += fz * invI;
         view[p.b + slots.VEL_X] -= fx * invJ; view[p.b + slots.VEL_Y] -= fy * invJ; view[p.b + slots.VEL_Z] -= fz * invJ;
       }
+      const kineticAfter = 0.5 * mi * (view[p.a + slots.VEL_X] ** 2 + view[p.a + slots.VEL_Y] ** 2 + view[p.a + slots.VEL_Z] ** 2)
+        + 0.5 * mj * (view[p.b + slots.VEL_X] ** 2 + view[p.b + slots.VEL_Y] ** 2 + view[p.b + slots.VEL_Z] ** 2);
+      const collisionHeat = Math.max(0, kineticBefore - kineticAfter);
+      if (energyTransfers && collisionHeat > 1e-14) energyTransfers.push({
+        source: 'kinetic:pair:' + p.i + ':' + p.j,
+        destination: 'thermal:pair:' + p.i + ':' + p.j,
+        amount: collisionHeat, cause: 'inelastic-contact-dissipation',
+        metadata: { particleA: p.i, particleB: p.j, restitution: e, friction },
+      });
     }
   }
 
@@ -214,15 +236,19 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       if (temperature >= material.boilPoint && phase < 2 && view[b + slots.ENERGY] >= (material.latentVaporization ?? 0) + (phase < 1 ? material.latentFusion ?? 0 : 0)) {
         const latent = (material.latentVaporization ?? 0) + (phase < 1 ? material.latentFusion ?? 0 : 0);
         view[b + slots.ENERGY] -= latent; view[b + slots.STORED_ENERGY] += latent; view[b + slots.PHASE_1] = 2; phaseChanges++;
+        if (energyTransfers && latent > 0) energyTransfers.push({ source: 'thermal:particle:' + i, destination: 'phase:particle:' + i, amount: latent, cause: 'vaporization-latent-heat', metadata: { particleIndex: i, fromPhase: phase, toPhase: 2 } });
       } else if (temperature >= material.meltPoint && phase < 1 && view[b + slots.ENERGY] >= (material.latentFusion ?? 0)) {
         view[b + slots.ENERGY] -= material.latentFusion ?? 0; view[b + slots.STORED_ENERGY] += material.latentFusion ?? 0; view[b + slots.PHASE_1] = 1; phaseChanges++;
+        if (energyTransfers && (material.latentFusion ?? 0) > 0) energyTransfers.push({ source: 'thermal:particle:' + i, destination: 'phase:particle:' + i, amount: material.latentFusion, cause: 'fusion-latent-heat', metadata: { particleIndex: i, fromPhase: phase, toPhase: 1 } });
       } else if (temperature < material.boilPoint && phase >= 2) {
         const released = Math.min(material.latentVaporization ?? 0, Math.max(0, view[b + slots.STORED_ENERGY]));
         view[b + slots.STORED_ENERGY] -= released; view[b + slots.ENERGY] += released;
+        if (energyTransfers && released > 0) energyTransfers.push({ source: 'phase:particle:' + i, destination: 'thermal:particle:' + i, amount: released, cause: 'vaporization-latent-heat-release', metadata: { particleIndex: i, toPhase: 1 } });
         view[b + slots.PHASE_1] = 1; phaseChanges++;
       } else if (temperature < material.meltPoint && phase >= 1) {
         const released = Math.min(material.latentFusion ?? 0, Math.max(0, view[b + slots.STORED_ENERGY]));
         view[b + slots.STORED_ENERGY] -= released; view[b + slots.ENERGY] += released;
+        if (energyTransfers && released > 0) energyTransfers.push({ source: 'phase:particle:' + i, destination: 'thermal:particle:' + i, amount: released, cause: 'fusion-latent-heat-release', metadata: { particleIndex: i, toPhase: 0 } });
         view[b + slots.PHASE_1] = 0; phaseChanges++;
       }
     }
@@ -248,6 +274,11 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
         // reactions store heat as chemical potential. The pair total is conserved.
         view[p.a + slots.ENERGY] += energy / 2; view[p.b + slots.ENERGY] += energy / 2;
         view[p.a + slots.STORED_ENERGY] -= energy / 2; view[p.b + slots.STORED_ENERGY] -= energy / 2;
+        if (energyTransfers && energy !== 0) {
+          const source = energy > 0 ? 'chemical:pair:' + p.i + ':' + p.j : 'thermal:pair:' + p.i + ':' + p.j;
+          const destination = energy > 0 ? 'thermal:pair:' + p.i + ':' + p.j : 'chemical:pair:' + p.i + ':' + p.j;
+          energyTransfers.push({ source, destination, amount: Math.abs(energy), cause: 'chemical-reaction-enthalpy', metadata: { particleA: p.i, particleB: p.j, reaction: [r.speciesA, r.speciesB, r.productA, r.productB] } });
+        }
         view[owner + slots.PHASE_2] -= 1;
         reactions++;
         break;
@@ -266,6 +297,7 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       const dm = view[b + slots.MASS] * rule.massDefectFraction;
       view[b + slots.MASS] -= dm;
       view[b + slots.ENERGY] += dm * (rule.speedOfLightSquared ?? 1);
+      if (energyTransfers && dm > 0) energyTransfers.push({ source: 'rest-mass:particle:' + i, destination: 'radiation:particle:' + i, amount: dm * (rule.speedOfLightSquared ?? 1), cause: 'radioactive-mass-defect', metadata: { particleIndex: i, massDefect: dm, speedOfLightSquared: rule.speedOfLightSquared ?? 1 } });
       view[b + slots.SPECIES_ID] = rule.productSpeciesId;
       view[b + slots.RADIATION_EXPOSURE] -= 1;
       decays++;
