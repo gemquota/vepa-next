@@ -19,7 +19,7 @@ function calculatePeriodicAcceleration(view, indices, count, stride, slots, worl
   let gravityEnergy = 0, electricEnergy = 0, interactions = 0;
   const particles = indices.map(index => {
     const b = index * stride;
-    return { id: ewald.entityIds?.[index] ?? 'slot:' + index,
+    return { id: 'slot:' + index,
       position: [view[b + slots.POS_X], view[b + slots.POS_Y], view[b + slots.POS_Z]],
       mass: view[b + slots.MASS], charge: Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0 };
   });
@@ -41,7 +41,7 @@ function calculatePeriodicAcceleration(view, indices, count, stride, slots, worl
       neutralityTolerance: ewald.neutralityTolerance ?? 1e-10 });
     electricEnergy = result.components.total; interactions += result.pairImageCount;
     result.forces.forEach(entry => {
-      const n = indices.findIndex(i => (ewald.entityIds?.[i] ?? 'slot:' + i) === entry.entityId);
+      const n = particles.findIndex(p => p.id === entry.entityId);
       const i = indices[n], mass = particles[n].mass;
       for (let axis = 0; axis < 3; axis++) acceleration[i * 3 + axis] += entry.force[axis] / mass;
     });
