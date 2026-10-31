@@ -58,7 +58,16 @@ export function createV3RandomBehaviorStreams({ streams, worldId }) {
     intrinsicJitter(particleId) { return vector3(draw('physics.intrinsic-jitter', requireId(particleId, 'particleId'))); },
     chaosGate(particleId) {
       const r = draw('chaos.perturbation', requireId(particleId, 'particleId'));
-      return Object.freeze({ gate: r.next(), vector: () => vector3(r) });
+      const gate = r.next();
+      let vectorConsumed = false;
+      return Object.freeze({
+        gate,
+        vector() {
+          if (vectorConsumed) throw new Error('chaos vector draws have already been consumed');
+          vectorConsumed = true;
+          return vector3(r);
+        },
+      });
     },
     allotropy(pairA, pairB) {
       return draw('chemistry.allotropy', pairId(pairA, pairB)).next();
