@@ -64,7 +64,7 @@ export function stepParticleWorld(view, count, {
   if (!WRAP_MODES.has(boundaryMode)) throw new RangeError('boundaryMode must be toroidal or reflective');
   if (!['explicit-euler', 'semi-implicit-euler', 'velocity-verlet'].includes(integrator)) throw new RangeError('integrator must be explicit-euler, semi-implicit-euler or velocity-verlet');
   if (integrator === 'velocity-verlet' &&
-      (activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || dragCoefficient > 0 && activeLawIds.includes('law.drag'))) {
+      (activeLawIds.some(id => !['law.gravity','law.charge'].includes(id)) || boundaryMode !== 'toroidal' || activeLawIds.includes('law.collision') || advancedPhysics !== null)) {
     throw new RangeError('velocity-verlet currently supports only conservative gravity and charge laws');
   }
   if (!Array.isArray(activeLawIds) || activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(activeLawIds).size !== activeLawIds.length) {
