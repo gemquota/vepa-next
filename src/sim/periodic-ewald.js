@@ -99,7 +99,7 @@ export function calculateEwaldSystem(options={}){
     boxSize:L,coupling:K,alpha:a,realShell,reciprocalShell,neutrality:p.neutrality,netCharge:p.netCharge,
     forces:Object.freeze(forces.map((force,i)=>Object.freeze({entityId:particles[i].id,force:Object.freeze(force)}))),
     components:Object.freeze({realSpace:real,reciprocalSpace:reciprocal,self:selfEnergy,uniformBackground:backgroundEnergy,total}),
-    pairImageCount:realVectors.length,reciprocalVectorCount:half.length,
+    pairImageCount:realVectors.length,\n    realImageIdentities:Object.freeze(realVectors),\n    reciprocalVectorCount:half.length,\n    reciprocalVectorIdentities:Object.freeze(half.map(v=>Object.freeze({integerVector:Object.freeze(v),waveVector:Object.freeze(v.map(x=>2*Math.PI*x/L))}))),
     truncation:Object.freeze({realShell,reciprocalShell,empiricalOnly:true,errorBound:null}),
     assumptions:Object.freeze([
       'Cubic three-dimensional periodic cell and point particles',
