@@ -93,7 +93,8 @@ export function stepParticleWorld(view, count, {
       !Number.isFinite(interactionRadius) || interactionRadius <= 0 || interactionRadius > worldSize / 2) {
     throw new RangeError('Invalid world size, timestep, gravity, softening or interaction radius');
   }
-  if (!['minimum-image','ewald'].includes(periodicMode)) throw new RangeError('periodicMode must be minimum-image or ewald');\n  if (!['hard','shifted-force'].includes(cutoffMode)) throw new RangeError('cutoffMode must be hard or shifted-force');
+  if (!['minimum-image','ewald'].includes(periodicMode)) throw new RangeError('periodicMode must be minimum-image or ewald');
+  if (!['hard','shifted-force'].includes(cutoffMode)) throw new RangeError('cutoffMode must be hard or shifted-force');
   if (energyTransfers !== null && !Array.isArray(energyTransfers)) throw new TypeError('energyTransfers must be an array or null');
   if (boundaryEvents !== null && !Array.isArray(boundaryEvents)) throw new TypeError('boundaryEvents must be an array or null');
   if (forceWorkEvents !== null && !Array.isArray(forceWorkEvents)) throw new TypeError('forceWorkEvents must be an array or null');
