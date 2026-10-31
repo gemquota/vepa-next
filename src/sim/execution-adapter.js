@@ -1,6 +1,7 @@
 import { PARTICLE_LAYOUT_VERSION, PARTICLE_STRIDE, PARTICLE_SLOTS } from './particle-layout.js';
 import { stepParticleWorld } from './solver.js';
 import { createDeterministicRandomStreams } from '../core/random-streams.js';
+import { createParticleIdentityAllocator } from './particle-identities.js';
 
 function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLawIds] }; }
 
@@ -43,6 +44,13 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   let state = new Float64Array(initialState);
   let tick = 0;
   const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
+  let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
+  for (let i = 0; i < particleCount; i++) {
+    const base = i * stride;
+    if (state[base + PARTICLE_SLOTS.DEAD] < 0.5 && state[base + PARTICLE_SLOTS.MASS] > 0) {
+      particleIdentities.allocate(i);
+    }
+  }
   let activeConfig = validateParticleExecutionConfig({ ...DEFAULT_CONFIG, ...config, activeLawIds: config.activeLawIds ?? DEFAULT_CONFIG.activeLawIds });
 
   function validateState(nextState, nextTick) {
@@ -57,6 +65,26 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
     nextRandom(domain, entityId) { return randomStreams.get(domain, entityId).next(); },
+    getParticleIdentity(slot) { return particleIdentities.get(slot); },
+    allocateParticle(slot, values) {
+      if (!Number.isInteger(slot) || slot < 0 || slot >= particleCount) throw new RangeError('particle slot is outside execution capacity');
+      if (!ArrayBuffer.isView(values) && !Array.isArray(values)) throw new TypeError('particle values must be an array or typed array');
+      if (values.length !== stride || Array.from(values).some(value => !Number.isFinite(value))) throw new TypeError('particle values must contain exactly stride finite numbers');
+      if (particleIdentities.get(slot)) throw new Error('particle slot is already alive');
+      const base = slot * stride;
+      if (values[PARTICLE_SLOTS.DEAD] >= 0.5 || values[PARTICLE_SLOTS.MASS] <= 0) throw new TypeError('new particle values must describe a live particle');
+      const identity = particleIdentities.allocate(slot);
+      state.set(values, base);
+      return identity;
+    },
+    retireParticle(slot) {
+      const identity = particleIdentities.get(slot);
+      if (!identity) return false;
+      const base = slot * stride;
+      state[base + PARTICLE_SLOTS.DEAD] = 1;
+      state[base + PARTICLE_SLOTS.MASS] = 0;
+      return particleIdentities.release(identity);
+    },
     readState() { return new Float64Array(state); },
     readRenderState() {
       const render = new Float32Array(particleCount * RENDER_STRIDE);
@@ -79,6 +107,13 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     },
     step() {
       const metrics = stepParticleWorld(state, particleCount, { ...activeConfig, stride, slots: PARTICLE_SLOTS });
+      for (let i = 0; i < particleCount; i++) {
+        const identity = particleIdentities.get(i);
+        const base = i * stride;
+        if (identity && (state[base + PARTICLE_SLOTS.DEAD] >= 0.5 || state[base + PARTICLE_SLOTS.MASS] <= 0)) {
+          particleIdentities.release(identity);
+        }
+      }
       tick++;
       return Object.freeze({ tick, ...metrics });
     },
@@ -90,6 +125,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         tick,
         config: copyConfig(activeConfig),
         randomState: randomStreams.snapshot(),
+        identityState: particleIdentities.snapshot(),
         state: new Float64Array(state),
       });
     },
@@ -101,7 +137,15 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         seed: randomSeed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
       });
+      if (snapshot.identityState === undefined) throw new TypeError('Snapshot is missing particle identity state');
+      const nextIdentities = createParticleIdentityAllocator({ capacity: particleCount, snapshot: snapshot.identityState });
+      for (let i = 0; i < particleCount; i++) {
+        const base = i * stride;
+        const alive = snapshot.state[base + PARTICLE_SLOTS.DEAD] < 0.5 && snapshot.state[base + PARTICLE_SLOTS.MASS] > 0;
+        if (alive !== Boolean(nextIdentities.get(i))) throw new TypeError('Snapshot particle identity state does not match particle liveness');
+      }
       randomStreams.restore(nextRandomStreams.snapshot());
+      particleIdentities = nextIdentities;
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
