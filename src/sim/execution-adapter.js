@@ -253,6 +253,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         randomState: randomStreams.snapshot(),
         identityState: particleIdentities.snapshot(),
         energyLedger: energyLedger.createSnapshot(),
+        energyBudgetTimeline: energyBudgetTimeline.createSnapshot(),
         state: new Float64Array(state),
       });
     },
