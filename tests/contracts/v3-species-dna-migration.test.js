@@ -26,6 +26,13 @@ test('converts changed base-radius and magnetic-moment ranges semantically', () 
   assert.ok(Math.abs(decode(source[33], 0, 1) - decode(migrated[33], -1, 1)) <= 2 / DNA_PACK_MAX);
 });
 
+test('clamps legacy values that exceed a narrowed current trait range', () => {
+  const source = new Uint16Array(64);
+  source[29] = DNA_PACK_MAX; // V3 base radius 10; current maximum is 4.
+  const migrated = migrateV3SpeciesDNABuffer(source, { speciesCount: 1 });
+  assert.equal(migrated[29], DNA_PACK_MAX);
+});
+
 test('initializes the 22 appended traits to current schema defaults', () => {
   const migrated = migrateV3SpeciesDNABuffer(new Uint16Array(64), { speciesCount: 1 });
   const ranges = [
