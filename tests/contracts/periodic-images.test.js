@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculatePeriodicImagePair, estimatePeriodicImageConvergence } from '../../src/sim/periodic-images.js';
+import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from '../../src/sim/periodic-images.js';
 
 const pair = { first: [1, 2, 3], second: [4, 5, 6], boxSize: 20, softening: 0.5, strength: -2 };
 
