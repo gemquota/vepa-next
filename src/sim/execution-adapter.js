@@ -16,7 +16,8 @@ function copyConfig(value) { return { ...value, activeLawIds: [...value.activeLa
 
 export function validateParticleExecutionConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('config must be an object');
-  if (!['minimum-image','ewald'].includes(config.periodicMode ?? 'minimum-image')) throw new RangeError('Invalid periodicMode');\n  if (!['hard','shifted-force'].includes(config.cutoffMode ?? 'hard')) throw new RangeError('Invalid cutoffMode');
+  if (!['minimum-image','ewald'].includes(config.periodicMode ?? 'minimum-image')) throw new RangeError('Invalid periodicMode');
+  if (!['hard','shifted-force'].includes(config.cutoffMode ?? 'hard')) throw new RangeError('Invalid cutoffMode');
   if (!['toroidal', 'reflective'].includes(config.boundaryMode)) throw new RangeError('Invalid boundaryMode');
   if (!Array.isArray(config.activeLawIds) || config.activeLawIds.some(id => typeof id !== 'string' || !id) || new Set(config.activeLawIds).size !== config.activeLawIds.length) throw new TypeError('activeLawIds must be unique non-empty strings');
   for (const key of ['worldSize', 'dt', 'gravitationalConstant', 'electricConstant', 'dragCoefficient', 'softening', 'interactionRadius']) {
