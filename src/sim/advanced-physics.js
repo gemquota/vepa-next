@@ -211,8 +211,9 @@ export function applyAdvancedPhysics(view, alive, acceleration, candidates, quer
       const b = i * stride, material = materials.get(Math.trunc(view[b + slots.SPECIES_ID]));
       if (!material) continue;
       const temperature = view[b + slots.TEMPERATURE], phase = view[b + slots.PHASE_1];
-      if (temperature >= material.boilPoint && phase < 2 && view[b + slots.ENERGY] >= (material.latentVaporization ?? 0)) {
-        view[b + slots.ENERGY] -= material.latentVaporization ?? 0; view[b + slots.STORED_ENERGY] += material.latentVaporization ?? 0; view[b + slots.PHASE_1] = 2; phaseChanges++;
+      if (temperature >= material.boilPoint && phase < 2 && view[b + slots.ENERGY] >= (material.latentVaporization ?? 0) + (phase < 1 ? material.latentFusion ?? 0 : 0)) {
+        const latent = (material.latentVaporization ?? 0) + (phase < 1 ? material.latentFusion ?? 0 : 0);
+        view[b + slots.ENERGY] -= latent; view[b + slots.STORED_ENERGY] += latent; view[b + slots.PHASE_1] = 2; phaseChanges++;
       } else if (temperature >= material.meltPoint && phase < 1 && view[b + slots.ENERGY] >= (material.latentFusion ?? 0)) {
         view[b + slots.ENERGY] -= material.latentFusion ?? 0; view[b + slots.STORED_ENERGY] += material.latentFusion ?? 0; view[b + slots.PHASE_1] = 1; phaseChanges++;
       } else if (temperature < material.boilPoint && phase >= 2) {
