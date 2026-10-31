@@ -21,3 +21,7 @@ Real-space integer image vectors and reciprocal integer vectors are explicitly t
 - No slab, wire, dielectric-interface, conducting-boundary or non-cubic cell support.
 - No exact finite-shell guarantee. Production accuracy requires convergence studies for the chosen alpha and both shells.
 - The existing minimum-image solver remains the default. Ewald is opt-in and only supports gravity/charge laws; incompatible physics combinations are rejected.
+
+## Adaptive stepping
+
+When adaptive substepping is enabled, the execution adapter estimates the maximum acceleration from the configured gravity/charge pair model (including the Ewald model when selected) and combines it with the current maximum speed using `v_max * dt + 0.5 * a_max * dt²`. This is used as a deterministic displacement heuristic. It is **not** a local truncation-error estimator, a rigorous CFL condition, or a bound on unmodeled extended laws, contacts, drag, or future force changes. The step result reports the modeled acceleration estimate and its limitations.
