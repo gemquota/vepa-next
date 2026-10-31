@@ -107,6 +107,7 @@ export function createParticleIdentityAllocator({ capacity, snapshot = undefined
     capacity,
     allocate,
     release,
+    restore,
     get(slot) { return current(slot); },
     isCurrent(identity) {
       validateIdentity(identity, capacity);
