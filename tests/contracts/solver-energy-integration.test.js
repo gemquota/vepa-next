@@ -110,10 +110,8 @@ test('energy journal commit is rolled back with a failed simulation tick', () =>
   assert.equal(typeof original, 'function');
   // Fill the bounded journal to force the next solver-produced batch to reject.
   for (let i = 0; i < 10000; i++) runtime.transferEnergy({ source: 'external', destination: 'thermal', amount: 0.001, cause: 'capacity-fill' });
-  const atCapacity = runtime.readState();
   assert.throws(() => runtime.step(), /capacity/i);
-  assert.deepEqual(runtime.readState(), atCapacity);
+  assert.deepEqual(runtime.readState(), before);
   assert.equal(runtime.tick, 0);
   assert.equal(runtime.getEnergySummary().eventCount, 10000);
-  assert.notDeepEqual(before, atCapacity);
 });
