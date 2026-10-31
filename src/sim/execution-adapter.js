@@ -164,7 +164,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         state = beforeState;
         throw error;
       }
+      let after = null;
       try {
+        after = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
         if (pendingEnergyTransfers.length) {
           // These are signed flow accounts, not claims about complete physical inventories.
           // The event journal is the authoritative provenance record for each subsystem transfer.
@@ -188,7 +190,6 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         state = beforeState;
         throw error;
       }
-      const after = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
       for (let i = 0; i < particleCount; i++) {
         const identity = particleIdentities.get(i);
         const base = i * stride;
