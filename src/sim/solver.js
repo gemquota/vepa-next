@@ -17,9 +17,9 @@ function shortestDelta(delta, size) {
 function calculatePeriodicAcceleration(view, indices, count, stride, slots, worldSize, gravitationalConstant, electricConstant, ewald) {
   const acceleration = new Float64Array(count * 3);
   let gravityEnergy = 0, electricEnergy = 0, interactions = 0;
-  const particles = indices.map(i => {
-    const b = i * stride;
-    return { id: ewald.entityIds?.[i] ?? 'slot:' + i,
+  const particles = indices.map(index => {
+    const b = index * stride;
+    return { id: ewald.entityIds?.[index] ?? 'slot:' + index,
       position: [view[b + slots.POS_X], view[b + slots.POS_Y], view[b + slots.POS_Z]],
       mass: view[b + slots.MASS], charge: Number.isFinite(view[b + slots.CHARGE]) ? view[b + slots.CHARGE] : 0 };
   });
