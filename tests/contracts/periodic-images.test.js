@@ -41,3 +41,39 @@ test('invalid and ambiguous shell settings fail closed', () => {
   assert.throws(() => estimatePeriodicImageConvergence(pair, { shells: [1, 1] }), /increasing/i);
   assert.throws(() => calculatePeriodicImagePair({ ...pair, boxSize: 0 }), /boxSize/i);
 });
+
+import { createParticleExecutionAdapter } from '../../src/sim/execution-adapter.js';
+import { PARTICLE_STRIDE, PARTICLE_SLOTS as S } from '../../src/sim/particle-layout.js';
+
+test('system reference conserves pair force and exposes stable pair provenance', () => {
+  const result = calculatePeriodicImageSystem({
+    particles: [
+      { id: 'alpha', position: [1, 2, 3] },
+      { id: 'beta', position: [4, 5, 6] },
+      { id: 'gamma', position: [8, 2, 1] },
+    ],
+    boxSize: 20, softening: 0.5, shell: 1,
+    pairStrength: (a, b) => a.id === 'alpha' && b.id === 'beta' ? -2 : 1,
+  });
+  assert.equal(result.pairCount, 3);
+  assert.equal(result.pairEvidence[0].pairId, 'alpha|beta');
+  const net = result.forces.reduce((sum, item) => sum.map((v, i) => v + item.force[i]), [0,0,0]);
+  assert.ok(net.every(v => Math.abs(v) < 1e-12));
+});
+
+test('system reference rejects duplicate identities before evaluating any pair', () => {
+  assert.throws(() => calculatePeriodicImageSystem({
+    particles: [{ id: 'same', position: [0,0,0] }, { id: 'same', position: [1,0,0] }],
+    boxSize: 10, softening: 1, pairStrength: () => 1,
+  }), /unique/i);
+});
+
+test('execution adapter exposes periodic reference without changing solver policy', () => {
+  const state = new Float64Array(PARTICLE_STRIDE);
+  state[S.MASS] = 1;
+  const adapter = createParticleExecutionAdapter({ initialState: state, count: 1 });
+  assert.equal(typeof adapter.calculatePeriodicImagePair, 'function');
+  assert.equal(typeof adapter.calculatePeriodicImageSystem, 'function');
+  assert.equal(typeof adapter.estimatePeriodicImageConvergence, 'function');
+  assert.equal(adapter.getConfig().boundaryMode, 'toroidal');
+});
