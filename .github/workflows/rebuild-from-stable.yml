@@ -22,20 +22,14 @@ jobs:
           ref: rebuild/source-faithful-baseline
           fetch-depth: 0
 
-      - name: Check out pinned stable source
-        uses: actions/checkout@v4
-        with:
-          repository: gemquota/vepa
-          ref: 24b56aff316d6de5a960943d6bcb9192a8d569ce
-          path: _stable_vepa_source
-
-      - name: Stage source outside target working tree
+      - name: Fetch pinned stable source
         shell: bash
         run: |
           set -euo pipefail
+          git clone --no-checkout https://github.com/gemquota/vepa.git "$RUNNER_TEMP/stable-vepa-git"
+          git -C "$RUNNER_TEMP/stable-vepa-git" checkout --detach 24b56aff316d6de5a960943d6bcb9192a8d569ce
           mkdir -p "$RUNNER_TEMP/stable-vepa-source"
-          cp -a _stable_vepa_source/. "$RUNNER_TEMP/stable-vepa-source/"
-          echo "_stable_vepa_source/" >> .git/info/exclude
+          git -C "$RUNNER_TEMP/stable-vepa-git" archive 24b56aff316d6de5a960943d6bcb9192a8d569ce | tar -x -C "$RUNNER_TEMP/stable-vepa-source"
 
       - name: Replace prototype tree with stable VEPA
         shell: bash
@@ -44,9 +38,7 @@ jobs:
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.base/' \
-            --exclude='_stable_vepa_source/' \
-            --exclude='.github/workflows/import-stable-baseline.yml' \
-            --exclude='.github/workflows/rebuild-from-stable.yml' \
+            --exclude='.github/' \
             "$RUNNER_TEMP/stable-vepa-source/" ./
           git add -A
           if git diff --cached --quiet; then
