@@ -1,0 +1,51 @@
+name: Deploy source-faithful VEPA Next
+
+on:
+  push:
+    branches:
+      - rebuild/source-faithful-baseline
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: vepa-next-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate syntax and generated specification
+        run: |
+          npm run syntax-check
+          npm run spec:check
+      - name: Build GitHub Pages application
+        run: VITE_BASE=/vepa-next/ npm run build
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Publish source-faithful VEPA Next
+        id: deployment
+        uses: actions/deploy-pages@v4
