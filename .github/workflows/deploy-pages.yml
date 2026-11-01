@@ -39,7 +39,7 @@ jobs:
           path: _site
 
   deploy:
-    if: vars.PAGES_ENABLED == 'true'
+    if: false # Disabled: this workflow packages the retired prototype, not the source-faithful rebuild.
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
