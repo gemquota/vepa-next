@@ -1,0 +1,33 @@
+name: VEPA source baseline build
+
+on:
+  push:
+    branches:
+      - rebuild/source-faithful-baseline
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check JavaScript syntax
+        run: npm run syntax-check
+      - name: Verify generated technical specification
+        run: npm run spec:check
+      - name: Build production application
+        run: npm run build
+      - name: Verify build output
+        run: test -s .dist/index.html

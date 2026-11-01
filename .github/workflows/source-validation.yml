@@ -1,0 +1,36 @@
+name: VEPA source-faithful validation
+
+on:
+  push:
+    branches:
+      - rebuild/source-faithful-baseline
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  source-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Unit and audit tests
+        run: npm test
+      - name: Source syntax check
+        run: npm run syntax-check
+      - name: Generated specification check
+        run: npm run spec:check
+      - name: Production build
+        run: npm run build
+      - name: Install browser for worker E2E
+        run: npx playwright install --with-deps chromium
+      - name: Worker browser E2E
+        run: npm run test:e2e:worker
