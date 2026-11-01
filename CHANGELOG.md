@@ -1,0 +1,1748 @@
+# Changelog: VEPA4 (formerly styled "VEPA v4")
+
+## [4.9.5] - 2026-08-26 → 9.1.2
+
+### docs(spec): add deterministic hierarchical technical-spec generation
+
+- Add a dependency-free Node procedure that extracts live runtime contracts, module structure, UI and simulation surfaces, law metadata, verification evidence, and duplicate-concept review data.
+- Generate the complete navigable specification tree under `docs/spec/`, including one record per mapped law and a JSON manifest.
+- Add byte-for-byte `spec:check` drift detection so generated documentation can be verified in CI.
+- Synchronize the active version markers to `9.1.2`; no deployment or release tag is created by this documentation task.
+
+### Files
+
+- `scripts/generate-spec.mjs`, `package.json`, `package-lock.json`, `VERSION` — procedure, commands, and aligned manifests.
+- `docs/spec/` — generated hierarchical specification artifacts.
+- `README.md`, `SPEC.md`, `PLAN.md`, `GUIDE.md` — procedure and documentation references.
+
+## [4.9.4] - 2026-08-26 → 9.1.1
+
+### fix(categories): restore gravity classification and complete Mechanics UI wiring
+
+- Move TIDE back to Physics because its implementation is gravity-gradient based.
+- Keep Mechanics as the slate-grey separated category and expose it in the law panel and setup filters.
+- Preserve the exact 128-bit law contract without adding inert placeholder laws.
+- Keep ANTIMATTER and HYPERPLANE unchanged in Quantum; both remain implemented and dispatched.
+- Prevent the synchronous solver from silently bypassing complete law semantics through the GPU pre-pass.
+
+### Files
+
+- `src/constants.js`, `src/ui/lawPanel.js`, `index.html` — category mapping and Mechanics UI.
+- `src/physics/solver.js` — exact CPU law dispatch remains authoritative.
+- `tests/unit/lawCategories.test.js` — updated Physics/Mechanics assertions.
+
+## [4.9.3] - 2026-08-25 → 9.1.0
+
+### feat(law-recategorization): WRAP → BUOYANCY, slate Mechanics category, composite adjoined structures
+
+- **WRAP retired** (bit 3): toroidal wrapping is now the TOROIDAL EDGES world parameter; bit 3 reissued as **BUOYANCY** — thermal lift along −z (hot rises, cool sinks) coupled through HEAT_OUTPUT DNA.
+- **New Mechanics category** (slate grey, visually separated from the 8-point rainbow): TIDE, ELASTICITY, TURBULENCE, CENTRIPETAL, ROTATION moved out of Physics; Physics keeps GRAV, DRAG, ENTR, COLL, ACCR, PLANETARY, VOID, BOND, SINGULARITY, FUSION-era set plus BUOYANCY (11 laws).
+- **Composite adjoined structures (ACCR)**: alongside mass accretion, sustained gentle contact now CEMENTS pairs into composite structures — both grains keep their identity and are linked bilaterally via the shared bond slots (`adjoinParticles` in mergePhysics.js). Adjoining triggers at HALF the FUSION_TIME dwell; adjoined grains never mass-merge, and the seam uses an inelastic contact response (zero restitution + cohesion spring at touching rest length). High-momentum impacts still merge into ONE body as before.
+- ACCR LAW_HELP_DB entry updated to document both growth modes; HUD tick triple display reformatted; law grid/tooltip/law panel updated for the 9-category layout with slate hue handling.
+
+### Files
+
+- `src/constants.js` — LAW_CATEGORIES mechanics band, BUOYANCY index/help, ACCR help tiers
+- `src/physics/laws.js` — applyBuoyancy
+- `src/physics/solver.js` — adjoining dispatch + adjoined contact response in the contact block
+- `src/physics/mergePhysics.js` — adjoinParticles + ADJOIN taxonomy docs
+- `src/ui/{lawPanel,tooltip,hud,worldPanel}.js`, `style.css` — slate Mechanics category + HUD reformat
+- `src/state/{defaultPresets,worldParams}.js` — TOROIDAL EDGES param replacing WRAP behavior
+
+## [4.9.2] - 2026-08-23 → 9.0.2
+
+### feat(settings): selectable GPU/CPU backend with WebGPU parity harness
+
+- Added `SETTINGS > COMPUTE > PHYSICS BACKEND` with GPU selected by default and explicit CPU mode.
+- Worker configuration now receives backend changes and reports WebGPU capability on initialization and tick completion.
+- Added Chromium WebGPU launch flags and a fixed-fixture hardware parity test comparing GPU gravity/collision output with the CPU implementation.
+- The GPU path currently accelerates gravity/collision only; the remaining 128-law behavior stays on the CPU for semantic parity. Unsupported browsers use the CPU fallback.
+
+## [4.9.1] - 2026-08-23 → 9.0.1
+
+### fix(worker): async WebGPU capability probing and browser integration coverage
+
+- Serialized worker tick dispatch with explicit single-flight protection so queued render frames cannot overlap physics completion.
+- Propagated `computeEngine` through worker initialization/configuration and report `gpuAvailable` on worker completion messages.
+- Added Playwright browser smoke coverage for app boot, asynchronous worker progress, and safe WebGPU-unavailable fallback.
+- Added `test:e2e:worker` and kept CPU compute as the default until browser GPU parity is validated.
+
+## [4.9.0] - 2026-08-23 → 9.0.0
+
+### feat(physics): Full FMM + WebGPU Compute — v9.0.0 acceleration release
+
+**New modules:**
+- `src/physics/fmm.js` — grid-based Fast Multipole Method with quadrupole order-2
+  expansions. Replaces per-particle tree walks with O(N) global passes: M2L
+  interaction lists, upward quadrupole propagation, downward local expansion
+  evaluation. Uniform-depth cell partitioning with automatic depth selection.
+- `src/physics/gpuCompute.js` — WebGPU compute module with WGSL shader for
+  parallel pairwise force computation (gravity + collision). One workgroup per
+  grid cell, one invocation per neighbour pair. CPU fallback for Node.js
+  benchmarking and browsers without WebGPU support.
+
+**Engine knobs** (in `src/state/runtimeConfig.js`):
+- `gravEngine`: `'exact'` (default) | `'bh'` (Barnes–Hut monopole) | `'fmm'`
+  (Barnes–Hut + quadrupole correction). The BH and FMM octree engines replace
+  the pairwise GRAV term with a tree query per particle.
+- `computeEngine`: `'cpu'` (default) | `'gpu'` (WebGPU compute shader for
+  gravity + collision; falls back to CPU in Node.js). When active, builds all
+  neighbour pairs from the spatial grid, dispatches to the GPU shader, and
+  accumulates forces into the per-particle loop.
+
+**Benchmark findings** (Node.js headless, 10-law default profile):
+- The spatial grid + distance-tiered dispatch remains the fastest path at all
+  tested populations (500–50k). Tree methods (BH/FMM) are slower by 2-8× due
+  to the grid's already-excellent neighbour truncation (~130 avg neighbours).
+- The GPU compute engine is wired and functional; real WebGPU acceleration
+  requires a browser with COOP/COEP headers. The CPU fallback path serves as
+  architectural proof-of-concept.
+- `computeEngine='gpu'` builds pair lists eagerly (one pass before the
+  per-particle loop) — this adds overhead at small N but enables true GPU
+  parallelism in the browser at scale.
+
+**Other:**
+- `src/physics/octree.js` — existing Barnes–Hut tree with quadrupole moments
+  and `useQuadrupole` flag for FMM mode. Upward M2M pass propagates quadrupole
+  moments via the parallel axis theorem.
+- All 859 tests pass (6 pre-existing failures: lawCategories ×4, batch_08
+  TIME_DILATION, batch_30 TELEPORT — not regressions).
+
+### Architecture summary
+
+```
+Solver (src/physics/solver.js)
+├── gravEngine='exact'  → pairwise GRAV in neighbour loop (distance-tiered)
+├── gravEngine='bh'     → octreeGravity() per particle (BH monopole)
+├── gravEngine='fmm'    → octreeGravity() per particle (BH + quadrupole)
+├── computeEngine='cpu' → full pairwise loop with all 128 laws
+└── computeEngine='gpu' → gpuComputeForcesSync() for GRAV+COLL;
+                           remaining laws in CPU pairwise loop
+```
+
+## [4.8.28] - 2026-08-23 → 8.16.14
+
+### perf(solver): distance-tiered law dispatch — 2.8× faster 128-law ticks
+
+- Added per-pair distance tiers (`near = dist < 30`, `mid = dist < 200`) after the
+  `Math.sqrt` in the pairwise loop, gating ~22 law blocks that have implicit
+  distance cutoffs (return-null for distant pairs, contact-only semantics).
+- At typical density 95% of neighbour pairs are at dist > 30, so short-range
+  laws (collision, bonding, polymerisation, heat transfer, solvation, chirality,
+  etc.) are now skipped for them — the law functions themselves already do this
+  internally; the guard avoids the entire `if(active[X])` + function call for
+  distant pairs.
+- Mid-range laws (order, soul, mind, signal exchange, tracking, telepathy,
+  precognition, affinity, reduction, predation) are gated at 200 instead of 30
+  to preserve their effective ranges.
+- Long-range laws (gravity, void, planetary, fields) are always dispatched.
+- Combined with the allocation-free pairwise path (v8.15.1) and content-addressed
+  law caches (v8.16), the 128-law tick at 5k particles drops from ~140ms to
+  ~51ms — a 2.8× speedup with zero approximation.
+
+### feat(physics): Barnes–Hut octree + quadrupole FMM gravity engines
+
+- New module `src/physics/octree.js` (360 lines): flat-typed-array octree with
+  correct toroidal acceptance (cell-region min-image gap, not naive COM
+  wrapping), zero allocation after warm-up, deterministic traversal.
+- Quadrupole moment propagation (M2M upward pass) with parallel-axis theorem;
+  trace-free force kernel in the traversal adds 6 tensor components per node
+  for ~10× better force accuracy at the same θ vs. monopole-only.
+- Config knob in `runtimeConfig.gravEngine`: `'exact'` (default, per-pair),
+  `'bh'` (monopole Barnes–Hut), `'fmm'` (monopole + quadrupole correction).
+- In VEPA's grid-truncated architecture (27-cell neighbour gather), the tree
+  engines are roughly parity with the exact path at current populations — the
+  grid is the primary acceleration structure. The tree is preserved as an
+  opt-in engine for future multi-law tree traversal and WebGPU integration.
+- Unit tests: 5 tests covering tree build correctness, COM propagation,
+  toroidal min-image, and solver BH equivalence at θ=0.
+
+### feat(bench): configurable FPS floor
+
+- `--fps-floor` flag on `bench/solver.bench.mjs` (default 15); scaling sweeps
+  stop once per-tick time exceeds the floor.
+
+**Tests:** 859/865 pass (6 pre-existing: lawCategories×4, batch_08
+TIME_DILATION, batch_30 TELEPORT — unchanged since v7.1.1).
+**Deployed:** https://vepa-seven.vercel.app/
+
+## [4.8.27] - 2026-08-22 → 8.16.13
+
+### feat(bench): 3-mode version comparison SPA
+
+- **3-mode switch at top-right**: v8.0 (pre-optimisation) / Compare / v8.16 (current)
+- **Compare mode**: dual-panel view with speedup stats, overlaid line chart (v8.0 red dashed vs v8.16 teal solid), numeric comparison table with Δ ms and % speedup per scale, plus mobile-friendly cards
+- **v8.0.0 dataset embedded inline**: 10-law and 128-law scaling captured from git tag v8.0.0 against the same bench harness
+- **Single SPA, single data file**: version switching is client-side — no page reload; the current dataset continues to load from `data.js`
+- Files: `public/bench-report/index.html`
+
+## [4.8.26] - 2026-08-22 → 8.16.12
+
+### Perf — revert grid density formula to v8.15.1 baseline (`src/physics/solver.js`)
+- **Regression root cause**: v8.16.2's auto-tuned grid formula `∛(N/0.5)`
+  pushed grid dimensions ~40% larger than the v8.15.1 `∛(N/1.4)` formula, making
+  the per-tick grid-clear/rebuild cost dominate over the pairwise savings at
+  moderate N (2,500–25,000). Head-to-head cross-version benchmarks (raw `solve()`,
+  10 default laws, identical workload) show v8.15.1 at 0.81 ms vs v8.16.2 at
+  1.77 ms at N=25,000 — a 2.2× regression.
+- **Fix**: reverted the formula to `∏(N/1.4)`. At N=25,000 the grid goes from
+  37³ back down to 26³, and tick times drop below v8.15.1 across the board:
+  0.69 ms at 25k (−15% vs v8.15.1), 2.77 ms at 100k (~360 fps). The v8.15.1
+  perf overhaul's allocation-free pairwise hot path + content-addressed caches
+  remain fully in place, so this is strictly additive.
+
+## [4.8.25] - 2026-08-22 → 8.16.11
+
+### Fix — benchmark report accordion navigation + fresh dataset
+- **Dead nav pills fixed**: clicking a top-nav pill now expands the target
+  accordion before scrolling (a collapsed `<details>` previously swallowed the
+  jump, making the buttons look broken). Deep links (`#sec-*`) and hashchange
+  also auto-expand their section.
+- **"Missing content" fixed**: Detailed results now opens by default alongside
+  Overview and Performance (3 of 8 sections open), with a hint line explaining
+  the collapsed sections — the collapsed accordions were being read as absent.
+- **Fresh benchmark data** regenerated against the current solver: dense
+  500-step ladder to 25k (34/12/5/6 points per profile below the 15 fps stop)
+  plus the full 128-law ablation, which now carries native `soloUs`,
+  `withoutUs`, and `pctMarginal` fields instead of SPA-side derivations.
+
+## [4.8.24] - 2026-08-22 → 8.16.10
+
+### UX pass — benchmark report mobile usability (`public/bench-report/`)
+- **Legibility**: minimum 12px type on mobile for every label, chip, table
+  cell, bar value, and legend; bar values/labels raised from 9.5–10.5px.
+- **Navigation**: sticky top anchor nav (Overview · Performance · Scaling ·
+  Configs · Per-law · Categories · Knob matrix · Sweeps) with smooth scrolling.
+- **Collapsible sections**: all eight major sections are now accordions;
+  Overview and Performance open by default so the executive result is first.
+- **Progressive disclosure**: per-law bar ranking shows the top 10 most
+  expensive laws inline with a "View all 128 laws" expander.
+- **Touch targets**: bar rows grew to ~34px tall with 20px tracks on mobile.
+- **Tooltips**: tap/hover tooltip on every per-law bar row (law, domain, solo
+  cost, without-law runtime, Δ) alongside the existing chart crosshair.
+- **Contextual baseline**: a gold median marker is drawn across every bar so
+  cheap vs expensive laws reads at a glance.
+
+## [4.8.23] - 2026-08-22 → 8.16.9
+
+### UI redesign — benchmark report information architecture (`public/bench-report/`)
+- Rebuilt the report around three levels: **Overview → Performance → Detail**
+  instead of a raw data dump.
+- New executive overview cards: ★ best configuration, median latency, peak
+  throughput, max N ≥ 60 fps, worker-vs-main improvement, and stability
+  (1 − mean relative spread across knob sweeps).
+- Performance chart now plots throughput (fps, ↑ higher is better) with a 60 fps
+  target line, ~6 sparse X ticks instead of one label per scale, and an
+  interactive crosshair tooltip showing every series at the hovered scale.
+- Desktop scaling matrix: fixed-width sticky metric-label column (fixes the
+  character-per-line label crush), semantic titles with units and directionality
+  ("Main workload · ms/frame · ↓ lower is better"), per-row teal/pink heat
+  encoding, and best-value-per-row emphasis.
+- Mobile (<760 px) swaps the wide matrix for per-metric ranked cards sorted
+  fastest-first with inline bars and a "Show all N scales" expander, plus
+  configuration-centric benchmark cards with score bars and a ★ BEST badge.
+- Per-law ablation table keeps LAW/DOMAIN/SOLO/WITHOUT/Δ/Δ%/ETV columns; adds a
+  top-20 marginal-cost bar ranking, a mobile ranking card, and heat-encoded
+  MAX_INTERACTIONS × NEIGHBOR_BUF matrix.
+- Removed the global `table-layout: fixed` + `overflow-wrap: anywhere` rules
+  that caused the crushed first column; wide tables scroll horizontally with
+  sticky headers/labels instead of collapsing.
+
+## [4.8.22] - 2026-08-22 → 8.16.8
+
+### UI fix — duplicate FPS in the toolbar header
+- The old standalone `0 FPS` HUD item (added back in v1.0.0's color-coded stats)
+  was still sitting next to the new combined `Tick · TPS · FPS` display, so the
+  header showed the frame rate twice. Removed the `#hud-fps` span, its HUD JS
+  references, and the now-unused `.hud-fps` CSS rule; FPS lives only in the
+  compact tick telemetry.
+## [4.8.21] - 2026-08-22 → 8.16.7
+
+### Benchmark runner
+- New `--scales <csv>` flag overrides the scaling ladder; regenerated the report
+  with 500-particle steps from 500 → 25,000 (50 requested points, early-stopped
+  at 17,000 when ticks exceeded the 15 fps budget) — a much denser graph.
+- Per-law sweep now records the explicit ablation triple: `soloUs` (tick with
+  only that law), `withoutUs` (128-law tick minus that law), `marginalUs`
+  (ALL_128 − withoutUs), and `pctMarginal`; serializer passes them through and
+  derives fallbacks for older datasets.
+
+### Benchmark SPA — per-law ablation table (user-specified restructure)
+- Replaced the misleading "Saved if OFF / % saved" columns with an explicit
+  causal layout: **Law · Domain · Solo Cost · Without Law · Δ Runtime · Δ % ·
+  ETV / Pair**, sorted by marginal cost. Δ Runtime = ALL 128 − Without Law;
+  Δ % is marginal cost as a fraction of the all-128 tick (the correct savings
+  percentage).
+- Header summary chips show the anchor configurations: `ALL 128 — X ms/frame`
+  and `ZERO LAWS — Y ms/frame`.
+
+### Benchmark SPA — scaling table transposed (user request)
+- First table axes switched: particle counts are now columns and metrics rows
+  (Main/Worker × 10/128 laws, cold RTTs, plus a derived FPS-equivalent row),
+  with horizontal scroll for wide ladders.
+
+### Verification
+- Headless DOM-stub run renders every section against the new 34-point dataset;
+  Vite build clean.
+
+## [4.8.20] - 2026-08-22 → 8.16.6
+
+### HUD
+- Tick telemetry labels restyled per user request: `Tick N · X.X TPS · XX FPS`
+  rendered in small caps (`font-variant-caps: all-small-caps`) with slightly wider
+  letter-spacing in the toolbar.
+
+## [4.8.19] - 2026-08-22 → 8.16.5
+
+### HUD
+- Removed the species count from the toolbar header; the freed space goes to a
+  roomier tick display: `tick N · X.X ticks/s · XX fps`.
+
+### Benchmark SPA fixes
+- Fixed a crash that left only the scaling graph rendering: the table builder
+  indexed shorter early-stopped series (`scalingAll`/`workerScalingAll`) out of
+  bounds and killed the script — every section after it (per-law bars, category
+  cards, matrix, knob sweeps) never rendered. All series accesses are now
+  index-guarded; verified all sections render against the shipped dataset.
+- Line-chart vertical axis now reads in **FPS** (higher is better) for the N-scaling
+  chart and the four knob sweeps, per user request.
+
+### Verification
+- Headless DOM-stub run of the full SPA script renders meta, scaling + table,
+  per-law bars/table, category cards, matrix, and all four sweeps with zero errors.
+- Syntax + Vite build pass; perfKnobs suite green.
+
+## [4.8.18] - 2026-08-22 → 8.16.4
+
+### HUD Telemetry
+- **Compact tick section**: the toolbar tick display now shows `tick N · X.X t/s · Y FPS` —
+  live tick count, completed physics ticks per second, and measured render frames per second,
+  sized to fit the existing toolbar space.
+- Tick now updates on every completed physics tick (worker and main-thread paths) instead of
+  appearing frozen while the worker owns simulation cadence.
+
+### Benchmark SPA
+- All timings displayed in `x.xx ms/frame` (no more raw microsecond values like "42000 µs");
+  worker cold round-trip overhead converted to milliseconds, ETV to ms/pair.
+- FPS context added: `FPS = 1000 ÷ ms/frame` noted on the report.
+- Charts are responsive (`width: 100%`) so the scaling graph no longer overflows the page;
+  tables scroll horizontally instead of pushing past the viewport.
+
+### Benchmark Runner
+- Scaling sweep starts at 1,000 particles (1k → 100k) and stops each profile as soon as a
+  scale drops below 15 FPS (>66.67 ms/tick), skipping useless sub-15FPS scales.
+- Regenerated `public/bench-report/data.js` with the new profile set.
+
+### Verification
+- Syntax + Vite build pass; perfKnobs suite 8/8 green.
+
+## [4.8.17] - 2026-08-22 → 8.16.3
+
+### Performance
+- Added deterministic adaptive-quality controls for high-population worlds.
+- Pairwise interaction budgets now scale with population and target FPS while
+  preserving the exact configured cap when adaptive quality is disabled.
+- Added WORLD performance controls for adaptive quality, target FPS, pairwise
+  budget, and expensive-law cadence.
+
+### Verification
+- Updated performance-knob coverage for the expanded PERFORMANCE accordion.
+
+
+> **Versioning & commit standards (adopted 2026-08-10):**
+> - **Product:** **VEPA4** — the generation number lives in the product name
+>   (was the leading `4` of the old `4.M.N` versions).
+> - **Version schema:** `major.minor.build` (e.g. `7.0.0`) — npm-semver-native
+>   (the old patch field is now the build counter). Retroactive mapping of the
+>   v4 line: old `4.M.N` → `M.N.0` (major = old minor, minor = old patch,
+>   build = 0 for every historical release; builds increment only for future
+>   same-minor rebuilds/hotfixes). Changelog headers carry both labels:
+>   `## [4.6.28] - date → 6.28.0`. The ledger's duplicated `[4.2.0]` section
+>   maps both entries to `2.0.0`. v2/v3-era entries predate the schema and keep
+>   their historical labels. Ledger note: there is no `[4.6.2]` section (commit
+>   `a93d41a` exists; the entry was never written — it maps to `6.2.0`). The
+>   full rule and release protocol live in `AGENTS.md` §10.4.
+> - **Commit standard:** [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
+>   is mandatory for all new commits — `<type>(<scope>): <description>` with
+>   `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`, `!` or a
+>   `BREAKING CHANGE:` footer for breaking changes. Release commits use
+>   `chore(release): v7.0.0 — <summary>` and tags are `v7.0.0`. Past commit
+>   messages are immutable (no history rewrites); this ledger restates releases
+>   under the new schema instead.
+
+## [4.8.17] - 2026-08-22 → 8.16.2
+
+### Perf: deterministic worker execution and exhaustive benchmark report
+- `perf(worker):` the live deterministic solver now runs in a Web Worker over the existing SharedArrayBuffer when cross-origin isolation is available; the main-thread fallback remains intact for incompatible hosts.
+- `fix(worker):` worker ticks are serialized, population/intelligence passes run once per completed tick, and law/DNA/world-parameter edits are synchronized so the UI no longer performs duplicate O(N) work while a tick is in flight.
+- `perf(worker):` fixed worker PRNG seed and completion-based tick bookkeeping preserve repeatable worker runs without changing the renderer or multiplex path.
+- `bench:` exhaustive all-128-law, full-stress population scaling now includes balanced main-thread and worker solver timings, worker response overhead, the 128-law baseline, per-law leave-one-out rows, and restored matrix/knob sweeps.
+- `bench(ui):` benchmark SPA now clearly separates main vs worker curves, default-10 vs all-128 scaling, both worker round-trip columns, and overlapping leave-one-out attribution semantics.
+
+## [4.8.16] - 2026-08-21 → 8.16.1 (hotfix rebuild of 8.16.0 — legacy label reused per the [4.8.1]→8.1.1 convention)
+
+### Perf: the 2.5k lag fix (denser auto-tuned grid + cached phenotypes)
+- `perf(solver):` **AUTO_TUNE density target raised** — the grid now refines to ~0.5 particles/cell at every population (`dim ≈ ∛(N/0.5)`, was `∛(N/1.4)` with a hard 12³ floor). The old formula held all ≤2,500-particle worlds at 12³ — ~39 neighbours/particle in the 27-cell gather — which made the default 15-law tick ~28 ms at 2.5k and pushed every frame over budget on the main thread. Measured with the default 15-law boot set (uniform spread): **2,500: 28.5 → 16.9 ms/tick (−41%)**, 10,000: ~112 → 58 ms, 25,000: ~319 → 157 ms, **100,000: ~1,656 → 884 ms (−47%, now faster than the 10-law-set figure in v8.15.1)**. The 12³ floor remains the minimum, so populations ≤ ~700 keep the classic behaviour. Tradeoff: the finer grid shortens the effective interaction cutoff (the 27-cell gather spans 3 cell-sizes), which subtly shifts emergent behaviour at mid populations — the documented cost of the perf win.
+- `perf(render):` **per-particle phenotype cache** — `computeColor`/`computeRadius`/`computeAlpha` (rgbToHsl + hslToRgb + DNA reads per particle per frame) are now refreshed on a 6-frame cadence and reused in between; their inputs are DNA-constant plus slowly drifting ENERGY/AGE, so the refresh is visually imperceptible. The cache is bound to the view object identity, so multiplex shards (eco mode, own buffers) can never read another shard's colours. Shaves ~1–3 ms/frame at 2.5k and scales with N.
+
+## [4.8.16] - 2026-08-20 → 8.16.0
+
+### Set P — Synthetic Life: intelligence outgrows DNA (O·P·Q trilogy, build 2)
+- `feat(synthetic):` **synthetic organisms** (decision P.1, `src/state/synthetic.js`) — non-DNA entities born from advanced K mega-structures (HUBs with treasury ≥ 400 and era ≥ 2). Each synthetic has a compact 8-trait program vector (speed, strength, efficiency, perception, coordination, adaptability, resilience, curiosity) derived from one of 8 archetypes (SCOUT, WORKER, GUARD, COURIER, FARMER, CRAFTSMAN, ANALYST, SENTINEL). Synthetics register in the F.1 group registry, are marked on stride offset 98 (SYNTHETIC_FLAGS bitfield) + 99 (SYNTHETIC_TRAIT), are immune to speciation (no species slot consumed), and decay when their upkeep energy runs out. Spawned at the HUB centroid with a teal colour signature.
+- `feat(synthetic):` **uploaded consciousness** (decision P.2) — species reaching an intelligence threshold (REGULATORY_DEPTH × SELECTION_SENSITIVITY × (1 + era × 0.1) ≥ UPLOAD_THRESHOLD) get a digital copy in the uploads registry — a parallel lineage that keeps evolving without the body's death risk. Uploads carry traits derived from the biological source's DNA and persist for UPLOAD_PERSIST ticks without refresh. One upload per pass (bounded, design risk P.3).
+- `feat(synthetic):` **machine groups** (decision P.3) — synthetic organisms are flagged SYN_FLAG_MACHINE on the stride and registered in the F.1 group registry, participating in the existing economy/relations/alliance machinery (Set I–K). Their energy upkeep drains on a cadence, and organisms with zero energy are pruned from the registry.
+- `feat(world):` new **SOCIETY > SYNTHETIC** world-param subgroup — SYNTHETIC RATE (0–1, 0.3), MAX SYNTHETICS (0–100, 50), SYNTHETIC UPKEEP (0–5, 0.5), UPLOAD THRESHOLD (0–5, 1.2), UPLOAD RATE (0–0.5, 0.02), UPLOAD PERSIST (30–2000, 300), VIRTUAL LAYER MAX (0–100, 20). Rendered automatically by the generic world-panel group derivation.
+- `feat(stride):` offsets 98–99 claimed for Set P — SYNTHETIC_FLAGS (98, bitfield: bit 0 = synthetic, bit 1 = uploaded, bit 2 = machine; high nibble = program type) and SYNTHETIC_TRAIT (99, program archetype index). The reserved tail (85–99) is now fully allocated; 100+ remains for future expansion.
+- `feat(ui):` `synthetic:pass` events (spawned / uploaded / decayed / upload-expire) emitted on the bus for the narrative journal.
+- `test:` +21 (`tests/unit/synthetic.test.js`) — cadence gate + force bypass, HUB spawn (treasury/era gates, max cap, rate-0 no-op), organism upkeep/decay, uploaded consciousness (threshold gate, expiry, stride flags), determinism, summary shape, null-guard no-ops, world-param defs (7 params, valid ranges). Full suite 851+ (the 6 + 4 documented pre-existing law-category/audit baseline failures, untouched); `vepa4 syntax` + `vepa4 build` clean.
+- `docs:` the O·P·Q trilogy is at build 2 of 3 — Set O made the cosmos, Set P makes life in it; Set Q (cosmology — multiverse shards, cosmic epochs, dark energy, v8.17.0) next.
+
+### Per-law profiling + main-thread lag fixes
+- `perf(solver):` **persistent content-addressed law caches** — the `active` flag array and `synergy` multiplier cache are now reused across ticks and only recomputed when the four law-state flag words (`low/high/ext/quad`) actually change. The key is the flag content itself, not a mutation counter — a counter collides across distinct `lawState` instances (tests/deserialize) that performed the same number of set/toggle calls. Eliminates 128 `isSet` + 128 synergy lookups per tick.
+- `perf(solver):` **saved neighbour list** — the bond/polymer non-overlap writeback block now reuses the neighbour list + cap gathered by the main pairwise loop instead of issuing a redundant `getNeighbors()` grid query per particle per tick.
+- `perf(main):` **main-thread cadence throttles** (fixes UI lag at high population) — the full O(N) `computeMetrics` particle scan now runs every 8 ticks with a cached snapshot (only the cheap law-popcount gate refreshes per tick), the social/economic block (construction/economy/artifacts/governance/infrastructure) runs every 4 ticks, and the lineage death-transition scan runs every 4 ticks. The physics tick stays at full rate; only the expensive analytics passes are staggered.
+- `perf(solver):` **per-law timing instrumentation** — `enableBenchMode()` / `getLawTimings()` / `getLastTickUs()` record per-law elapsed µs in the solver hot path. Bench mode is off by default; the timing branches are compile-time-false in production and JIT-eliminated.
+- `bench:` `bench/solver.bench.mjs` expanded with per-law and per-category timing breakdowns (µs/tick, % of total, ETV) in addition to the scaling/matrix/sweep curves; data regenerated into `public/bench-report/data.js`.
+- `feat(bench-report):` the benchmark SPA (`/bench-report/`) gains a per-law cost view — bar chart sorted by cost, per-law table with µs/tick + % of total + ETV, and category-summary cards.
+
+## [4.8.15] - 2026-08-19 → 8.15.1 (hotfix rebuild of 8.15.0 — legacy label reused per the [4.8.1]→8.1.1 convention)
+
+### Performance overhaul — near-linear scaling to 100,000 particles
+- `perf(solver):` **density-scaled auto grid** (`AUTO_TUNE`, default on) — the spatial grid now refines its resolution with population density (dim ≈ ∛(N/1.4), floored at the classic 12³). The 27-cell neighbour gather — and therefore total pairwise work — stays ~flat as N grows instead of exploding with density: ~19³ at 10k, ~26³ at 25k, ~42³ at 100k. Populations ≤2,500 keep the classic 12³, so existing worlds behave exactly as before; set AUTO-TUNE off to drive GRID RESOLUTION manually.
+- `perf(solver):` **allocation-free hot path** — `applyGravity`, `applyAffinity` and `applyStigmergyForce` now accept an optional scratch `out` object (fresh-object return preserved for tests/other callers); the solver reuses three module-scoped force scratch objects, eliminating millions of per-pair object allocations per tick.
+- `perf(solver):` the per-tick `localDt` time-dilation buffer is now reused (grow-on-demand) instead of allocating a fresh `Float32Array(particleCount)` every tick (400 KB/tick of churn at 100k).
+- `bench:` scaling curve re-measured headless (default 10-law set, median-of-3-rounds): 500 → 1.26 ms/tick, 2,500 → 12.4 ms/tick, 10,000 → 59.6 ms/tick (was ~146), 25,000 → 154 ms/tick (was ~932), 50,000 → 369 ms/tick, 100,000 → 906 ms/tick (was ~8.1 s) — μs/particle is now ~flat (2.5 → 9.1) instead of rising past 37. ~2.4× at 10k, ~6× at 25k, ~9× at 100k.
+- `test:` `tests/unit/perfKnobs.test.js` updated for the new AUTO_TUNE knob (5 PERFORMANCE params). Full suite 833 green (the 6 failures are the documented pre-existing law-category/audit baseline, untouched); `vepa4 syntax` + `vepa4 build` clean.
+
+## [4.8.15] - 2026-08-19 → 8.15.0
+
+### Set O — Stellar Physics: the dish scales to the cosmos (O·P·Q trilogy, build 1)
+- `feat(stellar):` **stars** (decision O.1, `src/state/stellar.js`) — dense cells where particle mass + energy converge above STAR FORM MASS seed a star at the cell centre (Set M's E=mc² mass-energy equivalence pays off). A star fuses its accreted mass into radiant output: THERMAL + INFO field writes plus a warm ENERGY feed to the region — conserved (output is drawn from the consumed mass). Min star separation keeps the sky sparse (risk O.1).
+- `feat(stellar):` **black holes** (decision O.2) — a star past BLACK HOLE HORIZON collapses into a black hole: a wider accretion radius (capture), no radiant feed (light can't escape), and slow Hawking-style re-emission of a HAWKING RATE share of its mass back into the THERMAL field (conserved, leak-proof).
+- `feat(stellar):` **supernovae** (decision O.3) — a star past SUPERNOVA MASS (and off cooldown) detonates: a radial shockwave scatters nearby particles outward and damages their energy, a THERMAL burst floods the cell, and heavy elements seed the region as a few EXOTIC field cells + INFO (bounded cascade via a per-pass cap + remnant cooldown, risk O.2).
+- `feat(world):` new **MATTER > STELLAR** world-param subgroup — STAR FORM MASS (0–100, 20), MAX STARS (0–16, 4), STAR SEPARATION (1–8, 3), STAR RADIANCE (0–5, 1), BLACK HOLE HORIZON (50–1000, 250), SUPERNOVA MASS (100–2000, 400), HAWKING RATE (0–1, 0.05).
+- `feat(ui):` `stellar:pass` events (formed / black-hole / supernova) emitted on the bus for the narrative journal.
+
+### Rich prime substrate — the default world is now genuinely emergent
+- `feat(boot):` the PRIME_DEFAULT starter law set adds **COMMS + LEARN + CULTURE + AFFINITY + STIGMERGY** (communication, hebbian learning, cultural transmission, species affinity, stigmergic trails) so groups, cultures, memory and speciation layers are live from first boot — not just raw physics.
+- `feat(boot):` a fresh boot applies a rich medium overlay (`applyPrimeWorldConfig`) — THERMAL 0.5 + INFO 0.5 fields (feed extraction/governance/infrastructure/economy), 3 gravity wells (seed group + star formation), and 4 clustered spawn centres with a 0.15 centre bias (spatial structure for speciation). Kept as a boot overlay rather than changing `WORLD_PARAM_DEFS` defaults so the audit suite's neutral `createWorldParams()` baseline is untouched; Reset (reload) re-applies, Restart preserves the player's live tuning.
+
+### Population cap 2,500 → 100,000 + render cull (performance overhaul)
+- `perf(particles):` `MAX_PARTICLES` raised 2,500 → **100,000** (`src/constants.js`); the WORLD-panel caps follow — PARTICLE COUNT max 100k, MAX POPULATION max 100k, INITIAL POPULATION max 50k, NEIGHBOR BUFFER max 32,768. The particle buffer (100k × stride 100 = 40 MB SharedArrayBuffer) and the solver's on-demand neighbour buffer scale cleanly.
+- `perf(render):` `src/render/renderer.js` now **culls off-screen particles** before the phenotype + draw work (48 px margin covers the largest star halos) — the Canvas2D hot loop stops paying for particles outside the viewport at large N.
+- `bench:` solver scaling curve regenerated out to 100,000 particles (`public/bench-report/data.js`) — 1,000 → 5.2 ms/tick … 100,000 → 8.1 s/tick headless on the default 10-law set, confirming the spatial-grid solver stays O(N)-ish in memory and bounded by the interaction cap (the full report lives at `/bench-report/`).
+- `test:` +13 (`tests/unit/stellar.test.js`) — cadence gate + force, star formation (threshold, min separation, off switches), radiant output + energy feed + accretion, black-hole collapse + Hawking emission, supernova shockwave/damage/element-seed/remnant-cooldown, determinism, world-param defs; updated the two population-cap audit assertions for the new slider ranges. Full suite 839 (833 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+- `docs:` the O·P·Q trilogy opens ("The World Goes Cosmic", from v8.15.0) — designs already locked in `docs/dev/rrp-trilogy-5/` (O stellar physics → P synthetic life → Q cosmology).
+
+## [4.8.14] - 2026-08-19 → 8.14.1 (hotfix rebuild of 8.14.0 — legacy label reused per the [4.8.1]→8.1.1 convention)
+
+### Fix — the dish renders again (blank-canvas regression from the v8.11.1 boot fix)
+- `fix(render):` a fresh load showed **no particles at all** (empty canvas, responsive UI). Root cause: `runGovernance` (Set J, v8.10.0) and `runInfrastructure` (Set K, v8.11.0) were **called with one argument too many** — both are 5-param functions (`registry, view, stride, fieldSystem, opts`) but `src/main.js` passed 6, so `getFields()` landed in the `opts` slot. That never fired while the sim booted with **zero laws** (the whole group block was gated on `lawActiveCount > 0` — the "frozen but visible" world), but the v8.11.1 boot fix enabled the PRIME_DEFAULT starter laws, so `runGovernance` ran every frame with `opts = null` → `Cannot read properties of null (reading 'force')` threw inside `updateIntelligence` **before** `syncSprites`, silently killing the frame's render. Fixed by dropping the stray `particleCount` argument from both calls (Set L/M/N passes already had correct arity).
+- `fix(robustness):` `updateIntelligence()` is now a guarded wrapper — a single failing intelligence pass logs to the debug overlay and continues instead of killing the whole frame loop's render. The canvas can no longer go blank from a bad pass.
+- `test:` full suite re-run — 820/826 green (the 6 failures are the documented pre-existing `lawCategories` ×4 + `batch_08` TIME_DILATION + `batch_30` TELEPORT baseline, untouched); governance + infrastructure + exotic + relativity + quantum unit files (68 tests) green. `vepa4 syntax` + `vepa4 build` clean. **Browser-verified:** Playwright headless load of the production bundle — `sim-canvas` goes from 0 → ~6,000 lit pixels with zero page errors.
+
+## [4.8.14] - 2026-08-19 → 8.14.0
+
+### Set N — Quantum Macroscale: particles go non-classical (L·M·N trilogy, build 3 — the physics frontier completes)
+- `feat(quantum):` **deterministic superposition** (decision N.1, `src/state/quantumMacro.js`) — a slow, isolated particle (sparse neighbourhood) holds a second position state (hash-offset alternate branch). The first interaction — a neighbour within the collapse radius, a speed burst, or lifetime expiry — collapses the pair: a deterministic hash picks which branch is real (keep the current position or resolve to the alternate one), journaled `quantum:collapse`. No PRNG — saves stay reproducible.
+- `feat(quantum):` **macro entanglement** (decision N.2) — the existing ENTANGLE stride offsets (75–76) get macro meaning when the ENTANGLEMENT law is not using them: pairs of superposed particles within a radius link up (registry + stride projection). Entangled pairs share ENERGY across distance (richer donates to poorer, rate-gated) and drag each other's momentum toward the mean; **measuring one collapses both** (the mirror lives in the collapse path). If the ENTANGLEMENT law takes the stride offset over, the macro pair breaks cleanly — no state clash.
+- `feat(quantum):` **ENERGY-gated wall tunneling** (decision N.3) — a high-ENERGY particle pressed against an IMPASSABLE wall tunnels through with probability TUNNEL RATE × (energy / gate): the pass walks the axis past the wall band to the first free cell (thick walls included) and teleports the particle there at an energy cost. The TUNNELING law stays untouched — this is the macro-probability variant, bounded by ENERGY and capped per pass.
+- `feat(quantum):` **DNA-gated observer effect** (decision N.4) — species with high SELECTION_SENSITIVITY (DNA 53) or REGULATORY_DEPTH (DNA 63) observe: proximity collapses nearby superpositions (observation is itself a measurement), journaled `quantum:observe` and fed into the narrative.
+- `feat(world):` new **MATTER > QUANTUM** world-param subgroup (SETUP > WORLD) — SUPERPOSITION RATE (0–1, 0.15), SUPERPOSITION SPREAD (0–100, 25), COLLAPSE RADIUS (0–200, 30), ENTANGLE RATE (0–1, 0.1), ENERGY SHARE (0–1, 0.02), TUNNEL RATE (0–1, 0.02), TUNNEL ENERGY GATE (5–200, 40), OBSERVER RADIUS (0–200, 40). Rendered automatically by the generic world-panel group derivation.
+- `feat(ui):` collapse/tunnel/observe events (`quantum:pass`) emitted on the bus for the narrative journal.
+- `docs:` the L·M·N trilogy is **complete** — Set L made matter transform, Set M made space and time transform, Set N makes particles non-classical. The trilogy³ lifecycle moves to its second 3×3: O·P·Q ("The World Goes Cosmic", from v8.15.0) — stars/black holes/supernovae, synthetic life + uploaded consciousness, and the multiplex as an interacting multiverse.
+- `test:` +17 (`tests/unit/quantumMacro.test.js`) — cadence gate + force, lazy array growth, dead-particle cleanup, superposition entry gates (sparse/slow, crowded/fast/rate-0 blocked), collapse resolution to a branch (interaction/speed/lifetime), entanglement pair creation + stride projection + energy sharing + law-takeover break + measurement mirror, wall tunneling (band walk, energy gate, no-walls/rate-0 no-ops), observer collapse (high DNA yes / low DNA no), full-pass determinism, world-param defs. Full suite 826 (820 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.13] - 2026-08-19 → 8.13.0
+
+### Set M — Relativity: space curves, time slows, mass becomes energy (L·M·N trilogy, build 2)
+- `feat(relativity):` **mass-warped CURVATURE field** (`src/state/relativity.js`) — a new scalar field (decision M.1): every particle's mass buckets into the field grid, so dense regions curve space around them. Written with SET semantics each pass (deterministic, no PRNG), bounded by MAX_CURVATURE; zero-strength zeroes the field.
+- `feat(relativity):` **gravitational lensing** (decision M.2) — the INFO signal medium bends toward curvature peaks: each pass moves a small fraction of each curved cell's INFO one step toward its steepest-curvature neighbour (targets accumulate in the system scratch, applied after the pass). Conserved exactly — moves, never creates. Communication paths visibly curve around mass.
+- `feat(relativity):` **velocity time dilation** (decision M.3) — time runs slow for fast particles (γ = √(1 − min((v/c)², 1 − max²))): the pass slows their AGE and HUNGER clocks by (1 − γ) × cadence, clamped by TIME DILATION MAX (never below zero). The *gravitational* dilation term is already served by the TIME_DILATION law (v4.6.29, `localDt` from the mass potential) — Set M adds only the velocity term, so there is no double-dilation.
+- `feat(relativity):` **mass–energy equivalence** (decision M.4) — E = mc²: surplus ENERGY (> 80) condenses into MASS (energy is dilute — a small gain at 0.2×), scarce ENERGY (< 20) converts MASS into ENERGY (mass is concentrated — a large gain at 5×). Rate-gated, bounded (mass capped below the star-collapse threshold STAR_MASS 12, energy stays within the solver ceiling).
+- `feat(world):` new **MATTER > RELATIVITY** world-param subgroup (SETUP > WORLD) — CURVATURE STRENGTH (0–5, 1), TIME DILATION MAX (0.25–1, 0.25), LIGHT SPEED C (100–2000, 600), LENSING STRENGTH (0–1, 0.1), MASS-ENERGY RATE (0–1, 0.02). Rendered automatically by the generic world-panel group derivation.
+- `feat(ui):` E=mc² events (`relativity:pass` with condensed/converted counts) emitted on the bus for the narrative journal.
+- `fix(test):` Set L's world-param test now filters the MATTER group by the EXOTIC subgroup (the group grew with Set M's RELATIVITY knobs).
+- `docs:` the L·M·N trilogy is at build 2 of 3 — Set L made matter transform, Set M makes space and time transform; Set N (quantum macroscale, v8.14.0) next.
+- `test:` +11 (`tests/unit/relativity.test.js`) — cadence gate + force, curvature bucketing + SET semantics + cap, lensing direction + exact conservation + no-op cases, dilation factor/clamp/floor, mass–energy condensation + scarcity conversion + rate-0 no-op + bounds, full-pass determinism, world-param defs. Full suite 809 (803 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.12] - 2026-08-19 → 8.12.0
+
+### Set L — Exotic Matter: the substrate transforms (L·M·N trilogy, build 1 — the physics frontier opens)
+- `feat(exotic):` **EXOTIC field zones** (`src/state/exoticMatter.js`) — the field grid gains an EXOTIC scalar (magnitude = zone kind: 1 ANTIMATTER, 2 DARK, 3 STRANGE, 4 NEGATIVE). Zones seed deterministically at world start (no PRNG — formulaic placement like buildWells) and are re-asserted into the field each pass against ambient decay/diffusion, with a hard write cap (design risk L.1 — no griefing). The 128-law budget is untouched (decision L.1: world params + state passes only).
+- `feat(exotic):` **matter states** — a parallel per-particle state array (memoryBuffers alignment discipline, lazy growth) tags particles inside zones; the tag persists after leaving (STATE HALF LIFE) and clears on death, so boundaries don't flicker.
+- `feat(exotic):` **annihilation** (decision L.2) — antimatter + normal matter within a radius annihilate: the two ENERGY pools burst into the THERMAL field at the midpoint (energy in = energy out, no free energy), the antimatter particle dies and the normal one is destroyed by energy loss. Capped at 8 pairs/pass (no annihilation storms).
+- `feat(exotic):` **dark matter** (decision L.3) — dark-tagged particles render dim (ALPHA 0.25) and are self-powered (ENERGY floor 10) — the ghost matter of the dish; leaving the zone restores visibility.
+- `feat(exotic):` **strange conversion** (decision L.4) — strange particles convert normal neighbours within range at EXOTIC_STRANGE_RATE, decided by a deterministic integer hash (no PRNG); converted particles gain mass (×1.5, capped at 8 — below the star-collapse threshold). Capped at 6/pass (no contagion runaway).
+- `feat(exotic):` **negative mass** (decision L.5) — negative-tagged particles feel inverted gravity: a small velocity nudge up the local THERMAL+INFO density gradient (repelled from mass concentrations), well under the physics clamps.
+- `feat(world):` new **MATTER > EXOTIC** world-param subgroup (SETUP > WORLD) — EXOTIC ZONES (0–16, default 3), ZONE SIZE (1–4, 2), ANNIHILATION RADIUS (0–200, 30), STRANGE RATE (0–1, 0.02), NEGATIVE STRENGTH (0–5, 1), STATE HALF LIFE (1–100, 20). Rendered automatically by the generic world-panel group derivation.
+- `feat(ui):` exotic events (`exotic:annihilate` / `exotic:convert`) emitted on the bus for the narrative journal.
+- `docs:` RRP L·M·N trilogy artifacts (`docs/dev/rrp-trilogy-4/` intent + traceability + mermaid) land with this release per R9.3 — the fourth trilogy opening the second 3×3 **trilogy³** (the physics frontier: L exotic matter → M relativity → N quantum macroscale); build order locked (L v8.12.0 · M v8.13.0 · N v8.14.0). The full 18-set lifecycle designs (O·P·Q cosmic + R·S·T completion) land in `docs/dev/rrp-trilogy-5/` + `docs/dev/rrp-trilogy-6/`.
+- `docs(changelog):` the v8.11.1 hotfix entry's legacy label corrected from `[4.8.12]` to `[4.8.11]` (hotfixes reuse their base version's legacy label, per the `[4.8.1] → 8.1.1` convention) so `[4.8.12]` belongs to this Set L release.
+- `test:` +18 (`tests/unit/exoticMatter.test.js`) — cadence gate + force, lazy array growth, zone seeding determinism + 0-off + re-seed, zone writes, tagging + death-clear + half-life decay, annihilation (conserved burst + death) + cap, dark dim + floor + restore, strange conversion (rate 1/0 + mass cap), negative anti-gravity nudge + no-gradient no-op, summaries, determinism, world-param defs. Full suite 798 (792 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.11] - 2026-08-19 → 8.11.1 (hotfix rebuild of 8.11.0 — legacy label reused per the [4.8.1]→8.1.1 convention)
+
+### Fix — the dish is alive on boot
+- `fix(boot):` a fresh load previously booted with **zero laws enabled** (`DEFAULT_LAWS = []` in `src/main.js`) and the solver has a deliberate zero-laws hard freeze (no laws → no movement, no interaction, no state change) — the world sat perfectly still while the UI stayed responsive, reading as broken. `src/main.js` now boots with the **PRIME_DEFAULT starter law set** (`GRAV, DRAG, ENTR, WRAP, COLL, LIFE, GLOW, REPRO, PHENOTYPE, GENOTYPE`), sourced from `PRIME_DEFAULT.laws` as the single source of truth, so motion, interaction and life begin immediately on load.
+- `fix(boot):` the zero-laws blank-canvas mode is preserved by design — clearing all laws (law grid / Chaos ✕) still yields the solver's hard freeze.
+- `test:` full suite re-run — 774/780 green (the 6 failures are the documented pre-existing `lawCategories` ×4 + `batch_08` TIME_DILATION + `batch_30` TELEPORT baseline, untouched); `vepa4 syntax` + `vepa4 build` clean.
+
+## [4.8.11] - 2026-08-18 → 8.11.0
+
+### Set K — Infrastructure & Energy: civilizations power the dish (I·J·K trilogy, build 3 — the 3×3 trilogy³ COMPLETE)
+- `feat(infrastructure):` **resource extraction** (`src/state/infrastructure.js`) — every group harvests ambient field energy at its territory centroid: INFO + THERMAL scalar values become treasury at HARVEST_RATE, and the SAME amount is consumed from the field (conservation — design risk K.4, no free energy). `g.infra.harvested` tracks the take.
+- `feat(infrastructure):` **energy grids** — allied groups share power: each group with allies spends a small treasury cost per member (GRID_FEED × allies, half-rate treasury cost) and feeds that member's ENERGY pool (harvest → treasury → members; still conserved, capped at 100).
+- `feat(infrastructure):` **mega-structures** — long-horizon coordinated builds: WALL (impassable ring at the territory corners), BRIDGE (INFO corridor toward the nearest non-ally), HUB (THERMAL + INFO heart at the centroid). A group with treasury ≥ 300 and no active project initiates one (kind rotates by group id — deterministic); each pass it invests MEGA_INVEST into progress, advancing faster in later eras (era-progressed, +0.5 per era); at target the build executes with a hard 24-write cap (design risk #2 — no griefing) and journals `infra:mega-init` / `infra:mega-complete`.
+- `feat(world):` **SOCIETY > ENERGY** world-param subgroup — HARVEST RATE (0–1, default 0.1), GRID FEED (0–0.5, default 0.05), MEGA INVEST (5–100, default 20), read live by the pass.
+- `feat(ui):` group summaries now carry infra stats and the active mega project (`getGroupSummaries`).
+- `docs:` the I·J·K trilogy is complete — the literal third trilogy closing the 3×3 **trilogy³**: E·F·A the world *exists* (fields → civilizations → living world), D·G·H it *remembers & acts* (deep time → memory → agency), I·J·K it *builds* (tools → society → infrastructure).
+- `test:` +11 (`tests/unit/infrastructure.test.js`) — cadence gate, extraction harvest + field conservation + empty-field no-op, grid feed (both allies) + no-allies no-op + energy ceiling, mega initiate/invest/complete + second-project auto-start, era acceleration, WALL ring + interior pass-through, BRIDGE corridor, summaries. Full suite 780 (774 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.10] - 2026-08-18 → 8.10.0
+
+### Set J — Society & Governance: civilizations govern (I·J·K trilogy, build 2)
+- `feat(governance):` **policy vector** (`src/state/governance.js`) — every group derives AGGRESSION / OPENNESS / MIGRATION (0..1) from what its members learned (Set G species memory) and what it owns (F.3 treasury): aggression ← learned THREAT + scarcity, openness ← surplus + exploration, migration ← exploration + low density. Policies blend toward the target at POLICY_SHIFT each pass; stability = 1 − aggression × 0.5 so belligerent groups self-brittle (decision J.1 — policy emerges from members, no free parameters).
+- `feat(relations):` **alliances** — close groups (centroid distance < ALLIANCE_RANGE) with similar policy (distance < 0.25) ally: both sides' ally sets are marked and their treasuries mean-revert toward a shared pool (a tithe, exactly like pairwise trade).
+- `feat(relations):` **conflicts** — close groups with opposed policy (distance > CONFLICT_THRESHOLD) fight over the border: a negative INFO write at the contested midpoint (tension on the field, decays naturally = reversible) and a 0.05 threat-memory nudge on both member species (feeds H.2 flee + the next policy derivation). Cooldown-gated at 300 ticks per pair (design risk J.3 — no conflict storms).
+- `feat(governance):` **policy effects** — aggression raids the nearest non-ally (bounded treasury transfer, allies protected); openness pays a commerce bonus + market INFO at the centroid (trade volume up); migration disperses members with a small outward velocity nudge (well under the physics clamps).
+- `feat(world):` **SOCIETY > GOVERNANCE** world-param subgroup — POLICY SHIFT (0–1, default 0.1), ALLIANCE RANGE (100–1000, default 350), CONFLICT THRESH (0.1–1, default 0.5), read live by the pass.
+- `feat(ui):` group summaries now carry the policy vector, ally list and stability (`getGroupSummaries`).
+- `test:` +11 (`tests/unit/governance.test.js`) — cadence gate, policy derivation (threat/scarcity/surplus/exploration/density + blend rate), alliance pooling + distance/policy gates, conflict border write + threat nudge + cooldown, raids (ally protection), commerce income + INFO, dispersal nudges, summaries. Full suite 769 (763 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.9] - 2026-08-18 → 8.9.0
+
+### Set I — Tools & Artifacts: civilizations build (I·J·K trilogy, build 1 — trilogy³ arc)
+- `feat(artifacts):` **artifact registry** (`src/state/artifacts.js`) — every group with real membership holds a per-group inventory of TOOL / WEAPON / BARRIER artifacts, crafted by spending treasury (builders do the work — a group without builders can't craft). Crafting is rate-capped (every 6 ticks), cost-gated (CRAFT_COST), inventory-capped (12 per kind) and spreads deterministically across kinds via a rarest-kind rule (design risk I.1 — no crafting inflation).
+- `feat(artifacts):` **decay economy** — every pass levies a treasury maintenance cost per artifact (ARTIFACT_DECAY); artifacts the treasury can't cover are lost and journaled. Craft/decay history lands in a bounded 40-entry ring (`registry.craftLog`) for the analytics layer.
+- `feat(artifacts):` **effects (field/memory based, no new physics — decision I.2)** — TOOL pays an income dividend straight into the treasury (×2 per artifact); WEAPON dampens the group's collective THREAT memory so its species flee less (feeds the Set H.2 goal behavior); BARRIER writes impassable wall cells at the territory bounding-box corners via a new unified `writeWall` export on the E.1 field system (impassable while COLL is on, like preset walls), hard-capped at 48 writes per pass (design risk #2 — no barrier griefing).
+- `feat(world):` new **SOCIETY** world-param group (SETUP > WORLD > SOCIETY > CRAFTING) — CRAFT COST (10–200, default 40) and ARTIFACT DECAY (0–0.1, default 0.004), read live by the pass. The accordion grows across the I·J·K trilogy (Set J governance + Set K infrastructure knobs land here).
+- `feat(ui):` group summaries now carry the inventory (`getGroupSummaries` → `artifacts`) so the F.4 CIVILIZATIONS panel can show it.
+- `docs:` RRP I·J·K trilogy artifacts (`docs/dev/rrp-trilogy-3/` intent + traceability + mermaid) land with this release per R9.3 — the literal third trilogy completing the 3×3 trilogy³ (E·F·A exists → D·G·H remembers & acts → I·J·K builds). Build order locked (I v8.9.0 · J v8.10.0 · K v8.11.0).
+- `test:` +11 (`tests/unit/artifacts.test.js`) — cadence gate + force, craft cost/rate/treasury/builders gates, rarest-kind spread, inventory cap, maintenance decay + loss, TOOL dividend, WEAPON threat damp, BARRIER corner walls + interior pass-through, griefing cap, summaries + no-op aggregate. Full suite 758 (752 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.8] - 2026-08-18 → 8.8.0
+
+### Set H — Agency & Narrative: the story acts (D·G·H trilogy, build 3 — trilogy complete)
+- `feat(agency):` **narrative actor** (`src/engines/agencyEngine.js`) — the Narrative Consciousness gains bounded, reversible hands: on a cadence it evaluates the world and emits one action — a spawn-rate rescue while an extinction epoch is open, an INFO fertilization when energy runs low, or a cooling INFO write when the dish overpopulates. Every action commits an undo checkpoint first and journals to the narrative log.
+- `feat(goals):` **goal-driven species** (`src/engines/goalBehavior.js`) — each species' learned memory (Set G) becomes a behavioral goal: high threat → flee, high exploration → seek, otherwise hold. Small bounded velocity nudges applied after the solve; physics still decides everything else.
+- `feat(milestones):` **world milestones** — emergent once-only quests (eight species, three civilizations, 1,500 lives, abundant energy) detected from the metrics ring and journaled.
+- `test:` +9 (`tests/unit/agencyNarrative.test.js`) — actor decisions (rescue/fertilize/balance/silent), cadence + cooldown + lawless gate, milestone idempotence, reset; goal derivation (flee/seek/hold) + nudge direction. Full suite 747 (741 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.7] - 2026-08-18 → 8.7.0
+
+### Set G — Memory & Culture: learned traits survive (D·G·H trilogy, build 2)
+- `feat(memory):` **persistent memory buffers** (`src/state/memoryBuffers.js`) — per-species and per-group Float32Array memory (4 channels: activity / cohesion / exploration / threat) that survives individual particles and generations, unlike the per-particle stride cache. Lazy allocation, blend/adapt/decay/prune/reset helpers, compact snapshots.
+- `feat(culture):` **cultural transmission** — a child species inherits its parent's learned memory on speciation (not its genome), gated by the existing CULTURAL TRANSMISSION slider; every group continuously blends its member species' memories into a collective culture.
+- `feat(adaptation):` **behavioral adaptation** — each species' memory shifts toward current conditions every 60 ticks: activity tracks avg energy, cohesion tracks density, sparse species explore / dense species hold, and threat rises while an extinction epoch is open (Set D). Memory decays without rehearsal.
+- `test:` +6 (`tests/unit/memoryCulture.test.js`) — lazy alloc + identity, blend/clamp, cultural inheritance, signal adaptation with NaN/undefined skip, decay + group prune, reset + snapshot. Full suite 738 (732 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.6] - 2026-08-18 → 8.6.0
+
+### Set D — Deep Time & Epochs: the world remembers (D·G·H trilogy, build 1)
+- `feat(time):` **epoch engine** (`src/engines/epochEngine.js`) — the world advances through named eras on a tick boundary; each boundary snapshots the full world (restorable via `epoch:restore`), capped at 16 navigable eras with oldest evicted. Population collapse past `EXTINCTION_THRESHOLD` marks an extinction; rebound past `RECOVERY_THRESHOLD` marks a recovery — both once-per-cycle and epoch-anchored.
+- `feat(time):` new **TIME** world-param group (SETUP > WORLD) — TIME SPEED (0.1–10×, wired live to `runtimeConfig.simSpeed` so slow/fast is a real solver-dt change), EPOCH LENGTH, EXTINCTION THRESH, RECOVERY THRESH. Rendered automatically by the generic world-panel group derivation.
+- `feat(events):` epoch responses are reversible — extinction commits an undo checkpoint then writes drought INFO cells; recovery writes fertilization; every boundary journals `Epoch N begins: NAME`. Era navigation via `epoch:list` / `epoch:restore` bus commands.
+- `build(bench):` the benchmark SPA is now served — `bench/report/{index.html,data.js}` moved to `public/bench-report/` (Vite serves it at `/bench-report/`; `--report` regenerates `public/bench-report/data.js` in place).
+- `docs:` RRP D·G·H trilogy artifacts (`docs/dev/rrp-trilogy-2/` intent + traceability + mermaid) land with this release; build order locked (D v8.6.0 · G v8.7.0 · H v8.8.0).
+- `test:` +6 (`tests/unit/deepTime.test.js`) — era boundaries/snapshots/cap, extinction→recovery, reset, TIME knob defs + clamps. Full suite 732 (726 green; the 6 failures are the documented pre-existing law-category/audit baseline, untouched).
+
+## [4.8.5] - 2026-08-18 → 8.5.0
+
+### Performance knobs: spatial-grid & interaction budget now live (SETUP > WORLD > PERFORMANCE)
+- `perf(grid):` `src/physics/spatialGrid.js` — grid resolution (`GRID_DIM`), per-cell insert cap (`CELL_CAP`) and neighbour-gather cap (`NEIGHBOR_BUF`) are now runtime-tunable (backward-compatible defaults 12 / 100 / unlimited preserve the classic behaviour).
+- `perf(solver):` `src/physics/solver.js` reads `MAX_INTERACTIONS`, `NEIGHBOR_BUF`, `GRID_DIM` and `CELL_CAP` live from `runtimeConfig.worldParams`; the grid is rebuilt only when its resolution/cell-cap fingerprint changes, the neighbour buffer is resized on demand, and the BOND/POLYMER non-overlap pass now honours the same caps (was a stale hardcoded `MAX_INTERACTIONS`).
+- `feat(world):` `src/state/worldParams.js` — new **PERFORMANCE** accordion group (SETUP > WORLD) exposing the four knobs: GRID RESOLUTION (6–64, default 12), CELL PARTICLE CAP (1–500, 100), MAX INTERACTIONS (8–4000, 500), NEIGHBOR BUFFER (24–16384, 2000). Rendered automatically by the generic world-panel group derivation.
+- `perf(bench):` `bench/solver.bench.mjs` — rigorous bench modes: `--scale` (median-of-rounds N-scaling curve, `--default-only`/`--rounds`/`--budget`/`--json`), `--knobs` (MAX_INTERACTIONS × NEIGHBOR_BUF matrix sweep via `--interactions`/`--neighbors`) and `--report` (full knob-sweep + scaling dataset → `bench/report/data.js`, consumed by the new static `bench/report/index.html` viewer).
+- `test:` `tests/unit/perfKnobs.test.js` (8 tests) — defs/defaults/clamps + dynamic grid dim, cell cap and gather cap.
+- **Measured:** knobs barely move at 2.5k particles (~12.5 ms/tick across the board), but at 10k `MAX_INTERACTIONS=100` with a generous `NEIGHBOR_BUF` is ~102 ms/tick vs ~150 ms/tick at the 500/2000 defaults — a ~30% cut by trading pair fidelity. `MAX_INTERACTIONS=100` + `NEIGHBOR_BUF=500` (128.9 ms) shows the gather cap binding first.
+
+## [4.8.4] - 2026-08-18 → 8.4.0
+
+### Set A — Living World: speciation, ecosystem analytics, world events (E·F·A trilogy, build 3: A.1–A.3)
+- `feat(speciation):` **DNA-slot speciation** (`src/engines/speciation.js`) — the species slot IS the taxon. On a 240-frame cadence (unrestricted: any qualifying species may split), a species diverges when its isolation × `SPECIATION_THRESHOLD` (DNA 54) gate is exceeded — isolation = spatial spread + wall pinning, so the **E.1 fields create the barriers** that accelerate splits (design U3.1). The **parent keeps its slot**; the **child claims the first extinct-freed slot**; if all 64 slots are live the split **queues** until an extinction frees one (U3.2). The child inherits the parent genome with 6 mutations, and up to a third of the parent's members re-tag as the child (burst marker: `speciation:split` with isolation; `speciation:extinct` frees the slot and logs EXTINCT history). The species roster grows to show the child slot; splits + extinctions hit the narrative journal.
+- `feat(analytics):` **ECO sub-tab** (DATA > 🌿, `src/ui/ecoPanel.js` + `src/engines/ecoEngine.js`) — the single thin metrics-ring subscriber (substrate U5.4): **population curves** per species over a 40-sample ring, **biodiversity** (Shannon index), **oscillation detection** (total-population variance → STABLE/MILD/WILD), **food-web graph** (predation edges derived from avg-mass × spatial overlap), and the **niche table** (centroid / radius / population) with the speciation feed + EXTINCT history. `computeMetrics` now carries per-species population/energy/mass/position sums (one pass, no extra cost).
+- `feat(events):` **world events** (`src/engines/worldEvents.js`) — **metrics-triggered + physics-confirmed** (design U3.4): FAMINE (population < 40% AND energy < 30% of baseline), BLOOM (population > 125% and rising), COLLAPSE (population < 15%). A threshold must persist across **two consecutive checks** (no restore/multiplex false positives) and events respect a 1500-tick **cooldown** (risk 5). The response is reversible per U3.5: main.js takes an **undo-ring checkpoint**, then nudges world params (SPAWN_RATE / MUTATION_RATE through the clamped `applyWorldParam`) and **writes E-field conditions** (drought depletion / fertilization) via `writeField`.
+- `feat(multiplex):` **shards evolve species independently** (design U3.10) — each shard runs a silent speciation engine (no bus emissions, no roster growth); field isolation is proxied by the shard's own wall preset, and fitness already sees species count via `computeShardMetrics`.
+- `test:` +8 unit tests (`tests/unit/livingWorld.test.js`) — split qualification + slot claim + parent-slot retention + genome divergence, threshold/sparsity gates, extinction detection + slot recycling, silent multiplex mode, eco ring/biodiversity/food-web, world-event warm-up + confirm + cooldown, single-dip false-positive rejection. Full suite 718 (baseline 710 + 8); the 6 failures remain the documented pre-existing law-category/audit trio.
+
+## [4.8.3] - 2026-08-18 → 8.3.0
+
+### Set F — Civilizations: groups, construction, economy, analytics (E·F·A trilogy, build 2: F.1–F.4)
+- `feat(groups):` **group registry** (`src/state/groupRegistry.js`) — the social unit of the dish. Groups exist through BOTH paths: **declared** (a player/preset names a group for a set of species; it seeds and recruits ungrouped particles of those species on contact) and **detected** (dense communicative clusters form organically from contact thresholds + DNA — species affinity / signal — persist while dense, dissolve on membership collapse or prolonged shrink). Membership is **unbounded and multi-species** (alliances), with **leader / forager / builder roles** assigned by signal+memory+energy score, stiffness/bond-angle, and jitter+force/speed. Membership lives on the stride at GROUP_ID (96) / GROUP_ROLE (97) — the design asked for 68/85, but 68 is PHASE_1 (quantum law state) and 85 is CHAOS_STATE_X, so the genuinely free reserved tail is used instead (no law state clobbered). The pass runs on a 30-frame cadence from the intelligence loop, gated on active laws + motion so a fresh lawless world stays quiet.
+- `feat(construction):` **nests/hives + roads** (`src/state/construction.js`) — each group with real membership builds a nest at its territory centroid (INFO pocket + warm THERMAL heart) and neighbouring groups connect with INFO corridors along the line between centroids, all through the unified `writeField` API from Set E.1. **Griefing caps** (design risk #4): ≤96 writes per 15-frame pass, road length capped, nearest-two-neighbour road web.
+- `feat(economy):` **full toy economy** (`src/state/economy.js`) — foragers produce treasury income, leaders tithe, close groups (centroid distance < 450) **trade pairwise** proportionally to their treasury gap (mean-reverting price discovery), and each group's **market price** (treasury per member) is written onto the INFO field at its centroid. Trade history lands in a bounded 40-entry ring (`registry.tradeLog`) for the analytics layer.
+- `feat(ui):` **CIVILIZATIONS sub-tab** (DATA > 🏙️, `src/ui/groupAnalytics.js`) — live summary strip (groups / members / treasury / trade volume), **territory overlay** (top-down projection of bounding boxes + centroids), **network graph** (nodes = groups, edges = trade routes), and **economy Sankey** (treasury bars + trade-flow arrows). Canvas 2D, ~2 Hz redraw, fully bus-decoupled (`groups:analytics` every 30 ticks).
+- `feat(groups):` group:declared / group:formed / group:dissolved / economy:trade events emitted on the bus (narrative + analytics consumers).
+- `test:` +15 unit tests (`tests/unit/groupRegistry.test.js` ×8, `tests/unit/constructionEconomy.test.js` ×7) — declared seeding vs. emergent exclusion (claimed-set fix), extinction collapse, shrink grace, write caps, trade direction/volume, distant-group no-trade, price writes. Full suite 704/710 (baseline 689/695 + 15; the 6 failures remain the documented pre-existing law-category/audit trio).
+- `fix(groups):` the emergent detector no longer scoops freshly-seeded declared members (stride GROUP_ID is stale until writeback — a `claimed` set for the pass closes the race); extinction with zero live particles now dissolves every group instead of early-returning; `STALE_GRACE` is tunable via opts for tests.
+
+## [4.8.2] → 8.2.0
+
+### Set E.1 — Matter & Medium: the dish becomes a field (E·F·A trilogy, build 1)
+- `feat(physics):` new **field system** (`src/physics/fields.js` — v8.2 E.1 of the RRP E·F·A trilogy, design in `docs/dev/rrp-trilogy/`): a coarse 3D field grid (12³–24³ cells, auto-scaled to world size; `FIELD_GRID_DIM` 0 = auto) holding named **vector fields** (WIND, EM), **scalar fields** (THERMAL, INFO), an **impassable-wall** flag grid, deterministic **gravity wells**, and paired **portals**. Rebuilt only when its structural config changes; strengths are read live.
+- `feat(world):` new **MEDIUM subgroup** in SETUP > WORLD > ENVIRONMENT (11 sliders): FIELD GRID DIM · WIND FIELD · THERMAL FIELD · EM FIELD · INFO FIELD · FIELD DIFFUSION · WALLS (off | border | ring | cross) · WALL THICKNESS · GRAVITY WELLS · WELL STRENGTH · PORTALS. Fields relax toward their slider targets every tick (live, no restart).
+- `feat(physics):` particle coupling is a **gradient force** (HISTORY-law precedent) — vector fields push along their flow, scalar fields push down-gradient, wells pull radially. Ambient features run whenever any law is active; the zero-laws hard freeze is preserved.
+- `feat(physics):` **walls are the COLL law's hard-matter toggle** — impassable (velocity-only reflect, pushed just outside the wall cell) only while COLL is on; ghost laws (TUNNELING / TELEPORT / ASTRAL) pass through; without COLL walls are decorative. **Portals** teleport matter between paired cells (ambient).
+- `feat(physics):` **generalized advection** — each vector field carries each scalar field along its flow; scalar diffusion + decay, gentle WIND circulation, EM dissipation (`advanceFields`).
+- `feat(api):` unified **`writeField(system, name, x, y, z, delta)`** — the single write entry point for laws, groups (Set F constructions) and player tools.
+- `test`: new `tests/unit/fields.test.js` (17 tests) — grid auto-scale + clamps, enablement gating, structural build (walls/wells/portals), writeField/forces, ambient seeding, diffusion, well pull, wall reflect, portal teleport, and solver integration (wind drift, COLL-gated walls, pass-through without COLL). Full suite **689/695** (the same 6 pre-existing law-category/audit baseline failures, untouched).
+- `docs:` RRP E·F·A trilogy artifacts (`docs/dev/rrp-trilogy/` intent + mermaid + traceability) land with this release per R9.3; `PLAN.md` milestone note added.
+
+## [4.8.1] → 8.1.1 (hotfix)
+
+### Narrative log UX + idle-noise fixes
+- `fix(ui):` the **Narrative Log now shows newest entries at the TOP** and autoscrolls to keep them visible (reading position is preserved while scrolling back through history); oldest entries are trimmed from the bottom at the 100-entry cap (`src/ui/narrativePanel.js`).
+- `fix(engines):` **global log pacing** — at most one narrative entry per 45 frames (~0.75 s), queued events dropped while cooling down (`src/engines/narrativeEngine.js`).
+- `fix(engines):` **no more idle chatter** — insight cluster scanning is gated on active laws + particle motion (a fresh, lawless, static world stays silent); the goal engine no longer autotunes or narrates while zero laws are active (`src/engines/insightEngine.js`, `src/main.js`).
+- `fix(engines):` **goal adjustments for invisible insight knobs (scanInterval/clusterRadius) are no longer narrated** — only user-visible parameter changes get a log line.
+- `test`: full suite 672/678 (same 6 pre-existing law-category/audit baseline failures).
+
+## [4.8.1] - 2026-08-18 → 8.1.0
+
+### Interface & Deploy Mirror — full-screen multiplex controls, law icon size toggle, dual-hosting
+- `feat(ui):` the **Chaos Multiplex setup screen can now open FULL-SCREEN** — a ⛶ toggle in the modal header expands the controls to the whole viewport and back. Long-pressing the ☢️ toolbar button (or the ⚛️ button) opens this screen; while a multiplex is running, a new **⚙ button in the bottom controls drawer** reopens the full setup at any time.
+- `feat(ui):` the **LAWS tab gains an icon-size toggle** (▦ in the view-mode group next to ◈ icon / ABC list) — switch between the current double-size icon tiles and the old compact dense icon grid (`#law-grid.law-icon-grid.compact`).
+- `ci:` restored `.github/workflows/deploy.yml` (root layout, `VITE_BASE=/vepa/`, gh-pages branch via peaceiris) so every push to master auto-mirrors to GitHub Pages at https://gemquota.github.io/vepa/ alongside the Vercel auto-deploy (https://vepa-seven.vercel.app/). `vite.config.js` now honors `VITE_BASE` for the Pages base (`/vepa/`) while keeping `VERCEL=1` → `/` and the local launcher default `/vepa/vepar/`.
+- `docs:` AGENTS.md deploy rows corrected (Vercel `vepa-seven`, Pages `/vepa/` project page).
+- `test`: full suite 672/678 (the same 6 pre-existing law-category/audit baseline failures, untouched); both build variants verified (default `/vepa/vepar/` and Pages `/vepa/`).
+
+## [4.8.0] - 2026-08-18 → 8.0.0
+
+### Matter & Union — accretion is a true merger; bonds stay as separate attached orbs (Set A · Part 1)
+- `feat(physics):` **ACCR is now a real merger, not gradual dissolution.** When the fusion gate passes (FUSION_MOMENTUM momentum on impact, or FUSION_TIME continuous-contact dwell), the pair collapses into **one particle**: mass = (m1+m2)·(0.5+FUSION DNA), centre-of-mass position (toroid-aware), momentum-conserving velocity, and **mass-weighted colour** — the heavier body dominates the blend. Energy is mass-averaged too. The absorbed particle dies (DEAD), its third-party bonds are dropped so former partners can rebond. New self-contained `src/physics/mergePhysics.js` (`mergeParticles`, `isBondedPair`) shared by ACCR and ALLOY.
+- `feat(physics):` **not every union accretes** — BOND and POLYMER pairs are molecules: they stay as **two separate attached orbs** held at an equilibrium distance (existing spring behavior) and are explicitly excluded from merging (ACCR and ALLOY both check `isBondedPair`). ENTANGLEMENT / SYMBIOSIS / PARASITE remain separate-but-linked (phase / energy flows).
+- `feat(physics):` **ALLOY upgraded** to the same core — colour blend is now mass-weighted (was a flat 50/50 average), DNA averaging stays mass-weighted, and bonded pairs no longer dissolve into one body.
+- `feat(physics):` **STOICHIOMETRY makes mergers exact** — with the law active, FUSION efficiency is forced to 1.0 (no mass gained or lost).
+- `docs:` ACCR / ALLOY `LAW_HELP_DB` entries updated to the v8.0.0 semantics via a 4-tier patch module (`src/state/lawHelpPatches.js`), merged over the static table in `tooltip.js`.
+- `test:` `batch_02` rewritten to the merger semantics (combined mass, weighted colour, momentum + COM conservation, absorbed-neighbour DEAD) + new **bonded-pair-does-not-accrete** test; `batch_11` gains mass-weighted-colour and bonded-pair alloy guards. Full suite 672/678 (the 6 pre-existing law-category/audit baseline failures untouched).
+
+## [4.7.7] - 2026-08-18 → 7.6.0
+
+### World States UI — SAVES drawer tab, toolbar quick-save/undo, compare overlay
+- `feat(ui):` new 🗃️ **SAVES** drawer tab (`src/ui/savePanel.js`) between Setup and Data — name + 💾 SAVE row, ⏪ UNDO / ⏩ REDO buttons with an AUTO-SNAPSHOT toggle, the save list (name · time · ALIVE · SP · LAWS with 📂 LOAD / ⇄ COMPARE / ⬇ EXPORT / 🗑 per row), and 📂 IMPORT for `.vepa.json` files. LOAD is undoable (auto-snapshot first); DELETE asks for confirmation.
+- `feat(ui):` toolbar gains **💾 quick-save** (auto-named `QUICK HH:MM`) and **⏪ undo** buttons (disabled while the ring is empty, re-enabled live via `world:undoState`).
+- `feat(ui):` **COMPARE overlay** — side-by-side matrix of LIVE vs the selected saves (alive / species / laws-on / avg mass·energy·speed / tick / paramsDelta, best cell per row), plus a COMPARE ALL button; styling mirrors the multiplex palette, self-contained in the panel.
+- `feat(ui):` restored worlds re-render the WORLD sliders (`world:paramsRestored` → `renderWorldSliders`) so panel positions match the loaded params.
+- `test`: full suite 669/675 (6 pre-existing baseline failures untouched); `vite build` clean.
+
+## [4.7.6] - 2026-08-18 → 7.5.0
+
+### World Compare + Undo ring — auto-snapshots before every destructive action, two-stack undo/redo
+- `feat(save):` `compareWorldSaves()` builds a side-by-side matrix (LIVE vs saves) over the stored summary metadata — alive / species / laws-on / avg mass·energy·speed / tick, plus a `paramsDelta` row counting how many world-param knobs each save drifted from the live world; best-cell markers honor min/max modes (reusing the multiplex COMPARE pattern).
+- `feat(save):` two-stack undo ring (`createUndoRing`) — `commit()` checkpoints the world (fingerprint-deduped), `undo(current)` restores the last checkpoint while pushing the current world onto the redo stack, `redo(current)` walks back. Every undo is itself redo-able; new commits clear the redo stack (classic semantics). Capped at 8 checkpoints.
+- `feat(save):` wired into `main.js` — auto-snapshots commit **before** the user-selected destructive actions (Chaos, Restart, preset load, species roster edits via a new `species:aboutToChange` event in `speciesPanel.js`, world-param changes debounced to 1/s with the pre-change world captured before the apply handler). `sim:hardReset` persists the pre-reset world as a named `AUTO pre-reset HH:MM` save so it survives the page reload. Loads/undo/redo restore through `restoreWorldState` and resync every consumer (`species:sync`/`dna:sync`/`law:sync`, camera world size, offspring ring, intelligence engines).
+- `feat(save):` full bus command surface for the upcoming SAVES UI — `world:save/load/undo/redo/list/remove/export/import/compare/toggleAutoUndo` with `world:listResponse`, `world:compareResponse`, `world:exported`, `world:undoState` replies.
+- `test(save):` compare-matrix + undo-ring coverage added in `tests/unit/worldSave.test.js` (fingerprint dedup, two-stack walk, cap eviction, param-only fingerprint changes). Full suite 669/675 (6 pre-existing baseline failures untouched).
+
+## [4.7.5] - 2026-08-18 → 7.4.0
+
+### World State Save/Load engine — full-fidelity snapshots, IndexedDB store, portable exports
+- `feat(save):` new `src/state/worldSave.js` — `captureWorldState()` snapshots the complete world (particle buffer, species DNA, 128-bit law state, all world params, runtimeConfig knobs, world size, tick) with per-save summary metadata (alive / species / laws-on / avg mass·energy·speed) for cheap comparison; `restoreWorldState()` applies it back onto the live buffers in place (counts clamped to `MAX_PARTICLES`/`MAX_SPECIES`, params re-clamped via `clampWorldParam`).
+- `feat(save):` storage is IndexedDB-backed (`vepa4-world-saves`) with a localStorage fallback, capped at 24 saves; `createWorldSaveStore()` accepts an injected adapter so tests run headless. `exportWorldSave()` / `parseWorldSave()` provide portable `.vepa.json` files (chunked base64 typed arrays — stack-safe on 1 MB buffers) with a format-version guard.
+- `test(save):` new `tests/unit/worldSave.test.js` — 13 cases: capture shape + summary, byte-identical round-trip restore, count/param clamping, invalid-payload guards, export→import→restore fidelity, foreign/version guards, store save/load/list/remove via in-memory adapter. Full suite 669/675 (the 6 pre-existing law-category/audit failures on the baseline are untouched).
+
+## [4.7.4] - 2026-08-18 → 7.3.0
+
+### Per-shard world parameters — each shard solves under its own law-tuning regime
+- `feat(multiplex):` shards now carry their own `worldParams` — derived from the live WORLD panel state at start, then perturbed per shard. `paramVariation` (0–1) controls how aggressively the law-tuning knobs (GLOBAL_G, TIDAL_SCALE, ACIDITY_PH, COULOMB_CONSTANT, …) drift, clamped to each definition's range; the `randomizeParams` toggle gates the aspect entirely. `stepMultiplex` swaps each shard's knobs into the solver for the duration of its tick and restores the live world's params afterwards — a synchronous, race-free swap that needs no solver changes.
+- `feat(multiplex):` parameter lineage survives iteration — the selected shard's evolved knobs seed the next generation; `keepSelected` anchors and elite snapshots restore them byte-identical; history records + REVERT restore the recorded parameter regimes exactly.
+- `feat(ui):` setup screen gained a **Params** checkbox under RANDOMIZE ASPECTS and a **PARAM VAR** slider in the VARIATION section; the COMPARE matrix gained an informational **PARAMS** row showing how many knobs each shard has drifted from the world you configured.
+- `docs(multiplex):` new `paramVar` help entry + updated RANDOMIZE/VARIATION explanations in `multiplexHelp.js`.
+- `test(multiplex):` +7 cases (54 total in `tests/unit/multiplex.test.js`): zero-variation identity, clamped perturbation ranges, `randomizeParams` off, perturbed-lineage inheritance across iteration, `runtimeConfig` no-leakage after stepping, revert restores recorded params, PARAMS compare row. Full suite 656/662 (the 6 pre-existing law-category/audit failures on the baseline are untouched).
+
+## [4.7.3] - 2026-08-18 → 7.2.0
+
+### Multiplex evolution overhaul — elitist iteration, stable fitness, shard history + revert
+- `feat(multiplex):` auto-iteration now selects BEFORE the rebuild (elitism) — fittest ranks the *evolved* generation that just ran and seeds the next one from its winner, instead of ranking freshly-spawned near-identical clones (which degenerated to "always shard 0" under the population weight). `eliteCount` (0–4) additionally snapshots the top-N fittest shards pre-rebuild and restores their exact evolved state afterwards, so the best lineages survive untouched.
+- `feat(multiplex):` convergence detection — `stagnationLimit` tracks generations without a best-fitness improvement; auto-iterate pauses (⏸ CONVERGED readout + `multiplex:stagnant` bus event) instead of burning ticks on identical generations. Manual ITERATE re-arms the run; a knob change or raising the limit does too.
+- `feat(multiplex):` annealing + adaptive cadence — `cooling` shrinks variation toward a 0.05 exploration floor each generation (coexists with DRIFT; cooling wins at the floor). `adaptiveInterval` stretches the iterate cadence ×1.5 while stagnant (cap 4000) and snaps back to the base the moment the best improves.
+- `feat(multiplex):` stable cross-generation fitness — fitness reports are now pure reads (never mutate controller state); `recordDelta` is the single writer to the rolling delta window (once per tick/iteration). Running min/max bounds across generations (`updateRunningBounds`) feed a stable `rawFitness` comparable between generation 1 and generation 50. Zero-span normalization fixed — a lone/identical shard scores its full weight instead of collapsing to 0; a single-species shard is a monoculture (diversity 0).
+- `feat(ui):` NEW COMPARE/HIST section in the metrics drawer — per-metric shard comparison matrix (13 raw metrics, best cell per row highlighted honoring min/max modes; click a column header to select that shard) plus a generation history with REVERT. Every on-screen generation is recorded (light lineage records + full snapshots of the selected & fittest shards); reverting is itself recorded, so every revert is undoable. BEST/STAG/⏸ CONVERGED readouts added to the drawer stats.
+- `feat(ui):` new setup-screen knobs — STAG LIMIT, ELITES, COOLING, ADAPT INT, HIST DEPTH.
+- `test(multiplex):` +20 cases (48 total in `tests/unit/multiplex.test.js`): report purity, zero-span, monoculture, elitist fittest, stagnation pause/re-arm, elite preservation, annealing floor, adaptive cadence, compare matrix, history cap + revert/undo. Full suite 649/655 (the 6 pre-existing law-category/audit failures on the v7.1.1 baseline are untouched).
+
+## [4.7.2] - 2026-08-16 → 7.1.1
+
+### Release
+- `feat(params):` added 50+ dedicated law parameter definitions (`WORLD_PARAM_DEFS` in `src/state/worldParams.js`) covering all 8 law categories (Physics, Biology, Chemistry, Thermodynamics, Metaphysics, Electromagnetism, Information, Quantum).
+- `feat(laws):` updated `LAW_PARAMETERS` SSOT dictionary in `src/constants.js` to bind dedicated law parameters to every law.
+- `docs(audit):` regenerated all 397 audit files under `docs/audit/laws/a3/` and `laws/a3/` reflecting new dedicated law parameters.
+
+## [4.7.1] - 2026-08-16 → 7.1.0
+
+### Release
+- `feat(audit):` complete 128-law a3 multiphase law audit ensemble across all 8 law categories (Physics, Biology, Chemistry, Thermodynamics, Metaphysics, Electromagnetism, Information, Quantum) with 2-5 controlling parameter bindings per law.
+- `feat(ui):` integrated slider control module and law parameter UI components (`src/ui/sliderControl.js`).
+- `docs(audit):` generated 397 structured audit documents (`docs/audit/laws/a3/`), category theorycrafting reports, Stage 1/2/3 reports, 8-table checklist (`audit_progress.md`), and concatenated master ensemble (`mega_law_audit_ensemble.md`).
+
+## [4.7.0] - 2026-08-10 → 7.0.0
+
+### Release (first release under the new schema)
+- `chore(release): v7.0.0` — VEPA4 renamed and re-versioned under `major.minor.build`; the uncommitted law-RRP rounds (internal 4.6.29/4.6.30 dev labels) ship as VEPA4 7.0.0 instead of further 4.6.x patches.
+- `docs(versioning):` adopt `major.minor.build` (product VEPA4) + Conventional Commits; retroactive mapping old `4.M.N` → `M.N.0` — see `AGENTS.md` §10.4.
+- `chore: drop planned multiplayer update` — P1 phone-grid WIP (`src/net/`, `src/ui/networkPanel.js`, `tests/unit/net.test.js`), LAN hub (`server/`), protocol lab (`multiplayer/`, `net-poc/`) and `docs/multiplayer/` removed from the tree; wiring stripped from `main.js`/`ui.js`/`renderer.js`/`style.css`/`vepa4`; announcements removed from `README.md`/`GEMINI.md`/`AGENTS.md`.
+
+### feat(laws) — 8 rewritten laws (law RRP)
+- **CHAOS** — deterministic per-particle Lorenz map (σ=10, ρ=28, β=8/3); PRNG draws removed; thermal stir from map output (stride 85-87).
+- **CONSCIOUSNESS** — predictive self-model (SELF_MODEL_SPEED EMA); prediction error > 0.3 → MEMORY/SIGNAL up + ENERGY down, low error → regen (stride 95).
+- **ENCRYPTION** — keyed cipher carrier folded from TUNING_CH1-4; PHASE_2 rotation + amplitude encoding; COMMS relay only between matching keys.
+- **SUPERPOSITION** — 4 basis amplitudes over candidate velocities + phase rotation; Born-rule collapse (2%·k/tick) with renormalisation (strides 89-93).
+- **SYMBOL** — token-gated meaning: SYMBOL_TOKEN (8 bins), contact imprinting by higher-MEMORY partner, same-token attract / different-token repel (stride 88).
+- **TELEPORT** — quantum state transfer: requires ENTANGLE_ID, sender pays 5 ENERGY, partner adopts VEL + 30% ENERGY, link consumed.
+- **TIME_DILATION** — weak-field GR `sqrt(1 − 2·phi·synergy)`, phi from softened potential over ≤24 neighbours, floor 0.3.
+- **WAVE_PARTICLE** — measurement-gated duality: WAVE_MEASURED flag (collision/OBSERVER, decays ×0.95/tick) → particle vs de Broglie wave spread (stride 94).
+
+### fix(laws) — 6 RRP-alignment changes
+- **PARASITE** — host drain × `(1 − ARMOR·0.1)`; **ELECTROLYSIS** — CONDUCTIVITY-scaled decomposition + heat; **PHOTOLYSIS** — CATALYSIS-scaled conversion; **PRECIPITATION** — symmetric condensation; **NEUTRALIZATION** — heat ∝ `|cI·cJ|·k·0.04`; **UNCERTAINTY** — speed-gated Heisenberg tradeoff (|v| ≥ 0.5 → position jitter only, else velocity kick).
+
+### feat(physics) — law-RRP infrastructure
+- Stride slots 85-95 (`STRIDE_INDEXES`), `LAW_DEPENDENCIES` + `lawState` dependency checks, `LAW_SUBGROUPS`, WRAP reclassified as a WORLD simulation-rule boundary, solver wiring (WAVE_MEASURED on collision/OBSERVER, TIME_DILATION neighbour snapshot, CHAOS/TELEPORT signature updates).
+
+### feat(multiplex) — launch-screen completeness & config retention
+- **SPAWN SPECIES control** — the launch screen now exposes the shard species count (1–5) used by SPAWN derive mode; wired into `_readConfig`/`populateModal` and documented in `MULTIPLEX_HELP_DB` (`spawnSpecies`, setup section).
+- **Launch-screen config retention** — the controller keeps a `lastConfig` snapshot of the last started run, so reopening the setup modal after exit restores the previous settings instead of resetting to defaults.
+- **Exit imports the last selected shard** — ✕ EXIT tears down the grid and, with IMPORT ON EXIT on, copies `mx.shards[mx.selected]` into the main world (particles, species DNA, law state) via `copyShardToWorld` in `src/main.js`.
+
+### feat(debug) — version on the debug overlay
+- The debug overlay header now shows the running VEPA4 version (`DEBUG v7.0.0`), sourced from `package.json#version` so it stays in sync with the §10.4 release markers. `debugSnapshot()`'s stale hardcoded `4.1.6` is replaced with the live manifest version, and the boot log line reports `VEPA4 v<version>` on load.
+
+### docs
+- Synced: `audit-suite/fidelity-audit-v4.6.29.md` (updated duplicate + frozen v4.6.28 historical copy), `README.md` (multiplayer section removed), `GEMINI.md`/`AGENTS.md` multiplayer rows removed, `vepa4` launcher trimmed.
+
+### feat(params) — law-RRP constants & world params
+- **`RESONANCE_Q` world param** (PHYSICS → SIGNAL, `[1, 20]`, default 10) — resonance bandwidth `1/Q` for the upcoming RESONANCE fidelity rework; registered in `WORLD_PARAM_DEFS`.
+- **`CRITICAL_TEMP` world param** (ENVIRONMENT → THERMAL, `[0.05, 0.5]`, default 0.2) — shared critical temperature `T_C` for SUPERCONDUCTIVITY (Cooper-pair unbinding) and BOSONIC (BEC threshold).
+- **`RHO_REF` + `ADIABATIC_GAMMA_MINUS_ONE` constants** (`src/constants.js`) — reference density and γ−1 (2/3) for the ADIABATIC compression-heating rework.
+- Specified in `audit-suite/law-revamp/FINAL-REPORT.md` → *Shared Constants & World-Param Definitions* (Q · T_C · RHO_REF). Inert until the RRP reimplements the four consumer laws.
+
+### feat(sliders) — enhanced slider controls (WORLD / DNA / Species)
+- **Shortform min/max labels** — every slider row now shows its bounds as compact chips (e.g. `50` / `20K`, `1M`) using `formatShort`; long-pressing (500 ms) a bound chip turns it into an inline text input so the min/max can be typed manually (Enter/blur commits, Esc cancels). Row buttons stay aligned — bound chips and controls render in fixed positions so nothing shifts when values change.
+- **LIN/LOG toggle** — a per-slider mode button switches the mapping between linear and logarithmic; it is disabled when `min ≤ 0` (e.g. negative-range DNA traits) and auto-defaults to LOG for wide positive ranges (`min > 0` and `max/min ≥ 50`, e.g. WORLD SIZE, PARTICLE COUNT, MAX POP).
+- **Snap-to-increment** — dragged values snap to the current step grid with float-noise stabilization (`snapToStep`), and the value re-snaps whenever the zoom level changes.
+- **Hold-still precision zoom** — holding the thumb still for ~0.65 s expands the slider to ¼ of its range centred on the current value (4× zoom chip `4×`); holding still again (~1.6 s) expands to ¼ of that (1/16 range, `16×`) for fine control. Dragging while zoomed steps across the zoomed grid; the zoom chip (`1×`/`4×`/`16×`) resets zoom, and a `sc-zoombar` under the track shows the zoomed window (blue normally, orange while zoomed).
+- Wired in `src/ui/sliderControl.js` (`createSliderRow` DOM factory + pure mapping/snapping/zoom helpers) and adopted by `src/ui/worldPanel.js` (25 world sliders), `src/ui/speciesPanel.js` (64 trait sliders), `src/ui/dnaPanel.js` (64 DNA sliders, factory kept for parity) and `src/ui/settingsPanel.js` (4 camera + 4 meta sliders), with `.sc-*` styles in `style.css`.
+- Tests: `tests/unit/sliderControl.test.js` — 21 tests covering short formatting, lin/log mapping, snapping, zoom windows and log-mode defaults. `vepa4 syntax` + `vepa4 build` clean; full suite 173/182 pass (the 9 failures are the pre-existing stale law-RRP assertions in `lawCategories`, `lawgroupsBiologyChemistry`, `lawgroupsEmInfoMeta`, `lawgroupsQuantum`).
+
+### feat(ui) — bold-friendly scale-up (2× toolbar, 2-row law tiles, enlarged sliders)
+- **2× header menu icons** — `#top-toolbar` grows to 64 px with 56×48 px square buttons (22 px glyphs) and explicit 34 px `.chaos-icon` sizing (previously unstyled and tiny).
+- **Law tiles split into 2 rows** — icon-mode `.sq-toggle`s stack vertically (icon on top, `.tog-name` underneath, 60×58 px) so each law reads as its own bold tile; word-mode law buttons grow to 13 px labels / 18 px icons across a 2-column grid.
+- **Enlarged slider controls** — `.sc-*` chips, mode/zoom buttons and value readouts grow ~2× (24 px tall, 16 px thumbs, 5 px tracks, bigger labels) on WORLD / DNA / Species panels.
+- **Mobile overrides scaled to match** — toolbar 44×38 px buttons, 50×48 px law tiles and proportionally larger slider controls on narrow screens.
+- Styles appended to `style.css` (neon-noir palette unchanged); verified in-browser on the LAWS (icon + word) and WORLD/Species slider surfaces.
+
+### feat(ui) — single play/pause transport
+- **Dead scrubbers removed** — the 5-button transport cluster (⏪ ◀ ⏸ ▶ ⏩) in the top-left toolbar collapses to the single working `#play-pause-btn`; the rewind/reverse/forward/fast-forward handlers in `src/ui/ui.js` and the unused `sim:playbackMode` bus handler in `src/main.js` are deleted.
+
+## [4.6.28] - 2026-08-08 → 6.28.0
+
+### Multiplex help & long-press tooltips
+- **Long-press tooltips** — every Chaos Multiplex control (initial setup screen, bottom controls drawer, top metrics drawer) now carries a `data-mpx-help` key resolved against the new `MULTIPLEX_HELP_DB` (~30 entries, title/hint/explanation tiers) in `v4/src/multiplex/multiplexHelp.js`. A 500 ms press (10 px move tolerance) shows a positioned tooltip with a GUIDE button; it stays open on release and closes on a new press, scroll, ✕, or the GUIDE action.
+- **Full-screen guide** — a small round `?` button in the drawer header opens a full-screen CHAOS MULTIPLEX GUIDE overlay (`#mpx-help-overlay`) with 5 sections (SETUP, ITERATION, RUNTIME, FITNESS, DRAWER & METRICS) covering all 40 entries; closes via ✕, backdrop press, or leaving the multiplex.
+- Wired in `v4/src/multiplex/multiplexUI.js` (`initMultiplexHelp(document.body)` after the setup modal is built; tooltip/guide lifecycle hooks in open/close/begin/exit) with tooltip + guide + `?` button styles in `v4/style.css`.
+- Tests: DOM-stub smoke validated short-press suppression, long-press tooltip content, guide sections/entries, and exit cleanup. `vepa4 syntax` + `vepa4 build` clean; full suite 614/617 (the 3 failures come from the separate uncommitted law RRP WIP, which stays outside this release).
+
+## [4.6.27] - 2026-08-08 → 6.27.0
+
+### Multiplex stability + setup-screen consolidation & drawer repositioning
+- **Multiplex freeze fix** — root causes addressed in `v4/src/multiplex/multiplex.js`:
+  - **Dead-slot recycling** — offspring now spawn into fully-dead slots (`DEAD ≥ 1` or zero-mass) before appending at the tail, so `shard.count` tracks the live population instead of climbing monotonically to `maxCount`; solver/render scans stay bounded on long runs. Souls (`DEAD = 0.5`) are never recycled — ASTRAL still governs them.
+  - **Iteration buffer reuse** — rebuilding shards now reuses the previous shard's particle buffer/DNA/law state when the grid layout is unchanged (the iteration source gets a fresh buffer so later shards still derive from pristine data). Kills the per-iterate 1 MB × shards SharedArrayBuffer churn that stalled long auto-iterate sessions under GC pressure.
+  - **Bounded snapshots** — `snapshotShard` captures only the live region (subarray slice) instead of the full 2500-particle view.
+- **Setup screen consolidation** — the initial Chaos Multiplex modal now holds every setting previously hidden in the right drawer: LAW/DNA/POP VAR knobs, POP SCALE, SEED, SUBSTEPS, AUTO-ITERATE + EVERY, AFTER ITERATE, KEEP SELECTED, SIM SPEED, PAUSE GRID, MAX ITERS, DRIFT, GPU ECO, IMPORT ON EXIT, and the 14 FITNESS WEIGHTS (sliders + MAX/MIN modes). `_readConfig`/`populateModal` cover the full config object.
+- **Drawer repositioning** — the right-edge controls drawer is now a bottom bar (grid stats + SELECTED + ITERATION + ⚡ ITERATE/✕ EXIT, collapsible strip) and the metrics bar moved from the bottom to the top of the overlay; the overlay stacks `[metrics, grid, controls]` so nothing overlaps the shard canvases. The LIVE/FIT tabs and per-shard FIT list are gone — the top drawer chips + stats cover selection and fitness readout.
+- Tests: `tests/unit/multiplex.test.js` +2 — dead-slot recycling keeps `shard.count` bounded while newborns spawn; iterate reuses non-source shard buffers/DNA and hands the source a fresh buffer. `vepa4 syntax` + `vepa4 build` clean; full suite 614/617 at this commit (the 3 failures come from the separate uncommitted law RRP WIP, which stays outside this release).
+
+
+## [4.6.26] - 2026-08-07 → 6.26.0
+
+### Solver performance, debug perf stats & benchmark harness
+- **Per-tick law cache** — `createSynergyCache(lawState)` precomputes all 128 synergy multipliers once per `solve()` (the law state is fixed mid-tick) instead of ~70 branch-chain `computeSynergy` calls per particle/neighbor pair; a `Uint8Array` active-law cache replaces 115 inline `isSet()` calls. Float64-exact (plain array, not Float32Array), so physics results are bit-identical to the old path.
+- **Law gating** — the unconditional per-pair AFFINITY / chemistry / ORDER calls (and their synergy lookups) are now gated on the cached active flags; the law functions self-gate internally and return no-ops when off, so behavior is unchanged.
+- **Benchmark before/after** (identical scenarios — 60 ticks, 20 warmup, PRIME_DEFAULT 10-law set): 500 particles 30.5 → 10.8 ms/tick (2.8×), 1000 particles 99.1 → 19.9 ms/tick (5.0×), 2500 particles 428.7 → 103.6 ms/tick (4.1×).
+- **`vepa4 bench`** — new headless solver benchmark (`v4/bench/solver.bench.mjs`): throughput table at 500/1000/2500, `--laws` per-law overhead breakdown (frozen-world, median-of-rounds methodology), `--all` 128-law stress, `--json` machine-readable output.
+- **Debug perf stats** — the debug overlay stats line now shows `· f:xx.xms t:x.xxms r:x.xxms` (EMA-smoothed full-frame / physics-tick / render times) in both the main sim and multiplex mode.
+- **Multiplex metrics** — the metrics bottom drawer stats line gains `· MS x.xx` (EMA-smoothed shard tick time).
+- Tests: `tests/unit/synergyCache.test.js` +4 (`createSynergyCache` matches `computeSynergy` for empty/full/mixed synergy states; plain-array float64). `vepa4 syntax` + `vepa4 build` clean; full suite 612/615 at this commit (the 3 failures come from the separate uncommitted law RRP WIP, which stays outside this release).
+- **Deploy**: production live at https://vepa-v4.vercel.app/ (Vercel, 2026-08-08, deployed from the clean `v4.6.26` tag).
+
+## [4.6.25] - 2026-08-07 → 6.25.0
+
+### GPU performance & multiplex metrics drawer
+- **Zero-copy render path** — `asParticleView(buffer)` in `renderer.js` wraps raw `ArrayBuffer`/`SharedArrayBuffer` in a live `Float32Array` view instead of allocating a fresh copy every frame; `drawParticles` and `syncSprites` now consume the typed view directly (was ~1 MB/frame in the main sim, ~16 MB/frame across 16 multiplex shards).
+- **DPR cap** — renderers accept `opts.maxDpr` (default 2); multiplex previews run at 1.25× device-pixel-ratio. High-DPI displays no longer thrash the GPU during multiplexing.
+- **ECO render mode** — `renderFrame`/`drawParticles` support `{ eco }`: skips the reference grid and the soft-glow halo (2 arcs → 1 per particle). Multiplex defaults to `renderQuality: 'eco'`.
+- **GPU ECO toggle** — LIVE tab of the multiplex drawer (`#mpx-drawer-eco`, default on) switches previews between eco and full rendering live; the per-frame `shard.renderer.eco` sync makes the toggle fully reversible.
+- **Metrics bottom drawer** — collapsible `#mpx-metrics` bar on the multiplex overlay: per-shard fitness chips (`S01 0.74`, click to select) plus a `ALIVE · CAP · ΔSEL · ΔAVG · ITER` stats line, refreshed every 24 frames.
+- **Main sim** — `syncSprites` now takes `particleView` (typed array) instead of the raw buffer, dropping the per-frame copy on the main render path.
+- Tests: `tests/unit/renderer.test.js` +3 (`asParticleView`: same-instance, raw-buffer live view, SharedArrayBuffer view); `tests/unit/multiplex.test.js` +1 (`renderQuality` defaults to `eco`). `vepa4 syntax` + `vepa4 build` clean; full suite 608/611 at this commit (the 3 failures come from the separate uncommitted law RRP WIP, which stays outside this release).
+
+## [4.6.24] - 2026-08-07 → 6.24.0
+
+### Chaos Multiplex expansion — world import, FIT tab, iteration controls
+- **IMPORT ON EXIT** — exiting the multiplex now imports the selected shard into the main sim: particles, species DNA and the law state are copied into the world buffers (`copyShardToWorld`), then the particle/species counts, offspring ring and intelligence engines reset, and the UI re-syncs (`species:sync` / `dna:sync` / `law:sync`).
+- **Fitness engine** — 14 weighted metrics per shard (population, growth, longevity, stability, energy, reserves, armor, mobility, signal, bonds, diversity, exploration, novelty, delta), min-max normalized across shards with per-metric MAX/MIN modes; DELTA = mean deviation from the other shards; composite = Σ wᵢ·scoreᵢ / Σ wᵢ (falls back to population when all weights are 0). `getFitnessReport` rolls an `avgDelta` history (cap 32) for the FIT tab.
+- **FIT tab** — the drawer is now tabbed LIVE/FIT: 14 weight sliders + MAX/MIN toggles, a scrollable per-shard score readout (`S01 0.74`, click to select), and a live `ALIVE · CAP · ΔSEL · ΔAVG` stats row.
+- **Iteration modes** — AFTER ITERATE = NONE | FITTEST | FOLLOW (FOLLOW picks the shard closest to the previous selection's metric profile); KEEP SELECTED anchors the selected shard through regeneration via full view/DNA/laws/PRNG-state snapshots.
+- **LIVE tab additions** — POP SCALE (0.25–1 dynamic per-shard population cap, applies immediately), SEED (0 = random, > 0 = deterministic lineage), SUBSTEPS (1–8 solver sub-steps per tick), per-aspect LAW/DNA/POP VAR knobs, IMPORT ON EXIT toggle (replaces AUTO-SELECT FITTEST with the AFTER ITERATE select).
+- Tests: `tests/unit/multiplex.test.js` +9 cases (population cap, per-aspect variation blocks, substep invariance for linear laws, copy-to-world, snapshot/restore, keep-selected, follow-selection, weighted fitness MAX/MIN, report shape + default-weight ranking, deterministic seed). `vepa4 syntax` + `vepa4 build` clean; full suite 607/607 green at this commit (the 3 failures seen in the dirty working tree come from the separate uncommitted law RRP WIP, which stays outside this release).
+
+## [4.6.23] - 2026-08-06 → 6.23.0
+
+### Law RRP batches 20-22 (triple batch, 12 laws)
+- FRICTION — match irl: damping now scales with VISCOSITY DNA (0.5–1.0, higher viscosity = more damping) and the removed kinetic energy converts to heat (TEMP += speed·damp·0.5, cap 1). Both doc promises ("converting motion into heat", "VISCOSITY DNA modulates it") are finally implemented.
+- ELASTICITY — match irl: the overlap push is now scaled by a coefficient of restitution from ELASTICITY DNA (0–1, default 0.5) — mag = overlap·k·ELASTICITY/(mI+mJ); real materials bounce less when less elastic, light particles still bounce harder.
+- FEEDBACK / LANGUAGE / CULTURE / SINGULARITY / ENTANGLEMENT / HISTORY / TIDE / TURBULENCE / CENTRIPETAL / ROTATION — confirmed as-is against docs; HELP_DB entries updated with confirmed specs and synergy notes.
+- Tests: `batch_20/21/22.test.js` updated to confirmed specs (+1 FRICTION viscosity+heat case, +1 ELASTICITY restitution case; 38 total across the three files). Full suite 596/596 green; `npx vite build` clean.
+- **Deploy**: production live at https://vepa-v4.vercel.app/ (Vercel, 2026-08-06).
+
+## [4.6.22] - 2026-08-06 → 6.22.0
+
+### Law RRP batches 17-19 (triple batch, 12 laws)
+- PLASMA — hysteresis (match irl): above 0.6 surplus heat ionizes into stored CHARGE (cooling the gas); below 0.5 a cooled plasma recombines — stored charge converts back to heat (TEMP += |c|·k·2) and the ion resets. The 0.5–0.6 band prevents rapid ionize/recombine oscillation. The thermal-EM cycle now closes.
+- STIGMERGY — real pheromone trails: only moving particles lay a predicted-path marker (speed ≥ 0.5); stopped particles' markers evaporate (lerp 8%/tick back to the owner); followers are pulled along the gradient — force falls off with distance to the marker and scales with freshness (stale markers pull weakly).
+- SIGNAL_BOOST — relay now scales with the sender's SIGNAL_STRENGTH DNA (0.5–1.5×), consistent with GLOW/COMMS; fixed a `|| 0.5` fallback that swallowed a legitimate strength 0.
+- SUPERCONDUCTIVITY / MEMORY / PATTERN / LEARN / SYMBOL / METRIC / PREDICT / CODE / PROTOCOL — confirmed as-is against docs, HELP_DB entries updated with confirmed specs and synergy notes.
+- Tests: `batch_17/18/19.test.js` updated to confirmed specs (+2/+3 cases; total 50 across the three files). Full suite 594/594 green; `npx vite build` clean.
+
+## [4.6.21] - 2026-08-06 → 6.21.0
+
+### Law RRP batch 16 — RESONANCE / FLUX / IONIZATION / DISCHARGE confirmed
+- RESONANCE — sympathetic vibration is now phase-aware (match irl): `phaseSync = 0.5+0.5·cos(Δphase·π/2)` scales the matched-rate attraction (same oscillator as GLOW/COMMS), and in-phase pairs amplify each other — the stronger pulser drives the weaker one's SIGNAL up, so synchronized swarms get louder. Out-of-phase pairs get no drive.
+- FLUX — F = qE (match irl): drift direction now depends on effective charge q = POLARITY + CHARGE. Positive carriers move DOWN the stored-charge gradient, negative carriers UP it (electrons run the other way); neutrals (|q| ≤ 1e-3, includes the quantized default) still follow the field lines as documented.
+- IONIZATION — hard contacts now need a threshold impact (> 0.15, ionization energy) and form a conserved +/− ion pair: q_i = impact·s, q_j = −impact·s with s = sign(POLARITY_i + POLARITY_j) || 1. Genuine charge conservation seeds CHARGE_LAW/FLUX/CURRENT with real ion pairs; already-charged pairs are not re-stripped.
+- DISCHARGE — the spark now travels along the potential difference: the solver accumulates the direction toward the neighbor with the most opposite stored charge and the kick (|c|·k) is aimed that way; charge sign no longer flips the aimed kick. Random burst only with no opposite-charge field nearby. Threshold/heat/reset unchanged.
+- Tests: `batch_16.test.js` rewritten to confirmed specs (9 cases: phase amplification, out-of-phase no-drive, neutral/positive/negative flux carriers, ion-pair conservation, ionization threshold, aimed discharge). Full suite 589/589 green; `npx vite build` clean.
+
+## [4.6.20] - 2026-08-06 → 6.20.0
+
+### Law RRP batch 15 — RESISTANCE / CAPACITANCE / INDUCTANCE / MAGNETISM confirmed
+- RESISTANCE — match irl: resistance is now material-dependent and thermal-Ohmic. Damping scales with (1 − CONDUCTIVITY·0.9) so conductors glide and insulators resist, and with (1 + TEMP·2) so hotter particles slow harder — the doc's "hotter they get, the more they slow" feedback is finally wired. Kinetic→heat conversion retained (TEMP += speed·k·(1 − CONDUCTIVITY·0.9)·0.5, cap 1).
+- CAPACITANCE — discharging drains toward zero only: a depleted capacitor never flips polarity from draining (negative stored charge is left alone). Accrual above ENERGY 50, ±2 breakdown clamp, and same-sign stored-charge repulsion unchanged.
+- INDUCTANCE — magnetic coupling: velocity alignment now scales with |MAGNETIC_MOMENT product|/(1 + dist·0.03) (a field is required, and coupling fades with distance) and both particles must conduct (real materials, consistent with CURRENT). Momentum-conserving as before.
+- MAGNETISM — MAGNETIC_MOMENT DNA widened to [−1,1] (default 0.1): the documented "opposing signs repel" was unreachable with a [0,1] range; both aligned-attract and opposing-repel now work through normal DNA. Force law unchanged (F = k·m1·m2/dist²).
+- Tests: `batch_15.test.js` rewritten to confirmed specs (10 cases: material resistance, thermal feedback, bleed-to-zero + no-sign-flip, moment-gated and conductivity-gated inductance, signed-moment real-DNA magnetism); `params_batch_13.test.js` MAGNETIC_MOMENT unaffected. Full suite 584/584 green; `npx vite build` clean.
+
+## [4.6.19] - 2026-08-06 → 6.19.0
+
+### DNA parameter space expanded 48 → 64 — 16 new genetics & regulatory params (genome-only)
+- `DNA_COUNT` 48 → 64; `DNA_INDEXES`/`DNA_META`/`DNA_RANGES` all carry 64 entries. New params (indices 48-63): ALLELE_COUNT, EPIGENETIC_RATE, HGT_RATE, REPAIR_EFFICIENCY, DRIFT_RATE, SELECTION_SENSITIVITY, SPECIATION_THRESHOLD, ADAPTATION_RATE, TRANSPOSON_RATE, GENE_SILENCING, RECOMBINATION_BIAS, MUTAGEN_SENSITIVITY, TELOMERE_LENGTH, PLOIDY_LEVEL, CODON_BIAS, REGULATORY_DEPTH.
+- Genome-only: the new params live in the 64-wide species DNA buffer (`readSpeciesDNAParam`/`writeSpeciesDNAParam`), never in the per-particle stride cache (which stays 42 floats, offsets 8-49).
+- REPRO — ploidy/allele/recombination wiring: PLOIDY_LEVEL raises the recombination gate, ALLELE_COUNT widens the crossover blend window, RECOMBINATION_BIAS skews dominance; mutation is scaled by REPAIR_EFFICIENCY (repair) and GENE_SILENCING, amplified by TRANSPOSON_RATE (mobile-element bursts); EPIGENETIC_RATE scales epigenetic drift; HGT_RATE enables horizontal gene transfer alongside GENE_FLOW.
+- GENOTYPE — DRIFT_RATE adds neutral drift, SELECTION_SENSITIVITY strengthens heritable change, SPECIATION_THRESHOLD gates divergence write-back, ADAPTATION_RATE scales the leap, MUTAGEN_SENSITIVITY scales radiation-driven mutation, GENE_SILENCING/CODON_BIAS shape expression, REGULATORY_DEPTH stabilizes expression.
+- SENESCENCE — TELOMERE_LENGTH damps aging death (`applyLifeCycle` now receives `dnaBuffer`; longer telomeres resist death, default 0.5).
+- UI — new "Genetics & Regulation" slider group in the DNA panel and "GENETICS" group in the species panel covering indices 42-63.
+- Tests — `dna.test.js` +3 (64-param exposure, defaults, genome round-trip); `params_batch_15.test.js` asexual-control test zeroes the new HGT_RATE noise source. Full suite 579/579 green; `vite build` clean.
+
+## [4.6.18] - 2026-08-06 → 6.18.0
+
+### Law RRP batch 14 — COMMS / CHARGE_LAW / FIELD / CURRENT confirmed
+- COMMS — the sender pays: signal delivery still gives the receiver homing force + memory, but the free receiver energy gain is gone and the sender pays ENERGY −= delivered×0.5 per delivered signal (floor 0).
+- CHARGE_LAW — match irl: real Coulomb on effective charge = POLARITY DNA + stored stride CHARGE with no weighting — qq = (q1+c1)×(q2+c2), opposite signs attract, like repel.
+- FIELD — uniform 3D drift (was az=0 with an x/y asymmetry): POLARITY sets the sign, stored CHARGE scales the drift k×(1+|c|×0.5) so charged particles feel the field harder.
+- CURRENT — both sides must conduct: charge diffusion uses min(CONDUCTIVITY_i, CONDUCTIVITY_j) so a conductor can't drain an insulator (real materials); high→low flow + 17-unit range unchanged.
+- Tests: `batch_14.test.js` rewritten to confirmed specs (9 cases); `signal.test.js` + `params_batch_13/16/17/18` regressions updated (COMMS DNA tests assert delivered SIGNAL, not receiver energy; CURRENT needs both conductive). Full suite 576/576 green; `npx vite build` clean.
+- ⚠️ Preserved a concurrent session's uncommitted "DNA 64" genetics WIP (genome params 48-63, REPRO/lifecycle rewrite) to `.concurrent-dna64-wip-20260806.patch` + `.concurrent-dna64-backup-20260806/` and reverted it so this release ships clean — re-apply with `git apply`.
+## [4.6.17] - 2026-08-06 → 6.17.0
+
+### Law RRP batch 13 — CLAIRVOYANCE / PRECOGNITION / ASTRAL / PREDATION confirmed
+- CLAIRVOYANCE — slight cost: predictive steering toward 3-tick velocity-extrapolated positions stays, but sensing the future drains ENERGY −= 0.02×synergy×dt per prediction (floor 0).
+- PRECOGNITION — ditto: perpendicular collision-course dodges (dist 1-50, closing pairs only) now cost ENERGY −= 0.02×synergy×dt per dodge; no drain when moving apart.
+- ASTRAL — kept ghosting and expanded it: ghosts (DEAD=0.5, fading SOUL) now exert a soft soul-pull on nearby living particles (80-unit range, bounded via the spatial grid) and same-species kin receive a conserved sliver of the ghost's soul before it dissipates — the HELP_DB's "still exert forces on the living" is finally wired.
+- PREDATION — jitter flee kept (JITTER DNA = erratic escape), and now matches the docs: a predator never hunts its own kind (cross-species only, per TRACK's documented ecosystem rule) and DNA trait sampling uses the sim PRNG instead of Math.random().
+- Tests: `batch_13.test.js` rewritten to the confirmed specs (6 cases); `params_batch_15.test.js` PREDATION_BIAS updated to a cross-species pair. Full suite 572/572 green; `npx vite build` clean.
+## [4.6.16] - 2026-08-06 → 6.16.0
+
+### Law RRP batch 12 — CONDENSE / DEPOSIT / EXOTHERMIC / TELEPATHY confirmed + 4 more multiplexer live settings
+- CONDENSE — real-life behavior: condensation is exothermic — cool particles gain vapor mass and release latent heat (TEMP += rate×2, capped 0.9 so they can't cross into boiling; mass logic unchanged).
+- DEPOSIT — real-life frost: exothermic, skips the liquid phase — solid mass builds fast (rate×3 mass, rate×0.5 radius) and latent heat is released (TEMP += rate×2, capped 0.9).
+- EXOTHERMIC — real-life bounded steady release while the reaction runs: ENERGY += 0.05×synergy×dt (capped 200), TEMP += 0.01×synergy×dt (capped 0.9). Replaces the old unbounded ENERGY ×= 1.1 exponential.
+- TELEPATHY — same-species signal sharing now costs the receiver a slight energy toll per transfer (ENERGY −= 0.02×synergy×dt, floored 0) — user requested.
+- Multiplexer — 4 more live settings, all visible in the right drawer during multiplexing: SIM SPEED (0.25–3×, scales each shard's effective timestep), PAUSE GRID (freezes shard stepping while the main sim keeps running), MAX ITERS (0 = ∞, caps auto-iteration), DRIFT (0–0.05, raises VARIATION each generation, capped at 1).
+- Tests: `batch_12.test.js` rewritten (8 cases), `multiplex.test.js` +5 (new defaults, pause freeze, sim-speed scaling, iteration cap, variation drift) — full suite 570/570 green; `npx vite build` clean.
+## [4.6.15] - 2026-08-06 → 6.15.0
+
+### Law RRP batch 11 — REDUCTION / ALLOY / MELT / BOIL confirmed + multiplexer live settings
+- REDUCTION — real-life behavior: opposite charges cancel toward zero on interaction (same-sign pairs untouched; the old code equalized like a conductor).
+- ALLOY — real-life alloying: full mass merge + mass-weighted DNA average (hybrid composition) + colour blend; survivor keeps its species slot.
+- MELT — follows HELP_DB: hot particles lose effective STIFFNESS toward a 20% floor (mass untouched) and re-solidify when cool — reversible phase change.
+- BOIL — yes: ejected mass costs latent heat (ENERGY −= ejectMass×20), uses the SplitMix32 PRNG for the velocity kick, 0.02 mass floor.
+- Multiplexer — the right drawer now shows every setting live during multiplexing: VARIATION slider, RANDOMIZE (LAWS/DNA/POP), DERIVE (CLONE/SPAWN), GRID (C×R, applies immediately), AUTO-ITERATE + EVERY interval, AUTO-SELECT FITTEST. New engine: `autoIterate` regenerates shards on a cadence; `selectFittestShard` picks the most alive.
+- Tests: `batch_11.test.js` rewritten (8 cases), `multiplex.test.js` +4 — full suite 565/565 green; `npx vite build` clean.
+
+## [4.6.14] - 2026-08-06 → 6.14.0
+
+### Law colours: 10% bands tightened to 4%
+- Each of the 8 law-category bands on the EM-spectrum is now 4 points wide (center ± 2) instead of 10, so the 16 laws inside a category sit closer to their category colour (RED wraps 98% → 102% through 0).
+- All 128 laws still get a distinct hue; `LAW_SPECTRUM` + `LAW_HUE_BY_INDEX` recompute automatically.
+- Full suite 561/561 green; `npx vite build` clean.
+
+## [4.6.13] - 2026-08-06 → 6.13.0
+
+### Drawer fixes — reopen after minimize, swipe up/down, LAWS + WORLD sub-tabs, laws hide button removed
+- **Minimize reopen bug fixed**: the drawer control buttons (▁ minimize, ▼ hide, −/+ zoom) share the `.tab-btn` class, so the generic tab-switching handler treated them as tabs and stripped the active tab — expanding later left the drawer blank with no way back. Tab switching now only binds real tabs (`[data-tab]`), and expand restores the active tab if it was ever lost.
+- **Swipe up / swipe down**: swiping up on the tab strip or top edge expands the drawer, swiping down minimizes it (touch + mouse drag). The resize handle is excluded while actively resizing.
+- **LAWS and WORLD are now separate sub-tabs** in the Setup panel: ⚖️ LAWS (category filters, icon/list law grid, law-set bar) and 🌍 WORLD (world parameter sliders). The network panel still mounts in WORLD.
+- **Laws panel close button removed**: the ✕ hide toggle and `lawsHidden` state are gone — the law grid can no longer be hidden, only switched between icon and list view (◈ / ABC).
+- Tests: new `tests/unit/drawer.test.js` (5 cases — tab switching, minimize/expand keeps active tab, swipe down/up, tap passthrough, hide/show roundtrip). Full suite 561/561 green; `npx vite build` clean.
+
+## [4.6.12] - 2026-08-06 → 6.12.0
+
+### Law RRP batch 10 — SOUL conserved + decay, MIND synergy stack, VOID dark-energy scaling, BOND density bias, POLYMER chain bias
+- SOUL_LAW — conserved shared field: same-species transfer drains the giver and credits the receiver (both capped to [0,1]), plus slow per-particle decay (0.2%/tick) so souls must be replenished.
+- MIND — hivemind is now synergy-shaped: COMMS ×1.5, TELEPATHY ×2.0, ENERGY ×0.5 (hive-mind drain), POLYMER ×0.5 (polymerized overhead). The documented MIND+ENER −2.0 synergy was never wired before — now it is, in v4's multiplier form.
+- VOID — strengthened base (0.0005 → 0.004) + dark-energy distance scaling `(0.3 + dist/(worldSize/2))`: the outward push grows from the world centre.
+- BOND — molecular bonds prefer dense neighbourhoods over chain ends: bond range and spring force scale with `min(2, 1 + nCount×0.05)`, bonds break when stretched past range, registration uses all 6 bond slots.
+- POLYMER — chain bias: bond range ×1.0 for free/tip partners, ×0.5 (2 bonds), ×0.25 (3+) so polymers grow linear chains instead of cross-linked webs.
+- Tests: `batch_10.test.js` 14 cases; full suite 556/556 green; `npx vite build` clean.
+
+## [4.6.11] - 2026-08-06 → 6.11.0
+
+### Law grid recoloured top-to-bottom rainbow (user request)
+- Category colours now run red → orange → yellow → green → teal → blue → violet
+  → purple from the top law row to the bottom row (physics → biology → chemistry
+  → thermodynamics → metaphysics → electromagnetism → information → quantum),
+  replacing the old per-category colour map.
+- Each category band stays 10 points wide on the 0-100 hue spectrum and the
+  per-law step inside each band is unchanged, so every one of the 128 laws keeps
+  its own hue — just re-ordered into a full rainbow top-to-bottom.
+- `LAW_CATEGORIES` colour fields updated; `LAW_HUE_BY_INDEX` recomputes
+  automatically. Category tabs and labels follow (they read the same mapping).
+- Full suite 550/550 green; `vite build` clean.
+
+
+## [4.6.10] - 2026-08-06 → 6.10.0
+
+### Law RRP batch 09 — CHAOS / ORDER / FATE / WILL confirmed semantics
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **CHAOS** — agent decision (user delegated): kinetic forcing stays plus a small
+  temperature stir (+/-(prng()-0.5) x 0.02 x dt x synergy, clamped 0-1) so chaos
+  flickers hot/cold pockets that feed HEAT and PHASE_RADIATION. With ORDER on,
+  both run at x0.3 (mutual cancellation, unchanged).
+- **ORDER** — "strongly": Vicsek alignment 0.005 -> 0.04 and range ~100 -> ~200
+  units, so coherent flow actually emerges.
+- **FATE** — redesigned (user: "boring and similar to existing laws"): the old
+  pairwise same-species attraction duplicated AFFINITY. Each species now has a
+  slowly drifting destiny point (golden-angle phase, fate clock) its members are
+  gently pulled toward along the shortest toroidal path — species migrate and
+  segregate toward their own fate.
+- **WILL** — followed docs: energy-independent self-propulsion along current
+  heading (0.01 x dt x synergy, speed gate 0.01). Unchanged.
+- Tests: `batch_09.test.js` updated (CHAOS thermal stir + clamp, ORDER 0.2
+  alignment + 50k range gate, FATE destiny magnitude/direction + per-species
+  divergence + integration). Full suite 550/550 green; `vite build` clean.
+- HELP_DB synced for CHAOS / ORDER / FATE; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_09.md`.
+
+
+## [4.6.9] - 2026-08-06 → 6.9.0
+
+### Law RRP batch 08 — PHASE_RADIATION / SUBLIMATION / TIME_DILATION / DIMENSIONALITY + crystallization repair
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments, plus a user-reported crystallization bug fixed.
+
+- **CRYSTALLIZATION REPAIR** (user report: "lattices are entirely absent") — root
+  cause: pairs only interacted within 30 units at a 0.01 pull while default spawn
+  spacing is ~100-300 units, so lattices never formed. Range widened 30 -> 150 and
+  pull strengthened 0.01 -> 0.05 (same-species 3x = 0.15); same-species pairs now
+  visibly snap into the 8-unit lattice grid.
+- **PHASE_RADIATION** — follows real blackbody physics: Stefan-Boltzmann T^4
+  emission — every warm body (temp > 0.05) radiates, hot bodies radiate
+  disproportionately (temp^4 x 0.05 x dt x synergy), cooling TEMPERATURE and
+  ENERGY while boosting SIGNAL glow. The old ENERGY > 50 doc hint and the 0.6
+  threshold are replaced.
+- **SUBLIMATION** — documented low-mass + high-energy gate: temp > 0.5 AND
+  ENERGY > 50; mass sublimes down to a 0.02 floor (near-full evaporation); the
+  velocity burst now uses the sim PRNG instead of Math.random(); sublimation
+  consumes extra energy (x20 sublRate) and cools.
+- **TIME_DILATION** — agent decision (user delegated): kept `localDt = 1 -
+  soul x 0.3 x synergy` (70% max slowdown) — a stronger cap would make
+  differential aging (AGE, reproduction timers) diverge too far between souls.
+- **DIMENSIONALITY** — Z-drift amplitude raised 0.1 -> 0.3 (3x) so 3D
+  exploration is visible.
+- Tests: `batch_07.test.js` crystallization values updated (0.2 / 0.6 / no-op
+  beyond 150); `batch_08.test.js` rewritten (T^4 curve + proportionality,
+  near-zero gate, sublimation energy gate + floor + PRNG, dimensionality 0.15
+  kick). Full suite 550/550 green; `vite build` clean.
+- HELP_DB synced for all five laws; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_07.md` + `batch_08.md`.
+
+
+## [4.6.8] - 2026-08-06 → 6.8.0
+
+### Law RRP batch 07 — CRYSTALLIZATION / HEAT / COLD / CONVECTION confirmed semantics
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **CRYSTALLIZATION** — same-species bonus: any pair within dist 1-30 is pulled
+  toward the 8-unit lattice grid, and same-species pairs pull 3x stronger, so
+  rigid clusters form between kin (cross-species keeps the original 0.01 pull).
+- **HEAT** — kinetic-theory thermal noise added: particles above 0.5 TEMPERATURE
+  receive random velocity kicks proportional to temperature
+  (+/-(temp x 0.01 x dt x synergy) per axis), alongside the existing pairwise
+  conduction.
+- **COLD** — documented velocity damping added: particles below 0.5 TEMPERATURE
+  have VEL_X/Y/Z multiplied by max(0, 1 - (0.5-temp) x 0.1 x dt x synergy) each
+  tick, alongside the pairwise equalization.
+- **CONVECTION** — kept as documented: buoyancy (temp-0.5) x 0.001 x dt x synergy
+  on +VEL_Y, deliberately not scaled by HEAT_CAPACITY (conduction already encodes
+  capacity into the temperature field). Note: gravity (PLANETARY) is along -Z, so
+  +Y buoyancy is horizontal in VEPA's 3D space - switch to +Z on request.
+- Tests: `tests/audit/batch_07.test.js` extended to 25 (crystallization
+  same-species bonus, thermal jitter gate/threshold/value/integration, cold
+  damping gate/threshold/value/integration). Full suite 547/547 green;
+  `vite build` clean.
+- HELP_DB synced for all four laws; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_07.md`.
+
+
+## [4.6.7] - 2026-08-05 → 6.7.0
+
+### Law RRP batch 06 — OXIDATION / POLYMER / ISOMERIZATION / CHIRALITY confirmed semantics
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **OXIDATION** is now real electron loss: CHARGE decays toward 0 (electrical
+  rust) alongside the MASS erosion, and HEAT_OUTPUT DNA releases heat plus a
+  glow flash (COLOR_R/G/B + ALPHA brighten while the particle burns).
+- **POLYMER** matches the documentation: the particle stride grew to
+  `BOND_PARTNER_1..6` (81-84 appended, existing offsets stable) for the
+  documented max 6 bonds per particle; bonds are now mutual (i records j, j
+  records i) so A-B-C chains hold on both ends, and partner indices use the
+  real stride (the hardcoded `/100` is gone).
+- **ISOMERIZATION** matches real life: same atoms, rearranged bonds — a
+  particle with 3+ chain bonds occasionally breaks one connection (the freed
+  partner becomes a fragment, its reciprocal cleared) and consumes a little
+  energy. The sinusoidal "radius breathing" placeholder was removed.
+- **CHIRALITY** uses the documented TORQUE DNA: handedness is geometric
+  mirror-spin (clockwise vs counter-clockwise), same-handedness pairs deflect
+  perpendicular with direction following the torque sign; opposite-handedness
+  and zero-torque pairs feel nothing.
+- Tests: `tests/audit/batch_06.test.js` rewritten (21) — rust + glow, mutual
+  6-slot bonds + cap, isomerization rearrangement/reciprocal/energy, chirality
+  handedness incl. mirror direction. Full suite 538/538 green; `vite build` clean.
+- HELP_DB synced for all four laws; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_06.md`.
+
+
+## [4.6.6] - 2026-08-05 → 6.6.0
+
+### Law RRP batch 05 — PHENOTYPE / CATALYSIS_LAW / SOLVATION / ACIDITY confirmed semantics
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **PHENOTYPE** is gene expression: the inherited genome (DNA cache) is
+  translated into the visible body every tick — POLARITY → hue, ALPHA →
+  saturation, SYMMETRY → lightness — and ENERGY is the environment: well-fed
+  particles (energy > 100) express a larger body, starving ones shrink.
+  Offspring inherit DNA, so they inherit the look.
+- **CATALYSIS_LAW** confirmed: chemistry multiplier ×(1 + CATALYSIS×0.5×synergy),
+  applied to the pre-chemistry forces in the pair loop, and it is free —
+  never touches energy (locked by test).
+- **SOLVATION** replicates real-world behaviour: like dissolving salt in water,
+  the solvent exerts charge forces — opposite charges attract, like charges
+  repel (Coulomb-style |q1×q2|) — plus charge-different particles react
+  faster. The force was previously dead code; now wired into the solver.
+- **ACIDITY** switched to the documented behavior: particles exchange CHARGE
+  when close, equalizing electrical potential; CONDUCTIVITY DNA controls the
+  transfer rate and the CHARGE field is altered. The old ENERGY erosion is gone.
+- Tests: `tests/audit/batch_05.test.js` rewritten (23) — phenotype colour
+  expression, catalysis free + amplification, solvation attract/repel/gate,
+  acidity equalization/conservation. Fixed a flaky catalysis test whose
+  premise was wrong (chemMult runs before the CHARGE_LAW block — re-anchored
+  to the AFFINITY pull it actually amplifies). Full suite 533/533 green;
+  `vite build` clean.
+- HELP_DB synced for all four laws; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_05.md`.
+
+
+## [4.6.5] - 2026-08-05 → 6.5.0
+
+### Law RRP batch 04 — SENESCENCE / ENERGY / RADIATION / GENOTYPE confirmed semantics + GLOW backport
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **GLOW backport (batch 03 correction):** GLOW is an emitter only — the
+  oscillator raises SIGNAL (transmission strength) but never converts signal
+  into life energy. Signal and metabolism stay separate channels.
+- **SENESCENCE** confirmed as LIFE-dependent: age-based death stays nested
+  inside the LIFE cycle (past AGE 500, death chance = DEATH_RATE×0.001×
+  (1 + ageNorm×0.5)×dt); standalone SENESCENCE does nothing.
+- **ENERGY** answered "what energy?": every energy reservoir conducts pairwise
+  toward equilibrium — LIFE energy (ENERGY), ELECTRIC_ENERGY and STORED_ENERGY
+  each transfer independently (conservation holds per channel); SIGNAL and
+  REPRO_DRIVE are never touched.
+- **RADIATION** gained the RADIATION_LEVEL slider scaling plus a slow exposure
+  ramp: particles accumulate RADIATION_EXPOSURE (stride 80, level×dt×0.01,
+  cap 100) that compounds damage over time and steadily ramps DNA mutation
+  chance — more and more over time. Radiation depletion kills consistently
+  with the batch-02 LIFE death. Removed the duplicate in-LIFE radiation drain
+  (double-drain bug).
+- **GENOTYPE** expanded as the genetics engine: REPRESSOR damps drift,
+  HETEROZYGOSITY widens variance, EPIGENETIC_DRIFT adds non-heritable noise,
+  GENE_FLOW pulls foreign genes, radiation exposure ramps the rate, and rare
+  mutations write back into the 64×64 species genome — species-level evolution.
+- Tests: `tests/audit/batch_04.test.js` rewritten (15) + batch_03 GLOW test
+  corrected — full suite 521/521 green; `vite build` clean.
+- HELP_DB synced for all five entries; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_04.md`.
+
+
+
+## [4.6.4] - 2026-08-05 → 6.4.0
+
+### Law RRP batch 03 — GLOW / AFFINITY / REPRO / TRACK confirmed semantics + multi-energy architecture
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **Multi-energy architecture** (stride 77-79): `ELECTRIC_ENERGY`, `STORED_ENERGY`,
+  `REPRO_DRIVE` added to the particle stride — life energy (ENERGY), signal
+  transmission strength (SIGNAL), electricity, storage, and reproductive drive
+  are now separate channels. Initialized at spawn and in multiplex shards;
+  exposed through `particleBuffer.js`.
+- **GLOW** does both: an oscillator (PULSE_RATE × SIGNAL_STRENGTH DNA) emits
+  signal pulses into SIGNAL, and existing signal converts into life energy.
+- **AFFINITY** boosts same-species attraction (scales with positive
+  SPECIES_AFFINITY, inert at 0, none for xenophobic species) — fixes the old
+  `Math.abs` bug where negative affinity attracted your own kind.
+- **REPRO** is now gated on REPRODUCTIVE DRIVE (stride 79): drive accumulates
+  from BIRTH_RATE, spawning needs drive ≥ 60 + AGE ≥ 100, and spawning consumes
+  the drive plus half the parent's life energy — raw energy is no longer the gate.
+- **TRACK** only hunts across species: predators no longer chase their own kind.
+- Tests: `tests/audit/batch_03.test.js` (13) + updated REPRO/AFFINITY param
+  tests — full suite 515/515 green.
+- HELP_DB synced for all four laws; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_03.md`.
+
+## [4.6.3] - 2026-08-05 → 6.3.0
+
+### Law RRP batch 02 — COLL / ACCR / PLANETARY / LIFE confirmed semantics
+
+Interactive law audit (RRP with the user): all four laws confirmed with amendments.
+
+- **COLL** is now standalone from ACCR — softbody push + elastic bounce run only
+  under COLL; fusing pairs coalesce instead of bouncing. Off = pass-through.
+- **ACCR** gates reinterpreted: `FUSION_MOMENTUM` (DNA 16) is the MINIMUM
+  relative momentum to fuse on impact (slower pairs bounce); `FUSION_TIME`
+  (DNA 17) is how long sub-threshold pairs must stay in very close proximity
+  before they fuse anyway. Proximity dwell is tracked per contact pair in the
+  free `MITOSIS_TIMER` / `PARTNER_ID` stride fields and resets on separation.
+  Sub-threshold ACCR-only contacts get a gentle elastic bounce.
+- **PLANETARY** replaced the central well with constant atmospheric gravity
+  toward the ground plane (z ≈ 0), mass-scaled so acceleration is
+  mass-independent; ×1.5 with GRAV.
+- **LIFE** now kills on metabolic energy depletion: when the LIFE metabolic
+  budget hits 0 the organism dies (charge/electromagnetic energy paths are
+  untouched).
+- Tests: `tests/audit/batch_02.test.js` (14) + `tests/audit/params_batch_11.test.js`
+  FUSION gates rewritten for the confirmed semantics — full suite 510/510 green.
+- HELP_DB synced for all four laws; RRP manifest + telemetry in
+  `audit-suite/laws-rrp/batch_02.md`.
+
+## [4.6.1] - 2026-08-05 → 6.1.0
+
+### Law RRP batch 01 — GRAV / DRAG / ENTR / WRAP spec confirmed with user
+- RRP pass (per-batch spec confirmation): batch 01 behavior confirmed interactively:
+  - **FORCE DNA is now pairwise with gravity**: both positive FORCE multiply the
+    pull, both negative multiply negatively (repel), opposite signs cancel to a
+    gravitationally neutral pair (`applyGravity` reads both particles).
+  - New world slider **WALL REFLECT** (PHYSICS/MOTION, 0-2, default 1): soft-wall
+    velocity effect — 0 = 100% absorption, 1 = 100% reflect, 2 = 200% reflect.
+    The soft wall previously lost 50% on bounce; the default is now a full 100%
+    reflect. Velocity clamp moved after the position step so super-bounces get to
+    move the particle for one tick before the MAX_VELOCITY cap applies.
+  - FRICTION DNA damping stays gated behind DRAG (confirmed).
+- HELP_DB synced for GRAV (pairwise FORCE) and WRAP (binary + WALL REFLECT).
+- Tests: `tests/audit/batch_01.test.js` 8 → 10 tests (pairwise FORCE + wall slider).
+  Full suite 65 files / 505 tests green.
+- RRP artifacts: `audit-suite/laws-rrp/` (README + batch_01..32 manifests),
+  RSIRRP session `.rsirrp/sessions/2026-08-06/law-batch-01/20260806-001941-1c16`.
+
+## [4.6.0] - 2026-08-05 → 6.0.0
+
+### 72-parameter audit — every slider validated, 9 dead DNA params repaired
+- Full parameter audit mirroring the law audit: 18 batches × 4 params
+  (22 world sliders · 8 settings/camera · 42 DNA) with focused + gate tests in
+  `v4/tests/audit/params_batch_01..18.test.js` (43 audit tests; full suite
+  65 files / 503 tests green).
+- Result: **63 PASS / 9 REPAIRED / 0 FAULTY** — every param functional.
+- World sliders were the reported bug: 16 of 22 were `console.log` no-ops.
+  New SSOT `v4/src/state/worldParams.js` (defs, clamps, `applyWorldParam`,
+  min-clamped `spawnCaps`) + `v4/src/spawn/distribution.js`; all 22 sliders now
+  flow into spawn, solver, and laws (`v4/src/ui/worldPanel.js` renders from the
+  SSOT; `v4/src/main.js` applies `world:paramChanged` live).
+- Repaired DNA params (all were dead — zero physics reads):
+  FORCE (gravity scale/repel), TORQUE (velocity rotation), TIDAL (close-range
+  gravity boost), FUSION + FUSION_TIME (ACCR mass-transfer efficiency +
+  maturity gate), BOND_ANGLE (bond equilibrium distance), REACTION_THRESHOLD
+  (autocatalysis mass gate), HEAT_OUTPUT (oxidation energy release),
+  SEX_CHANCE (reproduction crossover probability).
+- Additional fixes: `resetCamera()` restores focalLength/ortho/sensitivities;
+  renderer `depthAlpha` now respects `runtimeConfig.globalAlpha`.
+- Audit report: `audit-suite/params/` (SPEC, INDEX, 18 batch manifests,
+  combined.md). World/camera/visual params default to neutral — default
+  simulation behaviour unchanged; restart still preserves laws/world/species.
+
+## [4.5.3] - 2026-08-05 → 5.3.0
+
+### Deployment caching fix
+- `vercel.json` no longer applies `max-age=31536000, immutable` to the HTML
+  shell — browsers were caching the old `index.html` for a year and never
+  picking up new builds. Hashed `/assets/*` bundles keep the long immutable
+  cache; the HTML entry now serves `no-cache, must-revalidate` (COOP/COEP
+  headers unchanged, so SharedArrayBuffer keeps working).
+
+
+
+## [4.5.2] - 2026-08-05 → 5.2.0
+
+### 4-agent law audit — all 128 laws validated
+- All 32 batches of 4 laws audited by independent agents with integration-level
+  `solve()` tests (`v4/tests/audit/batch_01..32.test.js`): 297 audit tests.
+- Result: **110 PASS / 18 REPAIRED / 0 FAULTY** — every law functional.
+- Repair highlights (`v4/src/physics/laws.js`, `solver.js`, `quantumLaws.js`):
+  - COLD heat-transfer sign flipped (was heating the wrong particle).
+  - CHARGE force sign flipped — like charges now repel, opposites attract.
+  - COLL bounce condition `relVelN > 0` — approaching pairs now bounce.
+  - SPIN parity uses real particle index (`floor(i/PARTICLE_STRIDE) % 2`) so the
+    sign alternates per particle, not per buffer slot.
+  - PHENOTYPE radius write no longer overwritten each tick by mass recompute.
+  - ASTRAL processes DEAD=0.5 souls; ACCR can run standalone; PREDATION mass
+    fold-in + softbody position delta; TUNNELING/UNCERTAINTY/TELEPORT/
+    WAVEFUNCTION position mutations survive solver writeback.
+  - Full suite: 47 files / 420 tests passing.
+
+## [4.5.1] - 2026-08-05 → 5.1.0
+
+### All 46 new laws implemented — 8 categories × 16 = 128 laws
+- Law logic landed in `v4/src/physics/lawgroups/` (physicsLaws, thermoLaws,
+  biologyLaws, chemistryLaws, emLaws, infoLaws, metaLaws, quantumLaws) and is
+  dispatched from `solver.js` (pairwise + per-particle passes).
+- New **quantum** law category (indigo) with 16 laws: SUPERPOSITION, TUNNELING,
+  DECOHERENCE, WAVE_PARTICLE, UNCERTAINTY, TELEPORT, OBSERVER, PLANCK,
+  COHERENCE, BOSONIC, FERMIONIC, SPIN, SPECTRAL, WAVEFUNCTION, HYPERPLANE,
+  ANTIMATTER.
+- Quantum tab (QNTE) + indigo theme in `v4/index.html` / `style.css`; 46 law
+  icons added to `worldPanel.js` / `tooltip.js`.
+- 8 new presets (31 total); sub-agent verification tests green (123/123 unit).
+
+## [4.5.0] - 2026-08-05 → 5.0.0
+
+### 128-law foundation
+- 46 new `LAW_INDEXES` entries; `LAW_COUNT` 82 → 128; 8 categories × 16.
+- Bitmask widened to 128 bits (`quadFlags` in `v4/src/state/lawState.js`);
+  serialization stores `quad` word, deserialization accepts legacy 64-bit saves.
+- 46 HELP_DB entries (HINT / EXPLANATION / SYSTEM / ADVANCED).
+- Solver hard-freeze + multiplex copy/randomize extended to the 4th flags word.
+
+
+
+## [4.4.2] - 2026-08-04 → 4.2.0
+
+### Law-type synergy + icon parity pass
+- **SINGULARITY** synergies: ×1.5 with ACCR (collapse accelerates), ×1.4 with
+  GRAV (the hole bends space itself).
+- **ENTANGLEMENT** synergies: ×1.6 with TELEPATHY, ×1.5 with COMMS (entangled
+  signals need no channel).
+- **HISTORY** synergies: ×1.6 with MEMORY (collective memory deepens the
+  field), ×1.5 with PATTERN (remembered geometry aligns drift).
+- World-panel law grid now shows icons for FEEDBACK / LANGUAGE / CULTURE
+  (matching the tooltip module) — no more '?' placeholders for info laws.
+
+## [4.4.1] - 2026-08-04 → 4.1.0
+
+### Restart vs Reset semantics
+- **Restart** (↻) now only respawns the population at tick 0 — laws, world
+  params (spawn/distribution/thermal/force sliders, spawn rate) and species
+  params (roster + DNA) are all preserved. Chaos still randomizes first, then
+  restarts onto the randomized laws/DNA.
+- **Reset** restores the defaults (default law set, world params, species
+  profiles) via a fresh boot.
+- Spawning is now safe with user-added species beyond the 5 built-in profiles
+  (deterministic fallback colours instead of crashing).
+
+## [4.4.0] - 2026-08-04 → 4.0.0
+
+### New law types (3 more laws — 82 total)
+- **SINGULARITY** (physics): supermassive particles (mass ≥ 20) exert an
+  extreme inverse-square pull; any particle crossing the event horizon is
+  absorbed — mass is swallowed and the hole heats up.
+- **ENTANGLEMENT** (metaphysics): touching particles forge a non-local quantum
+  link (new ENTANGLE_ID / ENTANGLE_PHASE stride slots, initialised to −1/0 on
+  every spawn path). Momentum and signals transfer between the pair at any
+  distance; the phase decays until the link snaps with a recoil kick.
+- **HISTORY** (information): a 12³ spatial memory field accumulates particle
+  presence (exponentially decaying); particles drift toward the field's
+  centre of mass — archaeology as a force.
+- HELP_DB entries, tooltip icons (⬤ / ⚭ / 📜) and solver wiring added; all
+  spawn paths (main + multiplex shards) initialise the entanglement slots.
+
+## [4.3.0] - 2026-08-04 → 3.0.0
+
+### Law categories completed — Electromagnetism + Information (26 laws)
+- **Electromagnetism (cyan) now has 13 laws**: CHARGE_LAW, FIELD, CURRENT,
+  RESISTANCE, CAPACITANCE, INDUCTANCE, MAGNETISM, RESONANCE, FLUX, IONIZATION
+  + **DISCHARGE** (stored charge bursts into motion/heat), **PLASMA** (hot
+  particles ionize — heat becomes charge), **SUPERCONDUCTIVITY** (cold pairs
+  couple into lossless velocity-aligned streams).
+- **Information (gold) now has 13 laws**: MEMORY, PATTERN, STIGMERGY,
+  SIGNAL_BOOST, LEARN, SYMBOL, METRIC, PREDICT, CODE, PROTOCOL + **FEEDBACK**
+  (memory amplifies motion, motion refreshes memory), **LANGUAGE** (signaling
+  pairs exchange memory traces), **CULTURE** (same-species contacts converge
+  their DNA cache).
+- **96-bit law bitmask**: `lawState` now uses three `Uint32Array` words
+  (0-31 / 32-63 / 64-95) instead of two — laws 64+ previously collided with
+  lower bits and could not be toggled. `getStateVector`/`fromVector` and
+  `serialize`/`deserialize` extended (legacy `{low, high}` payloads still load).
+- **Multiplex shards** copy and randomize the third law word (extended-range
+  laws now survive shard derivation and variation).
+- **New synergies** for both categories: CHARGE_LAW+MAGNETISM, SUPERCONDUCTIVITY
+  +COLD, SUPERCONDUCTIVITY+RESISTANCE, DISCHARGE+IONIZATION, PLASMA+HEAT,
+  CURRENT+RESISTANCE, MEMORY+FEEDBACK, SIGNAL_BOOST+PROTOCOL, LANGUAGE+CODE,
+  CULTURE+GENOTYPE, PREDICT+TRACK, STIGMERGY+LEARN, LEARN+SYMBOL — all consumed
+  by the solver as multipliers.
+- SUPERCONDUCTOR law-set preset now includes SUPERCONDUCTIVITY.
+- Law grid / tooltips updated with icons and HELP_DB entries for all six new
+  laws.
+
+### Law set bar (SETUP > WORLD)
+- **3-button bar**: a dropdown selector (shows the applied set) + icon-only
+  LOAD (📂) and SAVE (💾) buttons.
+- **Select-then-load flow**: tapping a row in the dropdown only selects it
+  (✓ highlight); LOAD applies it to the sim, SAVE overwrites it with the
+  current laws. Saving without a selection opens the inline name editor for a
+  brand-new set.
+- **User sets override built-ins**: saved sets with the same name as a
+  built-in now take precedence.
+- **3 new presets** (23 total): ELECTRIC STORM (charge/field/current/
+  ionization/discharge/plasma), NEURAL WEB (memory/learn/symbol/language/
+  feedback/culture), CRYO CURRENT (superconductivity/cold/current/
+  resistance/flux/condense).
+
+## [4.2.1] - 2026-08-04 → 2.1.0
+
+### Fixes
+- **Accretion now requires ACCR**: the LIFE law's metabolism no longer grows or
+  shrinks particle mass on its own — mass fluctuation is gated behind the ACCR
+  law, so particles stop "accreting" unless accretion is enabled.
+
+### Reproduction
+- **Offspring inherit the parents' intermediate colour**: two-parent breeding
+  blends the parents' colours 50/50 (with mutation); single-parent clones carry
+  the parent colour instead of snapping back to the species base. Shard
+  populations (multiplex) now spawn with per-species colours too.
+
+### Population
+- **REGULAR SPAWN /S setting** (SETUP > WORLD > ENVIRONMENT > POPULATION):
+  spawns N particles per second at random positions drawn from the configured
+  initial distribution (shape / centres / centre bias). Default 5/s.
+
+## [4.2.0] - 2026-08-04 → 2.0.0
+
+### Law grid (SETUP > WORLD)
+- **5-colour law coding**: every law is tinted by its category (blue physics,
+  green biology, purple chemistry, orange thermodynamics, red metaphysics) in
+  both icon and list modes — dull when disabled, bright when enabled.
+- **One row per law type**: each category renders as its own labelled row.
+- **Exclusive view-mode group**: [◈ icon] [ABC list] [✕ hide] — only one mode
+  selected at a time; tapping the selected mode again hides the law grid, and
+  the ✕ button toggles visibility.
+
+### Law set system
+- **SAVE / LOAD + dropdown** of presets; each dropdown row shows 1/4-size law
+  icons in a single line + preset name. Clicking a row applies that law set.
+- **20 theorycrafted presets** (PRIME DIRECTIVE … CHAOS THEORY).
+- **Inline save editor**: SAVE opens a name input prefilled with the last
+  loaded/saved preset name, with ✓ / ✕ to confirm or cancel. Saving upserts
+  into the dropdown and persists to localStorage (`vepa.lawsets.v1`);
+  loading a preset then saving renames it.
+- Manual law toggles return the label to CUSTOM.
+
+### Drawer (already present, confirmed working)
+- Swipe tabs up to open / down to close the drawer; the top edge handle can be
+  held (highlighted) and dragged to resize; − / + zoom buttons scale drawer
+  content.
+
+## [4.2.0] - 2026-08-04 → 2.0.0
+
+### Laws
+- **5-category colour coding in both views**: law tiles and list rows are
+  tinted by type (blue/green/purple/orange/red) even when inactive, bright
+  when active.
+- **Mode buttons**: ▦ (icon) and ABC (list) sit side by side, mutually
+  exclusive; tapping the already-active button hides the law grid, tapping
+  it again restores it.
+
+### Drawer
+- **Swipe up/down** on the drawer tabs opens/closes the drawer.
+- **Resize handle** on the drawer's top edge — hold/drag to resize, glows
+  blue while hovered/dragged.
+- **− / + zoom buttons** in the drawer tabs scale the drawer content
+  (0.6×–1.6×).
+
+## [4.1.9] - 2026-08-04 → 1.9.0
+
+### World params
+- **Grouped params**: SETUP > WORLD sliders now nest in sub-accordions per
+  group — SPACE > WORLD / POPULATION / DISTRIBUTION, PHYSICS > FORCES / MOTION,
+  ENVIRONMENT > THERMAL / POPULATION, BIOLOGY > INTERACTION / LIFE CYCLE.
+
+## [4.1.8] - 2026-08-04 → 1.8.0
+
+### Camera
+- **Straight-on default view**: the camera now starts flat against one side of
+  the dish (no rotation/tilt); drag to orbit, 2-finger drag rotates.
+- Zoom remains clamped (min 0.05, max 100) via wheel/pinch.
+
+### Initial distribution controls (SETUP > WORLD > SPACE)
+- **DISTRIBUTION**: 0 = perfectly even grid, 1 = fully random positions
+  (replaces the inert SPAWN SHAPE slider).
+- **CENTRES**: number of cluster centres, 1-64.
+- **CENTRE SCATTER**: centre placement — 0 = evenly spaced, 1 = random.
+- **CENTRE BIAS**: how strongly particles are pulled toward the centre(s),
+  0 = uniform, 1 = pinned to centres.
+- Values apply on the next Restart / Chaos respawn.
+
+## [4.1.7] - 2026-08-04 → 1.7.0
+
+### Chaos Multiplex (guided evolution grid)
+- **Long-press Chaos ☢️ opens the Chaos Multiplex config modal**: X×Y concurrent
+  simulations rendered in a grid (up to 16 shards), with checkbox toggles for
+  which aspects to randomize (Laws / DNA / Population), a variation slider
+  between shards, and derivation mode (clone the selected simulation vs.
+  spawn a fresh population).
+- **Right-edge multiplex drawer**: minimizable/expandable; while minimized it
+  still shows an icon-only ⚡ iterate button. Iterate regenerates every shard
+  from the currently selected shard with fresh seeds.
+- **Shard selection**: tapping any concurrent simulation renders a selection
+  box around it; the selected shard becomes the source for the next iteration.
+- **Shared camera**: all shards share one camera, so any drag/pinch/zoom
+  applies the same camera movement to every shard simultaneously.
+- **Chaos button order**: short click randomizes laws/DNA first, then restarts
+  on a fresh population that preserves the randomized configuration.
+
+### Camera
+- **1-finger drag pans, 2-finger drag rotates** (two-finger rotation orbits +
+  pinch zooms); mouse drag pans.
+
+### Toolbar
+- Buttons named Chaos, Restart, Reset, Help (icons unchanged).
+
+## [4.1.6] - 2026-08-04 → 1.6.0
+
+### UI
+- **Setup is the first tab**: the CONFIG tab is renamed SETUP and moved to
+  position 1 (default open, WORLD subtab active); DATA is second.
+
+## [4.1.5] - 2026-08-03 → 1.5.0
+
+### Toolbar
+- **Randomize (Chaos) ☢️ now restarts first**: short-click emits restart then
+  chaos, so randomness applies to a fresh population.
+- **Readme (Help) ? now works**: opens the v4 README (`help:toggle` was
+  emitted but never handled).
+- Toolbar right is exactly four buttons with current icons:
+  Randomize (Chaos) ☢️, Restart 🔄, Reset 🗑️, Readme (Help) ?.
+
+### Fixes
+- **Restart desync fixed**: `sim:restart` created a *new* lawState object while
+  the UI panels held the old reference — after restart the sim ran laws the
+  toggles didn't show (and vice versa). Restart now clears the object in
+  place, keeping UI and engine on the same state.
+- **Narrative crash fixed**: `cluster:detected` payloads are
+  `{timestamp, clusters[]}` but the narrative templates read `count` /
+  `avgEnergy` directly off the payload, throwing `undefined.toFixed` at
+  random intervals. The engine now narrates the largest cluster with the
+  correct shape.
+
+### Startup (confirmed)
+- Initial state is all laws disabled (`DEFAULT_LAWS` empty, boot + restart).
+  If the drawer still shows the old WORLD/SPECIES/DNA/LOG tabs, hard-refresh:
+  4.1.4+ ships the DATA/CONFIG tab restructure with a new bundle hash.
+
+## [4.1.4] - 2026-08-03 → 1.4.0
+
+### Startup
+- **Begin with all laws disabled**: `DEFAULT_LAWS` is empty, so the sim boots
+  (and restarts) with zero laws — particles are completely static until a law
+  is enabled. Presets and manual toggles turn laws on.
+
+### UI
+- **Tabs restructured**: top-level `DATA` (sub-tabs INTELLIGENCE | DNA | LOGS)
+  and `CONFIG` (sub-tabs WORLD | SPECIES | SETTINGS). The intelligence
+  dashboard is the primary DATA subtab; world (law grid + params) and species
+  panels now live under CONFIG.
+- **LOGS subtab fixed**: the narrative log panel (`#narrative-panel`) now
+  actually renders — previously it targeted a container that didn't exist.
+- **+ SPECIES works**: clones species 0's DNA into the next free slot (up to
+  64) and selects it.
+- **− SPECIES + per-card ✕**: remove the last species or any card; the DNA
+  roster compacts, selection clamps, and the HUD species count syncs (min 1).
+
+## [4.1.3] - 2026-08-03 → 1.3.0
+
+### Law Gating (complete)
+- **FRICTION now gated by DRAG**: velocity-dependent damping (FRICTION DNA)
+  previously ran unconditionally whenever any law was active — a movement
+  effect with no law governing it. It now lives inside the DRAG (kinetic
+  dampening) block, so with DRAG off, velocity is preserved exactly.
+- **dragMultiplier tunable gated by DRAG**: the goal-engine's global damping
+  multiplier only applies while the DRAG law is active (default 1.0, inert).
+- Full solver audit: every force, interaction, lifecycle effect, and signal
+  path is now individually law-gated (verified in `apply*` bodies + call
+  sites), with the zero-laws hard freeze as the outer invariant: no laws →
+  no movement, no interaction, no state change of any kind.
+
+### Tests
+- lawGating.test.js: +2 tests — DRAG-off preserves velocity exactly;
+  DRAG-on decays velocity.
+
+## [4.1.2] - 2026-08-03 → 1.2.0
+
+### Deployment
+- **Vercel**: new production deployment at https://vepa-v4.vercel.app/ —
+  serves COOP/COEP headers so `SharedArrayBuffer` (the true memory model) is
+  enabled in production, which GitHub Pages cannot provide. Config in
+  `vercel.json` (root base when `VERCEL=1`, immutable cache).
+
+### Laws & Gating
+- **NEW COMMS law** (biology, index 52): the single gate for the entire
+  communication DNA group. While active, oscillator pulses (PULSE_RATE x
+  SIGNAL_STRENGTH) build the SIGNAL field, neighbors within
+  NEIGHBORHOOD_RADIUS exchange channel-filtered signals (TUNING_CH1-4), and
+  delivery converts into response forces, energy, and memory. While off, no
+  signal emits, decays, or exchanges — SIGNAL/MEMORY freeze and no comms
+  forces exist. Enabled by default.
+- **Zero-laws hard freeze**: the solver returns immediately when no laws are
+  active — no integration, friction, signals, lifecycle, or reproduction.
+  Movement and interaction only exist while a law governs them.
+- **AGE moved to solver core**: age is now advanced by the solver each tick as
+  a frame counter (not inside the LIFE law), so oscillator phase and lifecycle
+  gating progress consistently with or without LIFE, and freeze only under the
+  zero-laws gate.
+
+### Tests
+- **New lawGating.test.js**: zero-laws no-op, COMMS-off immobility, COMMS-on
+  emission accumulation.
+- **signal.test.js** updated to enable COMMS where signal behavior is asserted.
+
+## [4.1.1] - 2026-08-03 → 1.1.0
+
+### Render
+- **Motion trails removed**: the simulation canvas now fully clears each frame
+  so the atmospheric backdrop shows through cleanly; the previous
+  `destination-out` fade is gone.
+
+
+## [4.1.0] - 2026-08-02 → 1.0.0
+
+### PIZZAZ — Atmosphere & Micro-Interactions
+
+#### Render
+- **Motion trails**: the simulation canvas now fades each frame toward
+  transparency (`destination-out`, 0.22/frame) instead of an opaque clear, so
+  fast-moving particles streak like bioluminescent plankton. Trails freeze
+  crisply while paused.
+- **Particle glow**: every non-star particle gets a soft bloom halo (~2.4×
+  radius, 30% alpha) under its crisp core; gravitational stars keep their
+  radial-gradient corona.
+- **Atmospheric backdrop**: new `#bg-canvas` layer behind the sim paints a
+  deep-space radial gradient, three accent-hued nebula blobs, a deterministic
+  starfield, and a cinematic vignette. Repaints on window resize.
+- **CRT scanlines**: a subtle 1px repeating scanline texture sits over the
+  simulation viewport (below the UI layer) for the neon-noir lab feel.
+- **GLOW law** now applies a subtle additive warm lift after the frame instead
+  of a pre-pass that would have fought the motion trails.
+
+#### UI
+- **Toolbar**: drop shadow + a slowly pulsing blue→red accent sheen along the
+  bottom edge; buttons lift and glow blue on hover, orange pulse while active
+  (play/pause), red glow on the chaos button.
+- **Tabs**: active tab text glows red; hover gains a soft white shimmer.
+- **HUD**: color-coded live stats — FPS green, population blue, species
+  purple, tick dim.
+- **Law toggles**: active law buttons gently pulse brightness.
+- **Drawer**: hide/show now slides the drawer below the viewport (transform +
+  visibility transition, 0.28s) instead of snapping with `display:none`, with
+  a red accent hairline along its top edge.
+
+
+## [4.0.4] - 2026-08-02 → 0.4.0
+
+### Simulation
+- **Spawn NaN bug fixed — no more instant clumping**: the spawn jitter called
+  `prng.nextFloat()` with no arguments, but the SplitMix32 helper signature is
+  `nextFloat(min, max)` — it returns `NaN` without them. Every particle spawned
+  at `NaN`, and the solver's defensive reset then teleported the whole
+  population to the world center on the first tick (this was also why only a
+  single particle appeared visible in earlier builds). Jitter now uses
+  `nextFloat(0, 1)`; headless verification shows the 1,250-particle population
+  staying spread across the full world volume through tick 100+.
+
+
+## [4.0.3] - 2026-08-02 → 0.3.0
+
+### Simulation
+- **Un-clumped spawn**: each species now spawns on its own grid spanning the
+  full world volume, so populations start interleaved across the dish instead
+  of every species occupying a contiguous depth slab (which read as dense
+  clumps at boot).
+
+### Camera
+- **Pan direction fixed**: the view now follows the fingers on both axes
+  (world shifts opposite the drag); horizontal pan was previously inverted.
+- **Zoom no longer pans**: two-finger centroid drift under 10px is ignored
+  during a pinch, so zooming in/out keeps the view still.
+- **Easier rotation**: orbit sensitivity roughly doubled — mouse drag
+  `0.003 → 0.006` rad/px, one-finger touch orbit `0.005 → 0.008` rad/px
+  (still scaled by the settings-panel sensitivity multipliers).
+
+
+## [4.0.2] - 2026-08-02 → 0.2.0
+
+### UI
+- **Drawer hide/show**: a dedicated `▼` button on the right of the tab bar
+  fully hides the bottom drawer (unlike minimize, which keeps the tab strip);
+  a floating `▲` pill at the bottom-center of the screen reopens it.
+- **Camera recenter on drawer toggle**: the camera resets to the default
+  world-centered view whenever the drawer is hidden or shown, so the dish
+  never appears cut off or off-center after a layout change.
+
+### Render
+- **Removed leftover test overlay**: the red diagnostic dot and
+  `particles=N` text drawn at canvas center are gone; the red "stuck
+  particle" at the top edge of the drawer was this debug artifact.
+
+### Simulation
+- **Denser default population**: `DEFAULT_PARTICLES_PER_SPECIES` raised from
+  50 to 250 (1,250 particles at boot), so the world reads as populated
+  instead of a handful of scattered dots. Spatial-grid solver keeps the
+  per-frame cost in the same range.
+
+
+## [4.0.1] - 2026-08-02 → 0.1.0
+
+### UI
+- **Drawer Minimize button**: a dedicated `▁` button on the right of the tab
+  bar collapses the bottom drawer to a thin strip (click `▔` to expand it
+  again). State is per-session; hidden tab content resumes where it was.
+
+### Camera
+- **Perspective stretching fixed**: perspective depth is now computed in
+  pixel space (`rz2 × px/unit × PERSPECTIVE_STRENGTH`) instead of raw world
+  units, so depth can never exceed the focal length and invert the projection.
+  With `WORLD_SIZE=2000` the old math put world-unit depth (±1700) past the
+  focal distance (1200), producing the far-away/stretched look.
+- **Default view fits the whole world**: `fitZoomForWorld()` now starts at
+  zoom 1 (full dish visible at any world size) instead of the legacy
+  `worldSize/120` over-zoom that left ~1 particle on screen.
+- **Particles always visible**: the renderer clamps particle screen radius to
+  a 1.5px minimum, so sub-pixel dots no longer vanish when the whole 2000³
+  world is in view; wheel/pinch zoom in for close inspection.
+
+
+## [4.0.0] - 2026-08-01 → 0.0.0
+
+### Integrated Intelligence
+- **Five intelligence engines wired into the simulation loop**: Insight (cluster
+  detection), Narrative (4-voice commentary), Lineage (birth/death genealogy),
+  Goal (self-tuning world constraints), and Timeline (record/scrub playback).
+  Engines communicate exclusively through the EventBus; none touch the DOM.
+- **World Intelligence Dashboard** (WORLD tab): live cluster count, lineage
+  births/deaths/depth, snapshot count, recording toggle, timeline scrub slider,
+  and a goal-adjustment log.
+- **PREDATION law** (index 51, biology category): mass-difference pursuit,
+  prey fleeing, DNA absorption and mass transfer on contact — restored as an
+  explicit law toggle with full HELP_DB entry and law-grid icon.
+- **Communication DNA system**: signal oscillator emission (PULSE_RATE ×
+  SIGNAL_STRENGTH), channel-filtered propagation (TUNING_CH1-4 bandpass via
+  normalized tuning dot product), NEIGHBORHOOD_RADIUS gating, PROPAGATION_SPEED
+  pacing, SIGNAL_RESP response force + energy feed, and MEMORY accumulation
+  with MEMORY_DECAY decay. Signals are now always-on (DNA-driven), not gated
+  behind GLOW/TRACK toggles.
+- **Offspring lineage anchors**: `applyReproduction` now returns `parentId` so
+  every birth is traceable to its parent generation.
+- **Goal-engine tunables**: `maxForce`, `dragMultiplier`, `birthRate`,
+  `deathRate`, `scanInterval`, `clusterRadius` in `runtimeConfig`, consumed by
+  the solver (force clamp ceiling/scale, global damping, REPRO/LIFE synergy
+  scaling) and the insight engine (scan cadence/radius).
+
+### Performance
+- Renderer phenotype calls pass the shared Float32Array view directly (no
+  per-particle `new Float32Array` allocation) — from v3 WIP.
+- HUD throttles DOM writes (changed-value + tick % 10 gating).
+- DNA analytics skips collection entirely while its tab is hidden.
+
+### World Tuning (inherited v3 WIP)
+- Sparse world: 5 species × 50 = 250 initial particles; `WORLD_SIZE` 2000;
+  `BASE_RADIUS` range 0.2–4; gravity scaled with world size.
+
+### Fixes
+- Predation no longer conflated with TRACK law activation.
+- Timeline scrub resets lineage tracking so restored dead flags don't double-log.
+
+### Debug Overlay
+- **Unified debug overlay** (`src/debug.js`): one collapsible panel collects
+  every debug message since the page started (inline probe, module load, boot,
+  restarts, chaos, world changes, errors, unhandled rejections).
+- **Tap-to-copy**: tap the overlay header (or ⧉ COPY, or SETTINGS → DEBUG →
+  COPY LOG) to copy the whole log as a single JSON object.
+- **SETTINGS toggle**: DEBUG OVERLAY SHOW/HIDE, persisted in localStorage.
+- Inline `index.html` probe now logs into the shared buffer instead of drawing
+  a separate banner, and falls back to a plain banner after 3s if the module
+  bundle fails to load.
+
+### Testing
+- New `tests/unit/engines.test.js` (insight, lineage, timeline, goal) and
+  `tests/unit/signal.test.js` (pulse, propagation, channel filtering).
+- 39/39 unit tests pass; vitest timeout raised to 15s for slow CI environments.
+
+
+## [3.1.0] - 2026-07-29 (VEPA v3 history retained)
+
+### Added
+- **1000 Default Particles**: DEFAULT_PARTICLES_PER_SPECIES increased from 50 → 200 (200 × 5 species = 1000 particles)
+- **Accretion Gene Fusion**: When particles merge via accretion, the survivor blends DNA from the consumed particle, creating hybrid genetic lineages through mass-based gene transfer.
+- **Predation Gene Absorption**: New `applyPredation` law function — larger particles pursue smaller ones via mass-difference tracking, and on contact absorb 5 random DNA traits at 5% rate plus mass transfer. Prey particles flee with jitter-based repulsion.
+- **Biological Particle Variance**: Enhanced `applyLifeCycle` with age-based color drift (±mutRate per frame), mass fluctuation tied to energy metabolism, bio-rhythm energy pulses (sin wave at birthRate frequency), and age-scaled senescence probability.
+- **Non-Overlapping Bond/Polymer Structures**: Added hard-sphere constraint resolution after position integration — all particles maintain minimum distance based on combined radii. Bonded particles are pulled to their equilibrium distance with stiffness-controlled spring force.
+- **Expanded DNA Analytics**: New `collectAndRenderAll` function with overview stats banner (population, avg mass/energy/velocity, bonded count, max bonds), per-species breakdown with 4-metric summaries, species trait profiles showing key DNA parameter averages, genetic diversity indicator, ASCII population density heatmap (8×8), and 4 real-time histogram charts.
+- **4 New Histogram Charts**: mass-histogram, energy-distribution, age-demographics, velocity-distribution canvas charts added to DNA tab, updated every 10 physics ticks.
+## [3.0.0] - 2026-07-28
+
+### Architecture
+- **Clean-slate recreation** with modular ESM architecture
+- **Physics Web Worker** with SharedArrayBuffer for off-main-thread simulation
+- **Canvas2D renderer** with DNA-driven phenotype expression
+- **EventBus architecture** — all subsystems communicate via pub/sub
+- **64-law bitmask system** with 5 color-coded categories
+- **42-parameter DNA system** with range-validated buffers
+
+### Core Systems
+- Spatial hash grid for O(N) neighbor queries
+- Law synergy computation (9 synergy rules)
+- 30+ law force functions covering physics, biology, chemistry, thermodynamics, metaphysics
+- NaN guard system for numerical stability
+- Velocity clamp and force magnitude limits
+
+### Intelligence Engines
+- **Insight Engine** — spatio-temporal cluster detection with Union-Find
+- **Narrative Engine** — 4-voice commentary (Stabilizer, Diverger, Observer, Dissolver)
+- **Goal Engine** — auto-tuning world parameters toward stability/complexity targets
+- **Lineage Tracker** — evolutionary genealogy with ancestor chains
+- **Timeline Engine** — state snapshots and replay
+
+### UI
+- Tabbed interface (WORLD, SPECIES, DNA, LAWS, LOG)
+- 64-law toggle grid with 5-category color coding
+- 42 DNA sliders with range-constrained inputs
+- Species selector with colored circles
+- Preset save/load via localStorage
+- HUD with FPS, particle count, species count, tick
+- Keyboard shortcuts (Space, R, 1-5)
+
+### Testing
+- Unit tests for PRNG, LawState, DNABuffer, ParticleBuffer, SpatialGrid, Synergy
+- Vitest configuration for fast test execution

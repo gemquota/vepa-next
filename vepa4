@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# VEPA4 launcher — works from any working directory.
+# Usage:  vepa4 [dev|build|preview|test|syntax|bench] [port]
+#   dev     start dev server with COOP/COEP headers (default)
+#   build   production build into .dist
+#   preview serve the built app
+#   test    run the vitest unit suite
+#   syntax  node --check every JS file in v4/src and v4/tests
+#   bench   headless physics-solver benchmark (bench/solver.bench.mjs)
+set -euo pipefail
+
+# Resolve the real script location even when invoked through a symlink
+# (e.g. vepa4 installed into /data/data/com.termux/files/usr/bin).
+_SRC="${BASH_SOURCE[0]}"
+while [ -h "$_SRC" ]; do
+  _DIR="$(cd -P "$(dirname "$_SRC")" && pwd)"
+  _SRC="$(readlink "$_SRC")"
+  [[ $_SRC != /* ]] && _SRC="$_DIR/$_SRC"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$_SRC")" && pwd)"
+V4_DIR="$SCRIPT_DIR"
+CMD="${1:-dev}"
+PORT="${2:-5180}"
+
+cd "$V4_DIR"
+
+if [ ! -d node_modules ] || [ ! -e node_modules/.bin/vite ]; then
+  echo "📦 v4 (root) dependencies missing — running npm install..."
+  npm install --no-audit --no-fund
+fi
+
+VITE_BIN="$V4_DIR/node_modules/.bin/vite"
+BASE_URL="http://localhost:${PORT}/vepa/vepar/"
+
+# Find the first free port starting at the requested one.
+find_free_port() {
+  local base="$1" p="$1"
+  while [ "$p" -lt $((base + 200)) ]; do
+    if node -e "const n=require('net');const s=n.createServer();s.on('error',()=>process.exit(1));s.listen($p,()=>{console.log($p);s.close()})" > /dev/null 2>&1; then
+      echo "$p"
+      return 0
+    fi
+    p=$((p + 1))
+  done
+  echo "$base"
+}
+
+# Start a server in the background, wait for it to answer, then hand over.
+run_server() {
+  local cmd="$1" log="$2"
+  shift 2
+  echo "🚀 VEPA4 ${cmd} → $BASE_URL"
+  echo "   logs: $log  ·  Ctrl-C to stop"
+  "$@" > "$log" 2>&1 &
+  local pid=$!
+  trap 'kill "$pid" 2>/dev/null || true' EXIT INT TERM
+  for _ in $(seq 1 60); do
+    if curl -s -o /dev/null "$BASE_URL"; then
+      echo "✅ ready — opening browser…"
+      if command -v termux-open-url > /dev/null 2>&1; then termux-open-url "$BASE_URL" || true;
+      elif command -v termux-open > /dev/null 2>&1; then termux-open "$BASE_URL" || true; fi
+      break
+    fi
+    sleep 1
+  done
+  wait "$pid"
+}
+
+case "$CMD" in
+  dev)
+    PORT="$(find_free_port "$PORT")"
+    BASE_URL="http://localhost:${PORT}/vepa/vepar/"
+    run_server "dev server" "$V4_DIR/server.log" "$VITE_BIN" --port "$PORT" --strictPort --host
+    ;;
+  build)
+    echo "🏗️  Building VEPA4..."
+    "$VITE_BIN" build
+    ;;
+  preview)
+    PORT="$(find_free_port "$PORT")"
+    BASE_URL="http://localhost:${PORT}/vepa/vepar/"
+    run_server "preview" "$V4_DIR/preview.log" "$VITE_BIN" preview --port "$PORT" --strictPort --host
+    ;;
+  test)
+    npm test
+    ;;
+  syntax)
+    find src tests -name '*.js' -exec node --check {} +
+    echo "✅ VEPA4 syntax OK"
+    ;;
+  bench)
+    # Pass through extra flags (--laws, --all, --json, --particles, ...)
+    shift
+    node bench/solver.bench.mjs "$@"
+    ;;
+  *)
+    echo "Usage: $0 [dev|build|preview|test|syntax|bench] [port]" >&2
+    exit 1
+    ;;
+esac

@@ -1,12 +1,28 @@
 {
-  "name": "vepa-next",
-  "version": "0.1.0",
-  "private": true,
+  "name": "vepa-v4",
+  "version": "9.1.2",
+  "description": "VEPA4 — Vector Emergent Physics Automata (Integrated Intelligence release)",
   "type": "module",
-  "description": "SIM-oriented modular VEPA implementation",
   "scripts": {
-    "test": "node --test",
-    "test:contracts": "node --test tests/contracts/*.test.js",
-    "check": "node --check src/core/seed.js && node --check src/core/prng.js && node --check src/core/random-streams.js && node --check src/core/event-envelope.js && node --check src/state/transaction.js && node --check src/sim/law-registry.js && node --check src/sim/law-state.js && node --check src/ui/law-matrix.js && node --check src/sim/law-manifest.js && node --check src/sim/law-commands.js && node --check src/sim/solver.js && node --check src/sim/numerics.js && node --check src/sim/periodic-images.js && node --check src/sim/periodic-ewald.js && node --check src/sim/energy-ledger.js && node --check src/sim/energy-budget.js && node --check src/sim/energy-lifecycle-audit.js && node --check src/sim/solver-energy-evidence.js && node --check src/sim/force-work-journal.js && node --check src/sim/advanced-physics.js && node --check src/sim/execution-adapter.js && node --check src/sim/particle.worker.js && node --check src/sim/worker-execution-adapter.js && node --check src/main.js && node --check src/sim/particle-layout.js && node --check src/sim/particle-identities.js && node --check src/sim/v3-random-behaviors.js && node --check src/sim/v3-behavior-kernel.js && node --check src/sim/contact-constraints.js && node --check src/state/event-journal.js && node --check src/sim/spatial-grid.js && node --check src/state/world-session.js && node scripts/check-sim-boundaries.mjs && node --check src/sim/fidelity-policy.js && node --check src/state/replay.js && node --check src/state/snapshot.js && node --check src/state/snapshot-store.js && node --check src/sim/v3-particle-migration.js && node --check src/sim/v3-species-dna-migration.js && node --check src/sim/legacy-law-flag-migration.js && node --check src/sim/v3-world-core-migration.js"
+    "concat": "node exports/generate-vepa-all.mjs",
+    "generate:vepa-all": "node exports/generate-vepa-all.mjs",
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:worker": "playwright test tests/e2e/physics-worker.spec.js",
+    "spec:generate": "node scripts/generate-spec.mjs",
+    "spec:check": "node scripts/generate-spec.mjs --check",
+    "syntax-check": "find src -name '*.js' -exec node --check {} +"
+  },
+  "dependencies": {
+    "pixi.js": "^8.18.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "vite": "^8.0.8",
+    "vitest": "^3.2.7"
   }
 }
