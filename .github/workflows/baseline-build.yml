@@ -30,4 +30,4 @@ jobs:
       - name: Build production application
         run: npm run build
       - name: Verify build output
-        run: test -s dist/index.html
+        run: test -s .dist/index.html
