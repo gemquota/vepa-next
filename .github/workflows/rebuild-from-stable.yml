@@ -1,0 +1,58 @@
+name: Rebuild from pinned stable VEPA source
+
+on:
+  push:
+    branches:
+      - rebuild/source-faithful-baseline
+
+permissions:
+  contents: write
+
+concurrency:
+  group: source-faithful-rebuild
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target branch
+        uses: actions/checkout@v4
+        with:
+          ref: rebuild/source-faithful-baseline
+          fetch-depth: 0
+
+      - name: Check out pinned stable source
+        uses: actions/checkout@v4
+        with:
+          repository: gemquota/vepa
+          ref: 24b56aff316d6de5a960943d6bcb9192a8d569ce
+          path: _stable_vepa_source
+
+      - name: Stage source outside target working tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/stable-vepa-source"
+          cp -a _stable_vepa_source/. "$RUNNER_TEMP/stable-vepa-source/"
+          rm -rf _stable_vepa_source
+
+      - name: Replace prototype tree with stable VEPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.base/' \
+            --exclude='.github/workflows/import-stable-baseline.yml' \
+            --exclude='.github/workflows/rebuild-from-stable.yml' \
+            "$RUNNER_TEMP/stable-vepa-source/" ./
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Target already matches the pinned stable source."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(rebuild): copy pinned stable VEPA baseline"
+          git push origin HEAD:rebuild/source-faithful-baseline
