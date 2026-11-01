@@ -1,0 +1,52 @@
+name: Import stable VEPA source baseline
+
+on:
+  push:
+    branches:
+      - rebuild/source-faithful-baseline
+    paths:
+      - .github/workflows/import-stable-baseline.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stable-source-import-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out VEPA Next rebuild branch
+        uses: actions/checkout@v4
+        with:
+          ref: rebuild/source-faithful-baseline
+          fetch-depth: 0
+
+      - name: Check out pinned stable VEPA source
+        uses: actions/checkout@v4
+        with:
+          repository: gemquota/vepa
+          ref: 24b56aff316d6de5a960943d6bcb9192a8d569ce
+          path: _stable_vepa_source
+
+      - name: Replace prototype implementation with stable source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.base/next/' \
+            --exclude='.github/workflows/import-stable-baseline.yml' \
+            _stable_vepa_source/ ./
+          rm -rf _stable_vepa_source
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Stable source already matches this branch."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(rebuild): copy pinned stable VEPA source baseline"
+          git push origin HEAD:rebuild/source-faithful-baseline
