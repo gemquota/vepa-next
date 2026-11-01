@@ -1,0 +1,1 @@
+Import trigger for the source-faithful baseline workflow. The workflow imports gemquota/vepa at pinned commit 24b56aff316d6de5a960943d6bcb9192a8d569ce while preserving this .base directory and existing Next GitHub Actions workflows.
