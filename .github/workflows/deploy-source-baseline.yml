@@ -2,8 +2,7 @@ name: Deploy source-faithful VEPA Next
 
 on:
   push:
-    branches:
-      - rebuild/source-faithful-baseline
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +18,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source-faithful rebuild branch
+        uses: actions/checkout@v4
+        with:
+          ref: rebuild/source-faithful-baseline
       - uses: actions/setup-node@v4
         with:
           node-version: 22
