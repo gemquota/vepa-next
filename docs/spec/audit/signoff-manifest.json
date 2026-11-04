@@ -1,0 +1,167 @@
+{
+  "project": "vepa-v4",
+  "schema": "signoff-manifest/v1",
+  "description": "Current audit sign-offs. Each record classifies a claim, names its runtime implementation and dispatch evidence, and links executable tests (or an explicit not-tested status). Validated by scripts/validate-signoff.mjs via npm run repository:check.",
+  "records": [
+    {
+      "id": "exact-cpu-solver",
+      "claim": "The exact pairwise CPU solver is the default runtime path and the parity reference for every approximate backend.",
+      "status": "operational",
+      "implementation": "src/physics/solver.js",
+      "dispatch": "Every law is gated with isSet(lawState, LAW_INDEXES.*) inside solve(); runtimeConfig.gravEngine defaults to the exact path.",
+      "tests": [
+        "tests/unit/physics.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/backendArchitecture.test.js"
+      ]
+    },
+    {
+      "id": "barnes-hut-octree",
+      "claim": "Barnes-Hut octree gravity is an opt-in approximate backend with a measured error envelope against the exact reference.",
+      "status": "experimental",
+      "implementation": "src/physics/octree.js",
+      "dispatch": "runtimeConfig.gravEngine === 'bh' selects octreeGravity in solver.js.",
+      "tests": [
+        "tests/unit/octree.test.js",
+        "tests/unit/fmmParity.test.js"
+      ],
+      "notes": "Envelope measurements live in docs/BACKEND_ENVELOPES.md; exact solver remains the reference."
+    },
+    {
+      "id": "fmm-backend",
+      "claim": "The FMM cell evaluator is retained as an experimental opt-in backend; it is measured outside the shared error envelope and is never eligible to become the default backend.",
+      "status": "experimental",
+      "implementation": "src/physics/fmm.js",
+      "dispatch": "runtimeConfig.gravEngine === 'fmm' selects fmmGravity in solver.js; default remains exact.",
+      "tests": [
+        "tests/unit/fmmParity.test.js",
+        "tests/unit/backendArchitecture.test.js"
+      ],
+      "notes": "Decision recorded in docs/FEATURE_STATUS_MATRIX.md §3 and docs/BACKEND_ENVELOPES.md."
+    },
+    {
+      "id": "webgpu-compute",
+      "claim": "WebGPU gravity compute is an opt-in backend with a deterministic CPU fallback contract.",
+      "status": "experimental",
+      "implementation": "src/physics/gpuCompute.js",
+      "dispatch": "runtimeConfig.computeEngine === 'gpu' in physics.worker.js with GPU_FALLBACK on device failure; CONTACT/COLL stay CPU-owned.",
+      "tests": [
+        "tests/unit/webgpuContract.test.js",
+        "tests/e2e/physics-worker.spec.js",
+        "tests/unit/backendArchitecture.test.js"
+      ],
+      "notes": "Hardware WebGPU parity remains an external-environment gate: the browser spec runs GPU-vs-CPU comparison when a device is granted and asserts bounded fallback when navigator.gpu is absent."
+    },
+    {
+      "id": "mechanics-pair-geometry",
+      "claim": "Mechanics pair geometry is consolidated behind one shared scalar contract for diagnostics and orchestration consumers.",
+      "status": "proxy",
+      "implementation": "src/physics/pairGeometry.js",
+      "dispatch": "getPairGeometry feeds mechanicsDiagnostics and tests; the solver hot path uses equivalent allocation-free local scalars documented as performance-specialized.",
+      "tests": [
+        "tests/unit/mechanicsArchitecture.test.js"
+      ]
+    },
+    {
+      "id": "mechanics-diagnostics",
+      "claim": "Mechanics pair diagnostics are opt-in and side-effect free.",
+      "status": "proxy",
+      "implementation": "src/physics/mechanicsDiagnostics.js",
+      "dispatch": "inspectMechanicsPair is an explicit inspection utility; no solver gate consumes it by default.",
+      "tests": [
+        "tests/unit/mechanicsArchitecture.test.js"
+      ]
+    },
+    {
+      "id": "contact-law",
+      "claim": "CONTACT performs geometric separation correction and stays distinct from impact impulse.",
+      "status": "operational",
+      "law": "CONTACT",
+      "implementation": "src/physics/lawgroups/mechanicsLaws.js",
+      "dispatch": "isSet(lawState, LAW_INDEXES.CONTACT) gates the solver contact pass.",
+      "tests": [
+        "tests/unit/mechanics.test.js",
+        "tests/unit/mechanicsArchitecture.test.js"
+      ]
+    },
+    {
+      "id": "coll-law",
+      "claim": "COLL performs impact response as an operational proxy distinct from CONTACT geometry correction.",
+      "status": "proxy",
+      "law": "COLL",
+      "implementation": "src/physics/lawgroups/mechanicsLaws.js",
+      "dispatch": "isSet(lawState, LAW_INDEXES.COLL) gates the solver collision pass.",
+      "tests": [
+        "tests/unit/mechanics.test.js",
+        "tests/unit/physics.test.js"
+      ]
+    },
+    {
+      "id": "law-registry",
+      "claim": "The 136-law registry is a metadata catalogue; registry presence does not prove behavioral depth for each law.",
+      "status": "metadata-only",
+      "implementation": "src/constants.js",
+      "tests": [
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawImplementationManifest.test.js"
+      ]
+    },
+    {
+      "id": "law-ontology",
+      "claim": "The law relationship ontology is validated metadata with honestly reported coverage; it is descriptive evidence, never executable proof.",
+      "status": "metadata-only",
+      "implementation": "src/state/lawOntology.js",
+      "tests": [
+        "tests/unit/lawOntologyCoverage.test.js",
+        "tests/unit/lawGraph.test.js"
+      ]
+    },
+    {
+      "id": "systems-lifecycle-variants",
+      "claim": "The 48-variant systems lifecycle registry is operational with deterministic topology, relationships, and replay reporting.",
+      "status": "operational",
+      "implementation": "src/state/systemLifecycle.js",
+      "dispatch": "Lifecycle serialization/restore is consumed by worldSave save/load flows.",
+      "tests": [
+        "tests/unit/systemVariants.test.js",
+        "tests/unit/systemLifecycle.test.js"
+      ]
+    },
+    {
+      "id": "renderer-backend-selection",
+      "claim": "The renderer backend (PixiJS or Canvas2D) is user-selectable with automatic fallback when WebGL is unavailable.",
+      "status": "operational",
+      "implementation": "src/render/renderer.js",
+      "dispatch": "vepa-render-backend runtimeConfig selects the backend; renderer falls back to Canvas2D without WebGL.",
+      "tests": [
+        "tests/unit/renderer.test.js"
+      ],
+      "notes": "Performance comparison: docs/RENDERER_BENCHMARK_REPORT.md (bench:render artifact bench/results/renderer-benchmark.json)."
+    },
+    {
+      "id": "audit-provenance",
+      "claim": "Audit stage provenance manifests are present and validated for every declared audit stage family.",
+      "status": "metadata-only",
+      "implementation": "docs/audit/provenance.json",
+      "tests": [
+        "tests/unit/provenance.test.js"
+      ]
+    },
+    {
+      "id": "export-publication",
+      "claim": "Export snapshots follow a declared publication contract that is currently configured but not published.",
+      "status": "metadata-only",
+      "implementation": "exports/publication-plan.json",
+      "evidence": "not-tested",
+      "notes": "Validated by scripts/check-export-publication.mjs (npm run exports:check), not yet by an executable test — explicit evidence gap."
+    },
+    {
+      "id": "historical-tooling",
+      "claim": "Legacy runners and migration utilities are classified historical and excluded from active verification.",
+      "status": "historical",
+      "implementation": "scripts/patch-lawcat-test.mjs",
+      "evidence": "not-tested",
+      "notes": "Artifact inventory (npm run artifact:inventory) classifies scripts/patch-lawcat-test.mjs and tests/run.mjs as historical; they must never be invoked by CI or release gates."
+    }
+  ]
+}

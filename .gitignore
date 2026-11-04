@@ -1,0 +1,17 @@
+
+# 200KB+ copies of the ledger and have no history value in the tree.
+# CI installs with `npm ci`). bun may still be used locally, but its lockfile
+# Pre-release changelog snapshots (§10.4 step 3). Never committed: they are
+# Single-lockfile authority: package-lock.json is the SSOT (AGENTS.md §1, and
+# must not be committed — two lockfiles for one dependency set drift silently.
+*.log
+.codey/checkpoint.json
+.codey/lock
+.vercel
+CHANGELOG.md.bak-*
+bun.lock
+dist/
+isolate/
+node_modules/
+playwright-report/
+test-results/

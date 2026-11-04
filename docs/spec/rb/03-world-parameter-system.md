@@ -1,0 +1,15 @@
+# 03 — World parameter system
+
+**Current evidence:** `src/state/worldParams.js` declares `WORLD_PARAM_DEFS` (currently 149 records), defaults, ranges, groups and clamp/update helpers. `src/ui/worldPanel.js` renders generated controls; `src/main.js` applies changed values, updates `runtimeConfig.worldParams`, special-cases WORLD_SIZE/SPAWN_RATE/TIME_SPEED/epoch thresholds, emits applied events and synchronizes TOROIDAL/WRAP. Solver/performance and emergent passes consume the same parameter object. `src/state/worldSave.js` captures/restores world parameters.
+
+## Target contract
+
+Split immutable `WorldParameterSchema` from per-world `WorldParameterState`. Each stable key declares schema version, label, description/help, units, group, scope, min/max/default/step, normalization, dependencies/constraints, owning consumer, provenance, and compatibility/migration. Physics-affecting parameter changes are restart-required: validate and stage proposed configuration, but do not change an active run. Validation returns a structured result (accepted value, clamp/warning/error, affected parameters); no silent unknown-key or unit conversions. Apply one atomic, undoable configuration patch and emit a canonical parameter event; simulation consumers adopt it only when a new world starts or the current world is restarted. Presentation-only controls may remain live only when they cannot affect simulation state or outcomes.
+
+Every definition must have a consumer and effect test, or be explicitly marked UI-only/reserved with rationale. Search, category filters and parameter help use schema metadata. Preset baselines, custom profiles, defaults, and live state remain distinct. Save payload records canonical values and schema version; unknown future keys are retained where safe or rejected with a useful compatibility message, never silently discarded.
+
+## Easy and Advanced modes
+
+World Easy Mode is the default presentation, not a smaller parameter model. It supplies designed controls and presets over the canonical full vector. The profile schema must declare mapping formula, affected keys, expected behavior, constraints, restart requirements, source attribution, display summary, and reverse projection. Physics-affecting profile edits stage for a new world or explicit restart; they do not mutate an active simulation. Advanced displays each current individual parameter in its true unit/range, including performance, TIME, MATTER and SOCIETY groups. Editing Advanced marks the affected Easy group as customized; Easy interaction must make clear which full settings it will change and never hide a destructive/reseed consequence.
+
+Proposed registry evolution should not invent extra controls merely to satisfy “additional parameters.” Add a candidate only when a demonstrated behavior gap exists; require an owner, physical/semantic definition, units, range, default, consumer, stability/fidelity evidence, serialization/migration, Easy/Advanced placement, help, and tests. Approve new parameters independently; count growth is not a quality metric. World parameters must not be conflated with runtime renderer/backend controls or species DNA.

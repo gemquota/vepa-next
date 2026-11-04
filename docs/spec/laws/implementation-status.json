@@ -1,0 +1,3228 @@
+{
+  "schema": "vepa-law-implementation-status/v1",
+  "generator": "scripts/generate-spec.mjs",
+  "declaredLawCount": 136,
+  "records": [
+    {
+      "index": 0,
+      "name": "GRAV",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js",
+        "src/worker/physics.worker.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/params_batch_03.test.js",
+        "tests/audit/params_batch_07.test.js",
+        "tests/audit/params_batch_08.test.js",
+        "tests/audit/params_batch_09.test.js",
+        "tests/audit/params_batch_10.test.js",
+        "tests/unit/auditSignoff.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/computeEngines.test.js",
+        "tests/unit/launchModal.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/multiplex.test.js",
+        "tests/unit/octree.test.js",
+        "tests/unit/pendingLaws.test.js",
+        "tests/unit/pendingWorldParams.test.js",
+        "tests/unit/physics.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js",
+        "tests/unit/worldSave.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 1,
+      "name": "DRAG",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/params_batch_04.test.js",
+        "tests/audit/params_batch_08.test.js",
+        "tests/audit/params_batch_10.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 2,
+      "name": "ENTR",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/params_batch_01.test.js",
+        "tests/audit/params_batch_02.test.js",
+        "tests/audit/params_batch_03.test.js",
+        "tests/audit/params_batch_04.test.js",
+        "tests/audit/params_batch_09.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 3,
+      "name": "BUOYANCY",
+      "category": "physics",
+      "status": "implemented-not-gated",
+      "implementationFiles": [
+        "src/physics/laws.js"
+      ],
+      "solverGateFiles": [],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/batch_02.test.js",
+        "tests/audit/batch_03.test.js",
+        "tests/audit/batch_04.test.js",
+        "tests/audit/batch_05.test.js",
+        "tests/audit/batch_21.test.js",
+        "tests/audit/batch_22.test.js",
+        "tests/audit/batch_23.test.js",
+        "tests/audit/batch_24.test.js",
+        "tests/audit/params_batch_03.test.js",
+        "tests/audit/params_batch_05.test.js",
+        "tests/audit/params_batch_06.test.js",
+        "tests/audit/params_batch_07.test.js",
+        "tests/audit/params_batch_08.test.js",
+        "tests/audit/params_batch_09.test.js",
+        "tests/audit/params_batch_10.test.js",
+        "tests/audit/params_batch_11.test.js",
+        "tests/audit/params_batch_12.test.js",
+        "tests/audit/params_batch_13.test.js",
+        "tests/audit/params_batch_14.test.js",
+        "tests/audit/params_batch_15.test.js",
+        "tests/audit/params_batch_16.test.js",
+        "tests/audit/params_batch_17.test.js",
+        "tests/audit/params_batch_18.test.js",
+        "tests/unit/fields.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawGating.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 4,
+      "name": "COLL",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/contactConstraints.js",
+        "src/physics/fields.js",
+        "src/physics/gpuCompute.js",
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/lawgroups/mechanicsLaws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js",
+        "src/worker/physics.worker.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_02.test.js",
+        "tests/audit/params_batch_12.test.js",
+        "tests/unit/auditSignoff.test.js",
+        "tests/unit/backendArchitecture.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/continuity.test.js",
+        "tests/unit/fields.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/mechanics.test.js",
+        "tests/unit/provenance.test.js",
+        "tests/unit/quantumMacro.test.js",
+        "tests/unit/structures.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 5,
+      "name": "ACCR",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/laws.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_02.test.js",
+        "tests/audit/params_batch_11.test.js",
+        "tests/unit/interactionSpace.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 6,
+      "name": "PLANETARY",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/gpuCompute.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_02.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/physics.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 7,
+      "name": "LIFE",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_02.test.js",
+        "tests/audit/batch_04.test.js",
+        "tests/audit/params_batch_04.test.js",
+        "tests/audit/params_batch_05.test.js",
+        "tests/audit/params_batch_06.test.js",
+        "tests/audit/params_batch_14.test.js",
+        "tests/audit/params_batch_15.test.js",
+        "tests/unit/auditSignoff.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/exoticMatter.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/lawGrid.test.js",
+        "tests/unit/multiplex.test.js",
+        "tests/unit/pendingLaws.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 8,
+      "name": "GLOW",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/batch_03.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 9,
+      "name": "AFFINITY",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_03.test.js",
+        "tests/audit/batch_05.test.js",
+        "tests/audit/batch_18.test.js",
+        "tests/audit/params_batch_05.test.js",
+        "tests/audit/params_batch_16.test.js",
+        "tests/unit/groupRegistry.test.js",
+        "tests/unit/relationshipCompatibility.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 10,
+      "name": "REPRO",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_03.test.js",
+        "tests/audit/batch_04.test.js",
+        "tests/audit/params_batch_06.test.js",
+        "tests/audit/params_batch_14.test.js",
+        "tests/audit/params_batch_15.test.js",
+        "tests/unit/multiplex.test.js",
+        "tests/unit/relationshipExplorer.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 11,
+      "name": "TRACK",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_03.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 12,
+      "name": "SENESCENCE",
+      "category": "biology",
+      "status": "implemented-not-gated",
+      "implementationFiles": [
+        "src/physics/laws.js"
+      ],
+      "solverGateFiles": [],
+      "testFiles": [
+        "tests/audit/batch_04.test.js",
+        "tests/audit/params_batch_14.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 13,
+      "name": "ENERGY",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/force.js",
+        "src/physics/lawgroups/biologyLaws.js",
+        "src/physics/lawgroups/chemistryLaws.js",
+        "src/physics/lawgroups/emLaws.js",
+        "src/physics/lawgroups/metaLaws.js",
+        "src/physics/lawgroups/physicsLaws.js",
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/laws.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/relationshipCompatibility.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/batch_02.test.js",
+        "tests/audit/batch_03.test.js",
+        "tests/audit/batch_04.test.js",
+        "tests/audit/batch_05.test.js",
+        "tests/audit/batch_06.test.js",
+        "tests/audit/batch_07.test.js",
+        "tests/audit/batch_08.test.js",
+        "tests/audit/batch_09.test.js",
+        "tests/audit/batch_10.test.js",
+        "tests/audit/batch_11.test.js",
+        "tests/audit/batch_12.test.js",
+        "tests/audit/batch_13.test.js",
+        "tests/audit/batch_14.test.js",
+        "tests/audit/batch_15.test.js",
+        "tests/audit/batch_16.test.js",
+        "tests/audit/batch_17.test.js",
+        "tests/audit/batch_18.test.js",
+        "tests/audit/batch_19.test.js",
+        "tests/audit/batch_20.test.js",
+        "tests/audit/batch_21.test.js",
+        "tests/audit/batch_22.test.js",
+        "tests/audit/batch_23.test.js",
+        "tests/audit/batch_24.test.js",
+        "tests/audit/batch_25.test.js",
+        "tests/audit/batch_26.test.js",
+        "tests/audit/batch_27.test.js",
+        "tests/audit/batch_28.test.js",
+        "tests/audit/batch_29.test.js",
+        "tests/audit/batch_30.test.js",
+        "tests/audit/batch_31.test.js",
+        "tests/audit/batch_32.test.js",
+        "tests/audit/params_batch_04.test.js",
+        "tests/audit/params_batch_05.test.js",
+        "tests/audit/params_batch_06.test.js",
+        "tests/audit/params_batch_10.test.js",
+        "tests/audit/params_batch_13.test.js",
+        "tests/audit/params_batch_14.test.js",
+        "tests/audit/params_batch_15.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/contactStructures.test.js",
+        "tests/unit/exoticMatter.test.js",
+        "tests/unit/fields.test.js",
+        "tests/unit/groupRegistry.test.js",
+        "tests/unit/infrastructure.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/lawgroupsBiologyChemistry.test.js",
+        "tests/unit/lawgroupsEmInfoMeta.test.js",
+        "tests/unit/lawgroupsPhysicsThermo.test.js",
+        "tests/unit/lawgroupsQuantum.test.js",
+        "tests/unit/livingWorld.test.js",
+        "tests/unit/multiplex.test.js",
+        "tests/unit/quantumMacro.test.js",
+        "tests/unit/relativity.test.js",
+        "tests/unit/signal.test.js",
+        "tests/unit/stellar.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/synthetic.test.js",
+        "tests/unit/worldSave.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "consumes",
+        "produces",
+        "feedback"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 14,
+      "name": "RADIATION",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_04.test.js",
+        "tests/audit/batch_08.test.js",
+        "tests/audit/params_batch_05.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "feedback",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 15,
+      "name": "GENOTYPE",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_04.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 16,
+      "name": "PHENOTYPE",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_05.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 17,
+      "name": "CATALYSIS_LAW",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_05.test.js",
+        "tests/unit/codex.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 18,
+      "name": "SOLVATION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_05.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 19,
+      "name": "ACIDITY",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_05.test.js",
+        "tests/unit/worldSave.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 20,
+      "name": "OXIDATION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_06.test.js",
+        "tests/audit/params_batch_14.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 21,
+      "name": "POLYMER",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/laws.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_06.test.js",
+        "tests/audit/batch_10.test.js",
+        "tests/unit/contactStructures.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 22,
+      "name": "ISOMERIZATION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_06.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 23,
+      "name": "CHIRALITY",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_06.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 24,
+      "name": "CRYSTALLIZATION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_07.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 25,
+      "name": "HEAT",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawGraph.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/batch_06.test.js",
+        "tests/audit/batch_07.test.js",
+        "tests/audit/batch_26.test.js",
+        "tests/audit/params_batch_04.test.js",
+        "tests/audit/params_batch_14.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 26,
+      "name": "COLD",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_07.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 27,
+      "name": "CONVECTION",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_07.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 28,
+      "name": "PHASE_RADIATION",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_08.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 29,
+      "name": "SUBLIMATION",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_08.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 30,
+      "name": "TIME_DILATION",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_08.test.js",
+        "tests/audit/batch_10.test.js",
+        "tests/unit/relativity.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 31,
+      "name": "DIMENSIONALITY",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_08.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 32,
+      "name": "CHAOS",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/gpuCompute.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_09.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/physics.test.js",
+        "tests/unit/roadmapLaunchFoundation.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 33,
+      "name": "ORDER",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_09.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/physics.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/systemFoundation.test.js",
+        "tests/unit/systemVariants.test.js",
+        "tests/unit/tabHelpSwitcher.test.js",
+        "tests/unit/typeScale.test.js",
+        "tests/unit/uiModuleReport.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 34,
+      "name": "FATE",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_09.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 35,
+      "name": "WILL",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_09.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 36,
+      "name": "SOUL_LAW",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_10.test.js",
+        "tests/unit/codex.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 37,
+      "name": "MIND",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/metaLaws.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_10.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/launchModal.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 38,
+      "name": "VOID",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_10.test.js",
+        "tests/unit/codex.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 39,
+      "name": "BOND",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/laws.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/relationshipExplorer.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/batch_02.test.js",
+        "tests/audit/batch_03.test.js",
+        "tests/audit/batch_04.test.js",
+        "tests/audit/batch_05.test.js",
+        "tests/audit/batch_06.test.js",
+        "tests/audit/batch_07.test.js",
+        "tests/audit/batch_08.test.js",
+        "tests/audit/batch_10.test.js",
+        "tests/audit/batch_11.test.js",
+        "tests/audit/batch_17.test.js",
+        "tests/audit/batch_18.test.js",
+        "tests/audit/batch_19.test.js",
+        "tests/audit/batch_20.test.js",
+        "tests/audit/params_batch_11.test.js",
+        "tests/audit/params_batch_12.test.js",
+        "tests/audit/params_batch_15.test.js",
+        "tests/unit/contactStructures.test.js",
+        "tests/unit/groupRegistry.test.js",
+        "tests/unit/interactionSpace.test.js",
+        "tests/unit/mechanics.test.js",
+        "tests/unit/relationshipCompatibility.test.js",
+        "tests/unit/relationshipExplorer.test.js",
+        "tests/unit/worldSave.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 40,
+      "name": "REDUCTION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_11.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 41,
+      "name": "ALLOY",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/laws.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_11.test.js",
+        "tests/unit/interactionSpace.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 42,
+      "name": "MELT",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_11.test.js",
+        "tests/unit/codex.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 43,
+      "name": "BOIL",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_11.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 44,
+      "name": "CONDENSE",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_12.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 45,
+      "name": "DEPOSIT",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_12.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 46,
+      "name": "EXOTHERMIC",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_12.test.js",
+        "tests/unit/multiplex.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 47,
+      "name": "TELEPATHY",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_10.test.js",
+        "tests/audit/batch_12.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 48,
+      "name": "CLAIRVOYANCE",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_13.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 49,
+      "name": "PRECOGNITION",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_13.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 50,
+      "name": "ASTRAL",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_13.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 51,
+      "name": "PREDATION",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/laws.js",
+        "src/physics/relationshipExplorer.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_03.test.js",
+        "tests/audit/batch_13.test.js",
+        "tests/audit/params_batch_15.test.js",
+        "tests/unit/relationshipExplorer.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 52,
+      "name": "COMMS",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/infoLaws.js",
+        "src/physics/lawgroups/metaLaws.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_10.test.js",
+        "tests/audit/batch_14.test.js",
+        "tests/audit/params_batch_16.test.js",
+        "tests/audit/params_batch_17.test.js",
+        "tests/audit/params_batch_18.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/signal.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 53,
+      "name": "CHARGE_LAW",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_05.test.js",
+        "tests/audit/batch_14.test.js",
+        "tests/audit/params_batch_12.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 54,
+      "name": "ELECTRIC_FIELD",
+      "category": "electromagnetism",
+      "status": "metadata-only",
+      "implementationFiles": [],
+      "solverGateFiles": [],
+      "testFiles": [
+        "tests/unit/deadLawToggles.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 55,
+      "name": "CURRENT",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_14.test.js",
+        "tests/audit/params_batch_13.test.js",
+        "tests/unit/lawsSingleton.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 56,
+      "name": "RESISTANCE",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_15.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 57,
+      "name": "CAPACITANCE",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_15.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 58,
+      "name": "INDUCTANCE",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_15.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 59,
+      "name": "MAGNETISM",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_15.test.js",
+        "tests/audit/params_batch_13.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 60,
+      "name": "RESONANCE",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_16.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 61,
+      "name": "FLUX",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_16.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 62,
+      "name": "IONIZATION",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_16.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 63,
+      "name": "DISCHARGE",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_16.test.js",
+        "tests/unit/lawCategories.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 64,
+      "name": "PLASMA",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_17.test.js",
+        "tests/unit/lawCategories.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 65,
+      "name": "SUPERCONDUCTIVITY",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_17.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 66,
+      "name": "MEMORY",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/infoLaws.js",
+        "src/physics/lawgroups/metaLaws.js",
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_13.test.js",
+        "tests/audit/batch_14.test.js",
+        "tests/audit/batch_15.test.js",
+        "tests/audit/batch_16.test.js",
+        "tests/audit/batch_17.test.js",
+        "tests/audit/batch_18.test.js",
+        "tests/audit/batch_19.test.js",
+        "tests/audit/batch_20.test.js",
+        "tests/audit/batch_27.test.js",
+        "tests/audit/batch_28.test.js",
+        "tests/audit/batch_29.test.js",
+        "tests/audit/batch_30.test.js",
+        "tests/audit/batch_31.test.js",
+        "tests/audit/batch_32.test.js",
+        "tests/audit/params_batch_18.test.js",
+        "tests/unit/fields.test.js",
+        "tests/unit/groupRegistry.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawGating.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/lawgroupsEmInfoMeta.test.js",
+        "tests/unit/lawgroupsQuantum.test.js",
+        "tests/unit/lawsSingleton.test.js",
+        "tests/unit/memoryCulture.test.js",
+        "tests/unit/signal.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 67,
+      "name": "PATTERN",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_17.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 68,
+      "name": "STIGMERGY",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_18.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 69,
+      "name": "SIGNAL_BOOST",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_18.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 70,
+      "name": "LEARN",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_18.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 71,
+      "name": "SYMBOL",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_18.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 72,
+      "name": "METRIC",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_19.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 73,
+      "name": "PREDICT",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_19.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 74,
+      "name": "CODE",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_19.test.js",
+        "tests/unit/civilizationSequelWiring.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/dataPanels.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 75,
+      "name": "PROTOCOL",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_19.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 76,
+      "name": "FEEDBACK",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_20.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "transforms",
+        "reads",
+        "writes",
+        "feedback"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 77,
+      "name": "LANGUAGE",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_20.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 78,
+      "name": "CULTURE",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_20.test.js",
+        "tests/unit/civilization.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/synergyCache.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 79,
+      "name": "SINGULARITY",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_20.test.js",
+        "tests/unit/interactionSpace.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 80,
+      "name": "ENTANGLEMENT",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/laws.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_21.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/quantumMacro.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 81,
+      "name": "HISTORY",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js",
+        "src/physics/synergy.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_21.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/synergyCache.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 82,
+      "name": "TIDE",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/physicsLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_21.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 83,
+      "name": "FRICTION",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/physicsLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_21.test.js",
+        "tests/audit/params_batch_10.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 84,
+      "name": "HORIZON",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/physicsLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/unit/interactionSpace.test.js",
+        "tests/unit/stellar.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 85,
+      "name": "RADIATION_PRESSURE",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 86,
+      "name": "MASS_INERTIA",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [],
+      "relationshipTypes": [
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 87,
+      "name": "FIELD",
+      "category": "physics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/physicsLaws.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_14.test.js",
+        "tests/unit/deadLawToggles.test.js",
+        "tests/unit/fields.test.js",
+        "tests/unit/launchModal.test.js",
+        "tests/unit/lawCategories.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 88,
+      "name": "SYMBIOSIS",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/relationshipExplorer.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_23.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 89,
+      "name": "PARASITE",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/mergePhysics.js",
+        "src/physics/relationshipExplorer.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_23.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 90,
+      "name": "HIBERNATION",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_23.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 91,
+      "name": "IMMUNITY",
+      "category": "biology",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/biologyLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_23.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 92,
+      "name": "ELECTROLYSIS",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_24.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 93,
+      "name": "PHOTOLYSIS",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_24.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 94,
+      "name": "PRECIPITATION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_24.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 95,
+      "name": "NEUTRALIZATION",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_24.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 96,
+      "name": "STOICHIOMETRY",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_25.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 97,
+      "name": "AUTOCATALYSIS",
+      "category": "chemistry",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_25.test.js",
+        "tests/audit/params_batch_13.test.js",
+        "tests/audit/params_batch_14.test.js",
+        "tests/unit/tidalBloom.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "consumes",
+        "produces",
+        "feedback"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 98,
+      "name": "ADIABATIC",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_25.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 99,
+      "name": "COMPRESSION",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_25.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 100,
+      "name": "EXPANSION",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_26.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 101,
+      "name": "EQUILIBRIUM",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_26.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 102,
+      "name": "LATENT_HEAT",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_26.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 103,
+      "name": "RUNAWAY",
+      "category": "thermodynamics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/thermoLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_26.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 104,
+      "name": "CONSCIOUSNESS",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_27.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 105,
+      "name": "PERCEPTION",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_27.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 106,
+      "name": "SYNCHRONICITY",
+      "category": "metaphysics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_27.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 107,
+      "name": "ANTENNA",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_27.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 108,
+      "name": "SHIELDING",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_28.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 109,
+      "name": "POLARIZATION",
+      "category": "electromagnetism",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_28.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 110,
+      "name": "NAVIGATION",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_28.test.js",
+        "tests/unit/lawGraph.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 111,
+      "name": "ENCRYPTION",
+      "category": "information",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_28.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 112,
+      "name": "SUPERPOSITION",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_29.test.js",
+        "tests/unit/lawGrid.test.js",
+        "tests/unit/quantumMacro.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 113,
+      "name": "TUNNELING",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_29.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 114,
+      "name": "DECOHERENCE",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_29.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 115,
+      "name": "WAVE_PARTICLE",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_29.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 116,
+      "name": "UNCERTAINTY",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_30.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 117,
+      "name": "TELEPORT",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_30.test.js",
+        "tests/unit/lawGraph.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "transforms",
+        "reads",
+        "writes",
+        "consumes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 118,
+      "name": "OBSERVER",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_30.test.js",
+        "tests/unit/codex.test.js",
+        "tests/unit/lawGraph.test.js",
+        "tests/unit/logPanel.test.js",
+        "tests/unit/quantumMacro.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 119,
+      "name": "PLANCK",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_30.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 120,
+      "name": "COHERENCE",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_29.test.js",
+        "tests/audit/batch_31.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 121,
+      "name": "BOSONIC",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_31.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 122,
+      "name": "FERMIONIC",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_31.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 123,
+      "name": "SPIN",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_31.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 124,
+      "name": "SPECTRAL",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_32.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 125,
+      "name": "WAVEFUNCTION",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_32.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 126,
+      "name": "HYPERPLANE",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_32.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 127,
+      "name": "ANTIMATTER",
+      "category": "quantum",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/quantumLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_32.test.js",
+        "tests/unit/exoticMatter.test.js",
+        "tests/unit/launchModal.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 128,
+      "name": "CONTACT",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/gpuCompute.js",
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/solver.js",
+        "src/worker/physics.worker.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_22.test.js",
+        "tests/e2e/runtime-acceptance.spec.js",
+        "tests/unit/auditSignoff.test.js",
+        "tests/unit/backendArchitecture.test.js",
+        "tests/unit/chaosSettings.test.js",
+        "tests/unit/contactStructures.test.js",
+        "tests/unit/lawGrid.test.js",
+        "tests/unit/mechanicsArchitecture.test.js",
+        "tests/unit/provenance.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 129,
+      "name": "MOMENTUM",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawGraph.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_02.test.js",
+        "tests/audit/batch_22.test.js",
+        "tests/audit/params_batch_11.test.js",
+        "tests/unit/backendArchitecture.test.js",
+        "tests/unit/lawGrid.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 130,
+      "name": "WRAP",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/lawgroups/mechanicsLaws.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_01.test.js",
+        "tests/audit/params_batch_09.test.js",
+        "tests/unit/backendArchitecture.test.js",
+        "tests/unit/lawCategories.test.js",
+        "tests/unit/lawGrid.test.js",
+        "tests/unit/mechanics.test.js",
+        "tests/unit/pendingLaws.test.js",
+        "tests/unit/worldSave.test.js",
+        "tests/unit/wrapLaw.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes",
+        "notes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 131,
+      "name": "TORQUE",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/laws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_06.test.js",
+        "tests/audit/batch_22.test.js",
+        "tests/audit/params_batch_09.test.js",
+        "tests/unit/backendArchitecture.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 132,
+      "name": "CONSTRAINT",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/unit/backendArchitecture.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 133,
+      "name": "FRAGMENTATION",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_22.test.js",
+        "tests/unit/backendArchitecture.test.js"
+      ],
+      "relationshipTypes": [],
+      "relationshipMetadataComplete": false,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 134,
+      "name": "TOPOLOGY",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/lawgroups/mechanicsLaws.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/unit/backendArchitecture.test.js",
+        "tests/unit/mechanics.test.js"
+      ],
+      "relationshipTypes": [
+        "dependsOn",
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    },
+    {
+      "index": 135,
+      "name": "ADHESION",
+      "category": "mechanics",
+      "status": "wired",
+      "implementationFiles": [
+        "src/physics/interactionSpace.js",
+        "src/physics/lawgroups/mechanicsHelp.js",
+        "src/physics/solver.js"
+      ],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
+      "testFiles": [
+        "tests/audit/batch_22.test.js",
+        "tests/unit/backendArchitecture.test.js"
+      ],
+      "relationshipTypes": [
+        "synergizesWith",
+        "antagonizes",
+        "transforms",
+        "reads",
+        "writes"
+      ],
+      "relationshipMetadataComplete": true,
+      "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
+    }
+  ],
+  "summary": {
+    "wired": 133,
+    "implementedNotGated": 2,
+    "metadataOnly": 1,
+    "withTests": 134,
+    "withRelationshipMetadata": 35
+  }
+}

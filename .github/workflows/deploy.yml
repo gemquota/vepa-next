@@ -1,0 +1,16 @@
+name: Deploy to GitHub Pages (upstream DayneK workflow — disabled on vepa-next)
+
+on:
+  workflow_dispatch:
+
+# Disabled: vepa-next owns Pages via deploy-source-baseline.yml / deploy-pages.yml.
+# Re-enable only with an explicit ACTIVE human decision (Codey irreversibility gate).
+permissions:
+  contents: read
+
+jobs:
+  skipped:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "disabled"

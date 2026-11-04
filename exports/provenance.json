@@ -1,0 +1,46 @@
+{
+  "schema": "vepa-export-provenance/v1",
+  "generatedBy": "manually curated governance manifest; validate with scripts/validate-provenance.mjs",
+  "authority": "src/ and executable tests",
+  "records": [
+    {
+      "path": "exports",
+      "role": "all repository export generators, manifests, and derived snapshots",
+      "status": "mixed-derived-tooling",
+      "consumer": "maintenance, handoff, and archival review",
+      "retention": "retain generators and provenance; classify or archive snapshots only after consumer mapping"
+    },
+    {
+      "path": "exports/vepa-full-codebase-concat.md",
+      "role": "full-codebase handoff snapshot",
+      "status": "retained-derived-artifact",
+      "consumer": "manual handoff and archival review",
+      "retention": "retain until a reproducible artifact consumer is confirmed"
+    },
+    {
+      "path": "exports/vepa-docs-concat.md",
+      "role": "documentation handoff snapshot",
+      "status": "retained-derived-artifact",
+      "consumer": "manual documentation review",
+      "retention": "retain until CI artifact or external archive replacement is confirmed"
+    }
+  ],
+  "retired": [
+    {
+      "path": "exports/vepa-codebase-full-concat.md",
+      "role": "parallel or legacy full snapshot",
+      "status": "retired-2026-09-30",
+      "retiredBy": "H3 reconciliation; producer was never uniquely established and consumer was unmapped",
+      "recoverableFrom": "git history (removed in the H3 reconciliation commit)",
+      "retainedInGit": true
+    },
+    {
+      "path": "exports/vepa-codebase-concat.mjs",
+      "role": "20-module headless core concatenation",
+      "status": "retired-2026-09-30",
+      "retiredBy": "H3 reconciliation; its only generator (exports/generate-concat.mjs) no longer exists, so the artifact was unregenerable",
+      "recoverableFrom": "git history (removed in the H3 reconciliation commit)",
+      "retainedInGit": true
+    }
+  ]
+}
