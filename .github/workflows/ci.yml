@@ -1,8 +1,8 @@
-name: VEPA Next contract checks
+name: VEPA Next CI (9.3.5 product + SIM foundation)
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'rebuild/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,12 +11,27 @@ permissions:
   contents: read
 
 jobs:
-  contracts:
+  product-unit:
+    name: Product unit (9.3.5)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm test
-      - run: npm run check
+
+  sim-foundation:
+    name: SIM foundation contracts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sim-foundation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test

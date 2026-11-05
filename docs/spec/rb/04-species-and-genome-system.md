@@ -1,0 +1,13 @@
+# 04 — Species and genome system
+
+**Current evidence:** `src/constants/dna.js` defines 64 stable DNA indices, metadata and ranges. `src/dna/dnaBuffer.js` stores up to 64 species × 64 `Uint16` values. Particle stride caches traits 0–41 only; traits 42–63 remain species-genome-only and are consumed by lifecycle/genetics paths. `src/ui/speciesPanel.js` owns roster add/remove/select and an accordion, currently grouping all 64 indices in eight groups. `src/dna/expression.js` projects selected traits and runtime state to color/radius/alpha. `src/main.js` spawns profiles and synchronizes changes to worker. Presets and world saves carry DNA.
+
+## Target responsibilities and invariants
+
+Separate species roster, genome schema/codec, phenotype projection, editor view model, and mutation/speciation consumers. Species edits are keyed by stable trait identifiers rather than positional assumptions at cross-module boundaries; current numeric indices remain a compatibility encoding until migration is explicitly tested. Preserve `[0..63]`, 64-species cap, normalized quantized storage and 42-float cache distinction until approved schema migration. Every trait has index/key, range/default, unit/meaning, inheritance/mutation semantics, cache-vs-genome location, consumer, and tests. The solver must not treat genome-only traits as particle cache values.
+
+Advanced mode provides every currently defined trait, including the 22 genetics/regulatory traits, while retaining roster actions and current editing semantics. Easy species controls group meaningful related trait vectors (motion, robustness, energy/lifecycle, interaction, communication, reproduction/genetics, appearance); recipes must be defined by domain review rather than guessed here. A change to a composite is previewable as a concise trait delta, validated and committed as one transaction; all individual values remain recoverable in Advanced. Species-mode preference is separate from profile/genome data. Species selection for editing stays distinct from analytics selection per existing approved UI plan.
+
+## Additional DNA traits and compatibility
+
+Do not increase `DNA_COUNT`, particle cache, or stride by assumption. A proposed trait needs evidence-backed semantics, consumer and law interaction, range/unit/default, genome-vs-cache storage, encoding, inheritance/mutation, world-save migration, legacy default, GPU/worker mirror, help, fidelity tests, and a measurable user need. Evaluate reuse/derived values before expanding the fixed-width schema. If extension is justified, version the schema and preserve old worlds deterministically; never renumber an existing `DNA_INDEXES` entry. Validate profile import, clone/add/delete, reset-to-baseline, save/load/undo and worker synchronization.

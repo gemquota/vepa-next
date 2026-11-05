@@ -1,0 +1,35 @@
+{
+  "schema": "vepa-audit-provenance/v1",
+  "generatedBy": "manually curated governance manifest; validate with scripts/validate-provenance.mjs",
+  "authority": "src/ and executable tests",
+  "records": [
+    {
+      "path": "docs/audit/laws/a3/stage-1",
+      "role": "historical law-audit stage reports",
+      "status": "historical",
+      "consumer": "audit review and provenance reconstruction",
+      "retention": "retain until producer, scope, and canonical successors are mapped"
+    },
+    {
+      "path": "docs/audit/laws/a3/stage-2",
+      "role": "historical law-audit follow-up reports",
+      "status": "historical",
+      "consumer": "audit review and parameter/integration comparison",
+      "retention": "retain until producer, scope, and canonical successors are mapped"
+    },
+    {
+      "path": "docs/audit/laws/a3/stage-3",
+      "role": "historical implementation/sign-off reports",
+      "status": "historical",
+      "consumer": "audit review, corroborated by source and executable evidence",
+      "retention": "retain; sign-off prose is not independent runtime authority"
+    },
+    {
+      "path": "docs/audit/laws/a3",
+      "role": "scoped audit corpus and derived roll-ups",
+      "status": "historical-derived-mixed",
+      "consumer": "repository audit and release-history reconstruction",
+      "retention": "retain while path-level provenance mapping is incomplete"
+    }
+  ]
+}

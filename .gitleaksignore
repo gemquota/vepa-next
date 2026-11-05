@@ -1,0 +1,7 @@
+# Safeguard 2026-11-04: FALSE POSITIVES (localStorage key name / slider key). Nothing to rotate.
+# Original DayneK/local fingerprints (for reference when scanning donor history):
+daae7c093d1865758ca3c58611b1cfec1f738377:src/ui/narrativePanel.js:generic-api-key:26
+46f2abf43430e5e720556b8d3c5c7d4716411821:src/state/worldParams.js:generic-api-key:148
+01b34c7fcbf1c354ac2503a998247990e7dfd8c3:src/ui/narrativePanel.js:generic-api-key:26
+# Path-form fingerprint (no-git / new-repo commit content) — same localStorage key FP:
+src/ui/narrativePanel.js:generic-api-key:26

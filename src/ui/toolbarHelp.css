@@ -1,0 +1,510 @@
+/* VEPA4 toolbar affordances and restored help drone. */
+#top-toolbar .toolbar-gesture-btn {
+  position: relative;
+  touch-action: manipulation;
+}
+#top-toolbar .toolbar-gesture-btn::after {
+  content: 'tap / hold';
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font: 7px var(--font-mono);
+  letter-spacing: 1px;
+  transition: opacity 0.15s ease;
+}
+#top-toolbar .toolbar-gesture-btn:hover::after {
+  opacity: 0.9;
+}
+
+.help-drone-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh 16px 24px;
+  background: rgba(3, 5, 12, 0.72);
+  backdrop-filter: blur(5px);
+}
+.help-drone-panel {
+  width: min(640px, 100%);
+  max-height: 78vh;
+  overflow: auto;
+  color: var(--text-primary);
+  background: linear-gradient(145deg, rgba(17, 24, 40, 0.98), rgba(8, 10, 20, 0.98));
+  border: 1px solid rgba(74, 232, 255, 0.45);
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(74, 232, 255, 0.16), 0 20px 70px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-mono);
+}
+.help-drone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  color: var(--accent-cyan);
+  border-bottom: 1px solid rgba(74, 232, 255, 0.2);
+  letter-spacing: 1.5px;
+  font-size: 11px;
+}
+.help-drone-signal {
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--accent-green);
+  animation: help-drone-pulse 1.6s ease-in-out infinite;
+}
+.help-drone-close {
+  width: 26px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.help-drone-close:hover {
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+.help-drone-body {
+  padding: 14px;
+}
+.help-drone-lead {
+  margin-bottom: 14px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.help-drone-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.help-drone-grid article {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.help-drone-grid article:hover {
+  border-color: rgba(74, 232, 255, 0.35);
+  background: rgba(74, 232, 255, 0.06);
+}
+.help-drone-grid b {
+  min-width: 72px;
+  color: var(--accent-gold);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+.help-drone-grid span {
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.45;
+}
+.help-drone-footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 8px;
+  letter-spacing: 0.8px;
+}
+@keyframes help-drone-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@media (max-width: 560px) {
+  .help-drone-grid { grid-template-columns: 1fr; }
+  .help-drone-overlay { padding: 7vh 10px 16px; }
+}
+
+.help-drone-mapping {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.help-drone-mapping > div {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.025);
+}
+.help-drone-mapping strong { color: var(--accent-gold); font-size: 9px; letter-spacing: 1.5px; }
+.help-drone-mapping span { color: var(--text-secondary); font-size: 9px; line-height: 1.4; }
+.help-drone-enable {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px;
+  border: 1px solid var(--accent-cyan);
+  border-radius: 4px;
+  background: rgba(74,232,255,0.1);
+  color: var(--accent-cyan);
+  font: 10px var(--font-mono);
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+.help-drone-enable:hover { background: rgba(74,232,255,0.2); }
+.help-drone-active { cursor: crosshair; }
+.help-drone-target { outline: 2px solid var(--accent-cyan) !important; outline-offset: 3px; }
+.help-drone-tip {
+  position: fixed;
+  z-index: 13000;
+  display: grid;
+  gap: 5px;
+  width: min(330px, calc(100vw - 16px));
+  padding: 11px 13px;
+  border: 1px solid var(--accent-cyan);
+  border-radius: 5px;
+  background: rgba(5, 10, 20, 0.97);
+  box-shadow: 0 0 22px rgba(74,232,255,0.28);
+  pointer-events: none;
+  font-family: var(--font-mono);
+}
+/* Type raised from 8/10px to 11/13px: this tooltip is the only place a reader
+ * learns what a graph actually measures, so it has to be readable without
+ * pinning your face to the screen. */
+.help-drone-tip strong { color: var(--accent-cyan); font-size: 11px; letter-spacing: 1.2px; }
+.help-drone-tip span { color: #e2ebf8; font-size: 13px; line-height: 1.5; }
+
+.dna-overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-bottom: 10px; padding: 6px; background: #0a0a0a; border: 1px solid #222; }
+.dna-overview-stat { display: grid; gap: 2px; padding: 5px 2px; border: 1px solid transparent; background: transparent; color: #666; cursor: pointer; font: inherit; text-align: center; }
+.dna-overview-stat:hover, .dna-overview-stat:focus-visible { border-color: var(--accent-cyan); background: rgba(74,232,255,0.06); }
+.dna-overview-stat span { font-size: 8px; }
+.dna-overview-stat strong { font-size: 13px; }
+.dna-overview-hint { grid-column: 1 / -1; color: #555; font: 7px var(--font-mono); letter-spacing: 1px; text-align: center; padding-top: 3px; }
+.dna-history-module { margin: 8px 0; padding: 9px; border: 1px solid var(--accent-cyan); background: rgba(4, 12, 20, 0.96); font-family: var(--font-mono); }
+.dna-history-module header { display: flex; justify-content: space-between; color: var(--accent-cyan); font-size: 9px; letter-spacing: 1px; }
+.dna-history-module button, .dna-chart-close { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.dna-history-module p { color: var(--text-secondary); font-size: 8px; }
+.dna-history-values { display: flex; gap: 3px; align-items: end; min-height: 34px; overflow-x: auto; }
+.dna-history-values span { min-width: 34px; padding: 5px 2px; background: rgba(74,232,255,0.1); color: var(--accent-cyan); font-size: 7px; text-align: center; }
+.dna-chart-expanded { position: fixed !important; z-index: 11000; inset: 8vh 3vw 3vh; display: flex !important; flex-direction: column; margin: 0 !important; padding: 30px 12px 12px; background: rgba(5, 8, 16, 0.98); border: 1px solid var(--accent-cyan); box-shadow: 0 0 40px rgba(0,0,0,0.7); }
+.dna-chart-expanded canvas { flex: 1; width: 100% !important; height: 100% !important; min-height: 0; }
+.dna-chart-close { position: absolute; top: 7px; right: 8px; padding: 4px 7px; color: var(--accent-cyan); font: 8px var(--font-mono); }
+@media (max-width: 560px) {
+  .help-drone-mapping { grid-template-columns: 1fr; }
+  .dna-chart-expanded { inset: 5vh 8px 8px; }
+}
+
+/* Compact population telemetry: color communicates scale without a text label. */
+.hud-particles {
+  --population-h: 205;
+  --population-intensity: 0.5;
+  display: inline-block;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, hsl(var(--population-h) 100% 90%), hsl(var(--population-h) 95% 58%) 38%, hsl(var(--population-h) 90% 28%) 100%);
+  box-shadow: 0 0 5px hsla(var(--population-h), 95%, 60%, calc(0.35 + var(--population-intensity) * 0.45)), 0 0 12px hsla(var(--population-h), 95%, 55%, calc(0.15 + var(--population-intensity) * 0.3));
+  animation: hud-population-pulse 1.8s ease-in-out infinite, hud-population-spectrum 9s linear infinite;
+  vertical-align: middle;
+  transition: background 0.45s ease, box-shadow 0.45s ease;
+}
+@keyframes hud-population-pulse {
+  0%, 100% { transform: scale(0.88); opacity: 0.78; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes hud-population-spectrum {
+  0% { filter: hue-rotate(0deg); }
+  33% { filter: hue-rotate(120deg); }
+  66% { filter: hue-rotate(240deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+.hud-tick-compact { white-space: nowrap; }
+
+/* ── Long-press help: tabs (modal) and graphs/cells (tooltip) ────────────
+ * Built on the help-drone shell above so the drone's own map and a long-press
+ * help modal read as one system rather than two competing ones.
+ */
+.tab-help-kind {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 7px;
+  border: 1px solid rgba(74, 232, 255, 0.35);
+  border-radius: 3px;
+  color: var(--accent-cyan);
+  font: 7px var(--font-mono);
+  letter-spacing: 1.2px;
+}
+.tab-help-sections {
+  display: grid;
+  gap: 9px;
+  margin-top: 4px;
+}
+.help-drone-section {
+  display: grid;
+  gap: 3px;
+}
+.help-drone-section strong {
+  color: var(--accent-gold);
+  font-size: 9px;
+  letter-spacing: 0.6px;
+}
+.help-drone-section span {
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.55;
+}
+/* Graphs are pointer targets, not buttons: suppress the native drag-select
+ * and the touch callout so a long press reads as a deliberate gesture. */
+#dna-charts canvas,
+.intel-cell {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.intel-cell {
+  cursor: help;
+}
+.chart-section canvas {
+  cursor: help;
+}
+/* A pressed tab should look pressed while the hold timer runs, so the gesture
+ * has feedback before the modal appears. */
+.tab-btn:active,
+.sub-tab-btn:active {
+  filter: brightness(1.25);
+}
+.tab-help-tip {
+  max-width: 400px;
+}
+.tab-help-tip strong {
+  color: var(--accent-gold);
+  font-size: 13px;
+}
+.tab-help-tip-sections {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  display: grid;
+  gap: 7px;
+}
+.tab-help-tip-sections .help-drone-section strong { font-size: 11px; }
+.tab-help-tip-sections .help-drone-section span { font-size: 12px; }
+
+/* ── Sub-tab navigation inside the tab help modal ────────────────────────
+ * Without these, a tab's help is a dead end: you learn what SETUP is for and
+ * still have to close the modal and hunt for the button yourself. */
+.tab-help-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.tab-help-nav-btn {
+  padding: 5px 9px;
+  border: 1px solid rgba(74, 232, 255, 0.4);
+  border-radius: 3px;
+  background: rgba(74, 232, 255, 0.06);
+  color: var(--accent-cyan);
+  font: 10px var(--font-mono);
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.tab-help-nav-btn:hover,
+.tab-help-nav-btn:focus-visible {
+  background: rgba(74, 232, 255, 0.16);
+  border-color: var(--accent-cyan);
+  outline: none;
+}
+.tab-help-nav-btn.current {
+  background: rgba(74, 232, 255, 0.24);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  cursor: default;
+}
+/* The help modal inherits the drone's overlay layout; this hook only widens it,
+ * because tab help carries more prose than a two-column control map. */
+.tab-help-overlay .help-drone-panel {
+  max-width: 560px;
+}
+
+/* ── Tab-help switcher: arrows, icon squares, expanded current tab ────────
+ * The modal used to be a dead end: you could only leave it by closing it and
+ * hunting for another tab button. The switcher makes the three top-level tabs
+ * reachable from inside the modal, and expands the one you are reading so the
+ * expanded entry doubles as the "which tab is this?" answer. */
+.tab-switch {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.tab-switch-squares {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.tab-switch-arrow {
+  flex: 0 0 auto;
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tab-switch-arrow:hover,
+.tab-switch-arrow:focus-visible {
+  background: rgba(74, 232, 255, 0.12);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+.tab-switch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tab-switch-btn:hover,
+.tab-switch-btn:focus-visible {
+  background: rgba(74, 232, 255, 0.12);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+.tab-switch-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+/* The label is always in the DOM (so it is announced and reachable by find-in-
+   page) and only laid out for the expanded entry. */
+.tab-switch-label {
+  display: none;
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-switch-btn.current {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  padding: 4px 12px;
+  background: rgba(74, 232, 255, 0.14);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  cursor: default;
+}
+.tab-switch-btn.current .tab-switch-label { display: block; }
+.tab-switch-btn.current .tab-switch-icon { font-size: 20px; }
+/* Arriving here from a sub-tab (DATA > CIVILIZATION) is worth marking, so the
+ * expanded entry does not pretend the sub-tab view is gone. */
+.tab-switch-btn.own {
+  border-style: dashed;
+}
+.tab-switch-btn.own::after {
+  content: '·';
+  color: var(--accent-gold);
+  font-size: 16px;
+  line-height: 1;
+}
+.tab-switch,
+.tab-switch-arrow,
+.tab-switch-btn {
+  touch-action: manipulation;
+}
+@media (pointer: coarse) {
+  .tab-switch-arrow,
+  .tab-switch-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .tab-switch-icon { font-size: 22px; }
+  .tab-switch-label { font-size: 13px; }
+}
+@media (max-width: 420px) {
+  /* Below this the expanded title stops fitting beside two icons and an arrow,
+     so the entry wraps rather than truncating to a single character. */
+  .tab-switch { flex-wrap: wrap; }
+  .tab-switch-btn.current { flex-basis: 100%; order: 3; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * MINIMUM TYPE SIZE — the half that lives here
+ *
+ * The floor is stated once in style.css and mirrored here for the thirteen
+ * selectors this file owns. It has to be mirrored rather than declared once:
+ * style.css is a <link> in <head>, while this file is injected by the module
+ * graph, so it loads *after* style.css and wins every specificity tie. A floor
+ * rule in style.css for any of these would be silently overridden.
+ *
+ * Sizes and the reasoning behind the tiers: style.css, "MINIMUM TYPE SIZE".
+ * Both halves are enforced together by tests/unit/typeScale.test.js.
+ */
+
+/* CONTENT — 11px floor. */
+.help-drone-grid b,
+.help-drone-grid span,
+.help-drone-mapping strong,
+.help-drone-mapping span,
+.help-drone-section strong,
+.dna-history-module p,
+.dna-overview-stat span,
+.dna-history-module header,
+.tab-help-kind,
+.help-drone-footer,
+.dna-overview-hint,
+.dna-chart-close,
+#top-toolbar .toolbar-gesture-btn::after {
+  font-size: 11px;
+}
+
+/* Prose wants a step above a label, and room to breathe. */
+.help-drone-grid span,
+.help-drone-mapping span,
+.help-drone-section span,
+.dna-history-module p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* CHROME — 10px floor. */
+#top-toolbar .toolbar-gesture-btn::after,
+.tab-help-kind,
+.help-drone-footer,
+.dna-overview-hint,
+.dna-chart-close {
+  font-size: 10px;
+}
+
+/* EXCEPTION: the history values are the tick labels of a 34px sparkline, so they cannot grow
+ * without the graphic being replaced by a chart — which the DATA tab already offers. */
+.dna-history-values span {
+  font-size: 7px;
+}

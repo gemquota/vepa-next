@@ -1,0 +1,34 @@
+{
+  "schema": "vepa.export-publication/v1",
+  "repository": "vepa-exports",
+  "status": "configured-not-published",
+  "sourceRepository": "gemquota/vepa",
+  "canonicalArtifacts": [
+    {
+      "path": "vepa-full-codebase-concat.md",
+      "useCase": "source handoff",
+      "producer": "npm run concat",
+      "retention": "release artifact"
+    },
+    {
+      "path": "vepa-docs-concat.md",
+      "useCase": "documentation handoff",
+      "producer": "npm run concat",
+      "retention": "release artifact"
+    }
+  ],
+  "publication": {
+    "trigger": "manual or CI release workflow",
+    "requiredEnvironment": ["VEPA_EXPORTS_REPOSITORY", "VEPA_EXPORTS_TOKEN"],
+    "safety": "never publish from a dirty worktree; never publish secrets into artifacts"
+  },
+  "nonCanonical": [],
+  "retired": [
+    {
+      "path": "vepa-codebase-full-concat.md",
+      "reason": "legacy parallel full snapshot; producer never uniquely established and consumer unmapped",
+      "retiredOn": "2026-09-30",
+      "recoverableFrom": "git history"
+    }
+  ]
+}

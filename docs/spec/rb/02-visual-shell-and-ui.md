@@ -1,0 +1,17 @@
+# 02 — Visual shell and UI modules
+
+**Current evidence:** `index.html`, `style.css`, `src/ui/ui.js` plus `worldPanel.js`, `speciesPanel.js`, `lawPanel.js`, `settingsPanel.js`, `launchModal.js`, `sliderControl.js`, data panels, tooltip/help, and `src/ui/camera.js`. The program is DOM-driven; panels mount into named hosts and communicate by EventBus. `ui.js` owns tab behavior and shared selection wiring. Existing rows are compact and slider-rich; do not confuse dense controls with beginner-friendly hierarchy.
+
+## Target module model
+
+The accepted roadmap selects GPU-rendered 3D as the rendering direction; current Canvas2D/Pixi surfaces are implementation facts and migration/parity inputs, not the target rendering choice. Performance degradation may simplify only explicitly designated visual layers and must never silently alter simulation state, laws, events or deterministic progression. Physics-affecting law/parameter edits are staged until a new world or explicit restart.
+
+The UI package provides shell/navigation, viewport, top-bar/HUD, LAWS, WORLD settings, SPECIES/DNA settings, SETTINGS, SAVES, DATA analytics, help, and accessibility primitives as separable modules. Each panel owns its DOM subtree and subscriptions, consumes read models, and dispatches commands; it cannot mutate solver buffers or law masks directly. Shared CSS tokens preserve the near-black Sanguine/neon style, spectrum law colors, fine border/glow language, layered canvases, compact drawer, and responsive touch/keyboard behavior. A parity theme can iterate separately only after captured visual fixtures and actual browser checks exist.
+
+## Easy/Advanced settings behavior
+
+World and Species each have an independent, explicit Easy/Advanced toggle. New installations and first-run experience default both surfaces to Easy. Easy presents a small number of semantically named controls (e.g. world scale/population, motion/forces, environment, life/interactions; species mobility, resilience, metabolism, signaling, reproduction, appearance/genetics). These are *views* over the underlying individual fields, never replacement state. The grouping recipe and each group’s mapping are a versioned, validated `ControlProfile` schema; no final composite values are approved in this specification. Advanced exposes every current control: all 149 world definitions and all 64 DNA traits, subject to live schema count at implementation time.
+
+An Easy edit resolves to a deterministic vector of underlying values, clamps/validates against canonical ranges, shows affected fields and meaningful summary, and commits atomically as one undo gesture. Advanced edits update the same canonical model. Switching modes never resets values; switching back to Easy derives the displayed composite from current values and identifies customized/out-of-recipe values rather than silently overwriting them. Mode preference is separate per surface and cannot alter a saved world’s physical state. A composite control edit’s policy for fields with different units/ranges must be reviewed and signed off before implementation.
+
+Controls require labels/help/units/range, current value, accessible name/state, keyboard operation, touch-sized hit area, focus visibility, and feedback. Empty/loading/error/disabled/pending states are specified. Do not claim a component visually verified until tested in the browser; Node DOM stubs only validate selected logic/markup.
