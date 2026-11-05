@@ -24,7 +24,7 @@ The generator scanned `294` files from active repository inputs. Individual modu
 | [bench/worker-bench-worker.mjs](bench/worker-bench-worker.mjs) | benchmark | 79 | 0 | 7 | 0 |
 | [index.html](index.html) | repository | 226 | 0 | 0 | 1 |
 | [package-lock.json](package-lock.json) | repository | 2618 | 0 | 0 | 0 |
-| [package.json](package.json) | repository | 42 | 0 | 0 | 0 |
+| [package.json](package.json) | repository | 44 | 0 | 0 | 0 |
 | [playwright.config.js](playwright.config.js) | application | 22 | 1 | 1 | 0 |
 | [public/bench-report/data.js](public/bench-report/data.js) | application | 20740 | 0 | 0 | 124 |
 | [public/bench-report/index.html](public/bench-report/index.html) | application | 928 | 0 | 0 | 11 |

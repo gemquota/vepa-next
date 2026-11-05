@@ -1,7 +1,7 @@
 {
   "schema": "vepa-technical-spec/v1",
   "generator": "scripts/generate-spec.mjs",
-  "project": "vepa-v4",
+  "project": "vepa-next",
   "version": "9.3.5",
   "inputRoots": [
     "src",
