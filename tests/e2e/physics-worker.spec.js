@@ -112,6 +112,6 @@ test('live physics worker enables the opt-in SIM shadow without replacing produc
     };
   });
   expect(result.status).toBe('ready');
-  expect(result.tick).toMatch(/\\d[\\d,]*\\n\\d+\\.\\d/);
+  expect(result.tick).toMatch(/\d[\d,]*\n\d+\.\d/);
   expect(result.tick).not.toBe(result.before);
 });
