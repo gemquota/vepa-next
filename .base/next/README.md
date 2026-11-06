@@ -16,7 +16,7 @@ The current root tree supersedes the 9.1.2-era source-faithful rebuild plan. Do 
 
 The original reconnaissance library remains recoverable on the closed historical branch rebuild/source-faithful-baseline (PR #30): https://github.com/gemquota/vepa-next/tree/rebuild/source-faithful-baseline . Its documents include the port catalogue, feature matrix, operation map, UI recreation specification, roadmaps, atomic TODOs, decisions, and source inventory.
 
-That material is retained as historical analysis only. It described a different 9.1.2-era baseline (including 136 law slots and source paths that are not authoritative for 9.3.5). The branch is intentionally not merged into main. Re-audit every item before turning it into an implementation task.
+That material is retained as historical analysis only. It described a 9.1.2-era source tree and workflow layout. The 136-law count is also present in the current 9.3.5 tree, so the count itself is not evidence of staleness; the canonical names, indices, gates, implementations and tests must be read from the current registry. The historical branch is intentionally not merged into main. Re-audit every item before turning it into an implementation task.
 
 ## Reconciliation rules
 
@@ -35,7 +35,7 @@ The recorded mainline CI state reports:
 - SIM foundation contracts: passing (254/254 in the recorded run).
 - Production build: passing.
 - Separate legacy sandbox Pages workflow: failed because it omitted dependency installation and invoked the nonexistent npm run check script.
-- Real-browser visual validation remains incomplete; the README records a Chromium host-library limitation.
+- Real-browser visual validation remains incomplete; the previous CI record notes a Chromium host-library limitation.
 
 Re-run the workflow on the current PR/commit before treating these results as current.
 
