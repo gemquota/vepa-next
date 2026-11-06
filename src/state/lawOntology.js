@@ -526,6 +526,11 @@ export const LAW_RELATIONSHIP_EVIDENCE = Object.freeze([
   { source: 'HORIZON', type: 'dependsOn', target: 'GRAV', rationale: 'The escape/capture threshold is derived from the gravitational field.', runtimeConsumer: 'applyHorizon + applyGravity' },
   { source: 'HORIZON', type: 'synergizesWith', target: 'SINGULARITY', rationale: 'Horizon state is attached to the singularity capture boundary.', runtimeConsumer: 'applyHorizon + applySingularityAbsorb' },
   { source: 'HORIZON', type: 'synergizesWith', target: 'RADIATION', rationale: 'Capture and emission share the energy and exposure accounting path.', runtimeConsumer: 'applyHorizon + applyRadiationDamage' },
+  { source: 'FIELD', type: 'synergizesWith', target: 'CHARGE_LAW', rationale: 'The field gradient and charge force are accumulated by the same particle force phase.', runtimeConsumer: 'FIELD dispatch + applyChargeForce' },
+  { source: 'RESISTANCE', type: 'synergizesWith', target: 'CURRENT', rationale: 'Resistance modifies the charge-transfer rate in the current path.', runtimeConsumer: 'applyResistance + applyCurrentTransfer' },
+  { source: 'MAGNETISM', type: 'synergizesWith', target: 'CHARGE_LAW', rationale: 'Magnetic response requires the charge state produced by the charge law.', runtimeConsumer: 'applyMagneticForce + applyChargeForce' },
+  { source: 'MAGNETISM', type: 'synergizesWith', target: 'CURRENT', rationale: 'Magnetic field evolution shares the current state used by inductive coupling.', runtimeConsumer: 'applyMagneticForce + applyCurrentTransfer' },
+  { source: 'TOPOLOGY', type: 'synergizesWith', target: 'POLYMER', rationale: 'Polymer chain extension mutates the structural graph consumed by topology.', runtimeConsumer: 'applyTopology + applyPolymer' },
 ]);
 
 /** Return a defensive empty relationship record for laws without metadata. */
@@ -581,6 +586,14 @@ export function validateLawOntology() {
     if (!LAW_RELATIONSHIPS[edge.source]?.[edge.type]?.includes(edge.target)) errors.push(`Evidence does not match declared edge: ${key}`);
     if (typeof edge.rationale !== 'string' || edge.rationale.trim().length < 12) errors.push(`Missing rationale for relationship evidence: ${key}`);
     if (typeof edge.runtimeConsumer !== 'string' || !edge.runtimeConsumer.trim()) errors.push(`Missing runtime consumer for relationship evidence: ${key}`);
+  }
+  for (const [source, record] of Object.entries(LAW_RELATIONSHIPS)) {
+    for (const type of LAW_EDGE_RELATIONSHIP_TYPES) {
+      for (const target of record[type] || []) {
+        const key = `${source}|${type}|${target}`;
+        if (!evidenceKeys.has(key)) errors.push(`Missing rationale/runtime consumer evidence: ${key}`);
+      }
+    }
   }
   for (const [lawName, status] of Object.entries(LAW_EXECUTION_STATUS)) {
     if (!LAW_NAMES.has(lawName)) errors.push(`Unknown execution status law: ${lawName}`);
