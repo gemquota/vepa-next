@@ -154,7 +154,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/ui/tooltipDismiss.js](src/ui/tooltipDismiss.js) | ui | 106 | 5 | 0 | 0 |
 | [src/ui/ui.js](src/ui/ui.js) | ui | 557 | 5 | 18 | 1 |
 | [src/ui/worldPanel.js](src/ui/worldPanel.js) | ui | 759 | 3 | 8 | 128 |
-| [src/worker/physics.worker.js](src/worker/physics.worker.js) | simulation | 434 | 0 | 5 | 3 |
+| [src/worker/physics.worker.js](src/worker/physics.worker.js) | simulation | 549 | 0 | 5 | 3 |
 | [style.css](style.css) | repository | 4436 | 0 | 0 | 2 |
 | [tests/audit/batch_01.test.js](tests/audit/batch_01.test.js) | testing | 223 | 0 | 7 | 9 |
 | [tests/audit/batch_02.test.js](tests/audit/batch_02.test.js) | testing | 323 | 0 | 8 | 8 |
