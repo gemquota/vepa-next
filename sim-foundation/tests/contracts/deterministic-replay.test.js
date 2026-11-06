@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PARTICLE_STRIDE as STRIDE, PARTICLE_SLOTS as S } from '../src/sim/particle-layout.js';
-import { createParticleExecutionAdapter } from '../src/sim/execution-adapter.js';
-import { replayParticleTicks } from '../src/sim/deterministic-replay.js';
+import { PARTICLE_STRIDE as STRIDE, PARTICLE_SLOTS as S } from '../../src/sim/particle-layout.js';
+import { createParticleExecutionAdapter } from '../../src/sim/execution-adapter.js';
+import { replayParticleTicks } from '../../src/sim/deterministic-replay.js';
 
 function state(count = 2) {
   const view = new Float64Array(count * STRIDE);
