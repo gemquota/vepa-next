@@ -211,7 +211,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [tests/bench/harness.js](tests/bench/harness.js) | testing | 198 | 0 | 6 | 2 |
 | [tests/bench/renderer-benchmark.spec.js](tests/bench/renderer-benchmark.spec.js) | testing | 77 | 0 | 4 | 0 |
 | [tests/e2e/pages-baseline.spec.js](tests/e2e/pages-baseline.spec.js) | testing | 45 | 0 | 1 | 0 |
-| [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 121 | 0 | 1 | 0 |
+| [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 118 | 0 | 1 | 0 |
 | [tests/e2e/runtime-acceptance.spec.js](tests/e2e/runtime-acceptance.spec.js) | testing | 59 | 0 | 1 | 1 |
 | [tests/helpers/cssSources.js](tests/helpers/cssSources.js) | testing | 137 | 6 | 3 | 0 |
 | [tests/helpers/domStub.js](tests/helpers/domStub.js) | testing | 599 | 7 | 0 | 1 |
