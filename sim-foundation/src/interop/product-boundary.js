@@ -28,6 +28,14 @@ export function toProductWorkerResponse(message, { requestId, productType } = {}
  const type = PRODUCT_RESPONSE[productType]; if (!type) throw new RangeError('Product worker response has no bridge mapping: ' + productType);
  return Object.freeze({ type, payload: message.payload ?? null, requestId: message.id });
 }
+export function createWorkerResponseTracker() {
+ const pending = new Set(); const completed = new Set();
+ return Object.freeze({
+  register(id) { if (!Number.isSafeInteger(id) || id < 0 || pending.has(id) || completed.has(id)) throw new TypeError('duplicate or invalid worker request id'); pending.add(id); },
+  accept(message) { const verdict = validateSimWorkerResponse(message); if (!verdict.valid) return Object.freeze({ accepted: false, errors: verdict.errors }); if (completed.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['duplicate-response']) }); if (!pending.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['unknown-or-stale-response']) }); pending.delete(message.id); completed.add(message.id); return Object.freeze({ accepted: true, requestId: message.id }); },
+  get pendingCount() { return pending.size; },
+ });
+}
 export function createProductRandomBridge({ seed = 0, state = seed } = {}) {
  if (!Number.isInteger(state) || state < -2147483648 || state > 0xffffffff) throw new TypeError('product PRNG state must be a 32-bit integer');
  const stream = new SplitMix32(seed).restore({ algorithm: 'splitmix32-v1', state: state >>> 0 });
