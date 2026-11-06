@@ -80,14 +80,25 @@ function bytesToU16(u8) {
   return out;
 }
 
-function normalizePrngSnapshot(value) {
-  if (value == null) return null;
-  if (!value || value.algorithm !== 'splitmix32-v1' ||
-      !Number.isInteger(value.seed) || value.seed < -2147483648 || value.seed > 0xffffffff ||
+function normalizeSinglePrngCheckpoint(value, label = 'PRNG') {
+  if (!value || !Number.isInteger(value.seed) || value.seed < -2147483648 || value.seed > 0xffffffff ||
       !Number.isInteger(value.state) || value.state < -2147483648 || value.state > 0xffffffff) {
-    throw new TypeError('Invalid worker PRNG checkpoint');
+    throw new TypeError('Invalid ' + label + ' checkpoint');
   }
   return Object.freeze({ algorithm: 'splitmix32-v1', seed: value.seed >>> 0, state: value.state >>> 0 });
+}
+
+function normalizePrngSnapshot(value) {
+  if (value == null) return null;
+  if (!value || value.algorithm !== 'splitmix32-v1') throw new TypeError('Invalid worker PRNG checkpoint');
+  const primary = normalizeSinglePrngCheckpoint(value, 'primary PRNG');
+  const main = value.main == null ? null : normalizeSinglePrngCheckpoint(value.main, 'main-thread PRNG');
+  const worker = value.worker == null ? null : normalizeSinglePrngCheckpoint(value.worker, 'worker PRNG');
+  return Object.freeze({
+    ...primary,
+    ...(main ? { main } : {}),
+    ...(worker ? { worker } : {}),
+  });
 }
 
 function popcount(w) {
