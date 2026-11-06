@@ -15,6 +15,17 @@ test('optional SplitMix32 checkpoints survive product save and SIM snapshot conv
  assert.deepEqual(out.prng,s.prng);
  assert.equal(out.migration.prngRestored,true);
 });
+test('dual main/worker PRNG ownership survives product-SIM conversion', () => {
+ const s=fixture();
+ s.prng={
+  algorithm:'splitmix32-v1',seed:29,state:31,
+  main:{algorithm:'splitmix32-v1',seed:29,state:31},
+  worker:{algorithm:'splitmix32-v1',seed:37,state:41},
+ };
+ const snapshot=productSaveToSimSnapshot(s,{worldId:'dual-prng'});
+ const out=simSnapshotToProductSave(snapshot,{expectedWorldId:'dual-prng'});
+ assert.deepEqual(out.prng,s.prng);
+});
 test('legacy product saves without PRNG state remain loadable but cannot claim deterministic continuation', () => {
  const s=fixture(); delete s.prng;
  const snap=productSaveToSimSnapshot(s,{worldId:'legacy-prng-fixture'});
