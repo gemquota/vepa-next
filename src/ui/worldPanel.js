@@ -321,7 +321,7 @@ function renderLawGrid(grid, lawStateObj, bus) {
       const selectedClass = (idx === selectedLawIdx ? ' selected' : '')
         + (proposedLaws.get(lawStateObj)?.has(idx) ? ' pending-law' : '')
         + (executable ? '' : ' metadata-only');
-      const statusTitle = executable ? `${name}${proposedLaws.get(lawStateObj)?.has(idx) ? ' — pending restart' : ''}` : `${name} — metadata-only; no solver dispatch`;
+      const statusTitle = executable ? `${name}${proposedLaws.get(lawStateObj)?.has(idx) ? ' — pending restart' : ''}` : `${name} — ${status}; no solver dispatch`;
       const disabled = idx === LAW_INDEXES.WRAP || !executable;
       const searchText = `data-name="${name.toLowerCase()}"`;
       if (isWordMode) {
