@@ -2158,9 +2158,9 @@ export function applyCurrentTransfer(p1Ptr, p2Ptr, distSq, k) {
   if (![rawA, rawB, q1, q2].every(Number.isFinite)) return;
   const cond = Math.min(clamp(rawA, 0, 1), clamp(rawB, 0, 1));
   if (cond <= 0) return;
-  // A transfer fraction above one would overshoot the equalization point and
-  // create an artificial charge oscillation. Bound it to one complete transfer.
-  const fraction = clamp(cond * k, 0, 1);
+  // Equalization occurs after transferring half the charge difference.
+  // Cap the fraction at 0.5 so a large timestep cannot overshoot or swap signs.
+  const fraction = clamp(cond * k, 0, 0.5);
   const dq = (q2 - q1) * fraction;
   if (!Number.isFinite(dq) || dq === 0) return;
   buf[p1Ptr + S.CHARGE] = q1 + dq;
