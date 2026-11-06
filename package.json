@@ -33,7 +33,8 @@
     "golden:capture": "node scripts/capture-product-golden.mjs",
     "test:e2e:baseline": "playwright test --config=playwright.baseline.config.js",
     "bench:acceptance": "node scripts/capture-backend-acceptance.mjs",
-    "bench:release-matrix": "node bench/release-matrix.mjs"
+    "bench:release-matrix": "node bench/release-matrix.mjs",
+    "docs:triple-pass": "node scripts/documentation-triple-pass.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.18.1",
