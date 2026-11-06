@@ -175,6 +175,9 @@ export function createProductSimShadow({ worldId = 'product-shadow', seed = 0, t
 
   function step(payload) {
     if (!adapter || status !== 'ready') throw new Error('SIM shadow is not ready; active product laws may be unsupported');
+    if (payload.legacyPrngState !== undefined) {
+      legacyBridge = createProductRandomBridge({ seed: legacySeed, state: payload.legacyPrngState });
+    }
     if (payload.dt !== undefined && payload.dt !== adapter.getConfig().dt) adapter.configure({ dt: payload.dt });
     const metrics = adapter.step();
     let comparison = null;
