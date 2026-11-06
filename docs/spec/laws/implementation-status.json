@@ -3081,6 +3081,7 @@
         "tests/unit/lawGrid.test.js",
         "tests/unit/mechanics.test.js",
         "tests/unit/pendingLaws.test.js",
+        "tests/unit/productSimCompatibility.test.js",
         "tests/unit/worldSave.test.js",
         "tests/unit/wrapLaw.test.js"
       ],

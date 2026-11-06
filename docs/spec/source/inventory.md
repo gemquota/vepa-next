@@ -2,7 +2,7 @@
 
 # Source: Inventory
 
-The generator scanned `294` files from active repository inputs. Individual module records are under [source/modules/](modules/).
+The generator scanned `297` files from active repository inputs. Individual module records are under [source/modules/](modules/).
 
 | Area | Files | Exports | Law references |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ The generator scanned `294` files from active repository inputs. Individual modu
 | Repository | 7 | 2 | 3 |
 | Simulation | 30 | 216 | 367 |
 | State | 37 | 294 | 289 |
-| Testing | 153 | 25 | 500 |
+| Testing | 156 | 25 | 501 |
 | Ui | 27 | 100 | 381 |
 
 ## Module list
@@ -24,7 +24,7 @@ The generator scanned `294` files from active repository inputs. Individual modu
 | [bench/worker-bench-worker.mjs](bench/worker-bench-worker.mjs) | benchmark | 79 | 0 | 7 | 0 |
 | [index.html](index.html) | repository | 226 | 0 | 0 | 1 |
 | [package-lock.json](package-lock.json) | repository | 2618 | 0 | 0 | 0 |
-| [package.json](package.json) | repository | 44 | 0 | 0 | 0 |
+| [package.json](package.json) | repository | 47 | 0 | 0 | 0 |
 | [playwright.config.js](playwright.config.js) | application | 22 | 1 | 1 | 0 |
 | [public/bench-report/data.js](public/bench-report/data.js) | application | 20740 | 0 | 0 | 124 |
 | [public/bench-report/index.html](public/bench-report/index.html) | application | 928 | 0 | 0 | 11 |
@@ -210,6 +210,7 @@ The generator scanned `294` files from active repository inputs. Individual modu
 | [tests/bench/harness.html](tests/bench/harness.html) | testing | 16 | 0 | 0 | 0 |
 | [tests/bench/harness.js](tests/bench/harness.js) | testing | 198 | 0 | 6 | 2 |
 | [tests/bench/renderer-benchmark.spec.js](tests/bench/renderer-benchmark.spec.js) | testing | 77 | 0 | 4 | 0 |
+| [tests/e2e/pages-baseline.spec.js](tests/e2e/pages-baseline.spec.js) | testing | 45 | 0 | 1 | 0 |
 | [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 67 | 0 | 1 | 0 |
 | [tests/e2e/runtime-acceptance.spec.js](tests/e2e/runtime-acceptance.spec.js) | testing | 59 | 0 | 1 | 1 |
 | [tests/helpers/cssSources.js](tests/helpers/cssSources.js) | testing | 137 | 6 | 3 | 0 |
@@ -281,6 +282,8 @@ The generator scanned `294` files from active repository inputs. Individual modu
 | [tests/unit/perfKnobs.test.js](tests/unit/perfKnobs.test.js) | testing | 84 | 0 | 3 | 0 |
 | [tests/unit/physics.test.js](tests/unit/physics.test.js) | testing | 60 | 0 | 5 | 4 |
 | [tests/unit/prng.test.js](tests/unit/prng.test.js) | testing | 49 | 0 | 2 | 0 |
+| [tests/unit/productGoldenFixture.test.js](tests/unit/productGoldenFixture.test.js) | testing | 17 | 0 | 2 | 0 |
+| [tests/unit/productSimCompatibility.test.js](tests/unit/productSimCompatibility.test.js) | testing | 66 | 0 | 5 | 1 |
 | [tests/unit/provenance.test.js](tests/unit/provenance.test.js) | testing | 80 | 0 | 6 | 2 |
 | [tests/unit/quantumMacro.test.js](tests/unit/quantumMacro.test.js) | testing | 385 | 0 | 5 | 5 |
 | [tests/unit/relationshipCompatibility.test.js](tests/unit/relationshipCompatibility.test.js) | testing | 79 | 0 | 4 | 2 |
@@ -310,5 +313,5 @@ The generator scanned `294` files from active repository inputs. Individual modu
 | [tests/unit/worldSave.test.js](tests/unit/worldSave.test.js) | testing | 358 | 0 | 7 | 5 |
 | [tests/unit/wrapLaw.test.js](tests/unit/wrapLaw.test.js) | testing | 66 | 0 | 4 | 1 |
 | [vercel.json](vercel.json) | repository | 35 | 0 | 0 | 0 |
-| [vite.config.js](vite.config.js) | repository | 28 | 1 | 1 | 0 |
+| [vite.config.js](vite.config.js) | repository | 34 | 1 | 1 | 0 |
 | [vitest.config.js](vitest.config.js) | repository | 14 | 1 | 1 | 0 |
