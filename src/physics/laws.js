@@ -2151,14 +2151,20 @@ export function applyFieldDrift(p1Ptr, k) {
 /** CURRENT — charge diffusion between conductive neighbors. */
 export function applyCurrentTransfer(p1Ptr, p2Ptr, distSq, k) {
   const buf = buffer_global;
-  if (distSq > 300) return;
+  if (!Number.isFinite(distSq) || distSq < 0 || distSq > 300 || !Number.isFinite(k) || k <= 0) return;
   // Real conduction needs both materials to conduct (confirmed batch-14).
-  const cond = Math.min(readDNA(p1Ptr, D.CONDUCTIVITY) || 0, readDNA(p2Ptr, D.CONDUCTIVITY) || 0);
+  const rawA = readDNA(p1Ptr, D.CONDUCTIVITY), rawB = readDNA(p2Ptr, D.CONDUCTIVITY);
+  const q1 = buf[p1Ptr + S.CHARGE], q2 = buf[p2Ptr + S.CHARGE];
+  if (![rawA, rawB, q1, q2].every(Number.isFinite)) return;
+  const cond = Math.min(clamp(rawA, 0, 1), clamp(rawB, 0, 1));
   if (cond <= 0) return;
-  const dq = (buf[p2Ptr + S.CHARGE] - buf[p1Ptr + S.CHARGE]) * cond * k;
-  if (dq === 0) return;
-  buf[p1Ptr + S.CHARGE] += dq;
-  buf[p2Ptr + S.CHARGE] -= dq;
+  // A transfer fraction above one would overshoot the equalization point and
+  // create an artificial charge oscillation. Bound it to one complete transfer.
+  const fraction = clamp(cond * k, 0, 1);
+  const dq = (q2 - q1) * fraction;
+  if (!Number.isFinite(dq) || dq === 0) return;
+  buf[p1Ptr + S.CHARGE] = q1 + dq;
+  buf[p2Ptr + S.CHARGE] = q2 - dq;
 }
 
 /** RESISTANCE — kinetic energy → heat + velocity damping (per-particle).
@@ -2167,14 +2173,22 @@ export function applyCurrentTransfer(p1Ptr, p2Ptr, distSq, k) {
  * feedback — prevents runaway charge-driven velocities). */
 export function applyResistance(p1Ptr, vx, vy, vz, k) {
   const buf = buffer_global;
-  const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
-  if (speed < 0.01) return null;
-  const cond = readDNA(p1Ptr, D.CONDUCTIVITY) || 0;
+  if (![vx, vy, vz, k].every(Number.isFinite) || k < 0) return null;
+  const speed = Math.hypot(vx, vy, vz);
+  if (!Number.isFinite(speed) || speed < 0.01) return null;
+  const rawCond = readDNA(p1Ptr, D.CONDUCTIVITY);
+  if (!Number.isFinite(rawCond)) return null;
+  const rawTemperature = buf[p1Ptr + S.TEMPERATURE];
+  if (!Number.isFinite(rawTemperature)) return null;
+  const cond = clamp(rawCond, 0, 1);
   const materialFactor = 1 - cond * 0.9; // conductors glide, insulators resist
-  const heatFactor = 1 + (buf[p1Ptr + S.TEMPERATURE] || 0) * 2; // hotter → slower
+  const heatFactor = 1 + Math.max(0, rawTemperature) * 2; // hotter → slower
   const damp = speed * k * materialFactor * heatFactor;
-  buf[p1Ptr + S.TEMPERATURE] = Math.min(1, (buf[p1Ptr + S.TEMPERATURE] || 0) + speed * k * materialFactor * 0.5);
-  return { ax: -vx * damp, ay: -vy * damp, az: -vz * damp };
+  const temperature = Math.min(1, Math.max(0, rawTemperature) + speed * k * materialFactor * 0.5);
+  const ax = -vx * damp, ay = -vy * damp, az = -vz * damp;
+  if (![damp, temperature, ax, ay, az].every(Number.isFinite)) return null;
+  buf[p1Ptr + S.TEMPERATURE] = temperature;
+  return { ax, ay, az };
 }
 
 /** CAPACITANCE — store surplus energy as charge (per-particle).
@@ -2233,15 +2247,13 @@ export function applyInductance(p1Ptr, p2Ptr, dist, k) {
 export function applyMagneticForce(p1Ptr, p2Ptr, dx, dy, dz, dist, k) {
   const m1 = readDNA(p1Ptr, D.MAGNETIC_MOMENT) || 0;
   const m2 = readDNA(p2Ptr, D.MAGNETIC_MOMENT) || 0;
+  if (![m1, m2, dx, dy, dz, dist, k].every(Number.isFinite) || dist <= 0 || k < 0) return null;
   const mm = m1 * m2;
-  if (mm === 0) return null;
+  if (!Number.isFinite(mm) || mm === 0) return null;
   const force = k * mm / (dist * dist + 0.5);
   const invDist = 1.0 / (dist + 0.001);
-  return {
-    ax: nanGuard(dx * invDist * force),
-    ay: nanGuard(dy * invDist * force),
-    az: nanGuard(dz * invDist * force),
-  };
+  const result = { ax: dx * invDist * force, ay: dy * invDist * force, az: dz * invDist * force };
+  return Object.values(result).every(Number.isFinite) ? result : null;
 }
 
 /** RESONANCE — sympathetic vibration: matched pulsing pairs attract and amplify.
