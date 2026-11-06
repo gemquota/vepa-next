@@ -114,6 +114,7 @@ export function createProductSimShadow({ worldId = 'product-shadow', seed = 0, t
   const tracker = createWorkerResponseTracker();
 
   function initialize(payload) {
+    if (payload.worldId !== undefined && payload.worldId !== worldId) throw new TypeError('product shadow worldId does not match its worker session');
     const count = payload.count;
     const stride = payload.stride ?? 100;
     const productState = typedState(payload.state, 'product initial state');
