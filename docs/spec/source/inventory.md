@@ -9,9 +9,9 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | Application | 36 | 157 | 458 |
 | Benchmark | 4 | 5 | 10 |
 | Repository | 7 | 2 | 3 |
-| Simulation | 30 | 216 | 367 |
-| State | 37 | 294 | 289 |
-| Testing | 156 | 25 | 501 |
+| Simulation | 30 | 218 | 370 |
+| State | 37 | 300 | 297 |
+| Testing | 156 | 25 | 502 |
 | Ui | 27 | 100 | 381 |
 
 ## Module list
@@ -24,7 +24,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [bench/worker-bench-worker.mjs](bench/worker-bench-worker.mjs) | benchmark | 79 | 0 | 7 | 0 |
 | [index.html](index.html) | repository | 226 | 0 | 0 | 1 |
 | [package-lock.json](package-lock.json) | repository | 2618 | 0 | 0 | 0 |
-| [package.json](package.json) | repository | 47 | 0 | 0 | 0 |
+| [package.json](package.json) | repository | 48 | 0 | 0 | 0 |
 | [playwright.config.js](playwright.config.js) | application | 22 | 1 | 1 | 0 |
 | [public/bench-report/data.js](public/bench-report/data.js) | application | 20740 | 0 | 0 | 124 |
 | [public/bench-report/index.html](public/bench-report/index.html) | application | 928 | 0 | 0 | 11 |
@@ -65,7 +65,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/physics/force.js](src/physics/force.js) | simulation | 44 | 2 | 1 | 2 |
 | [src/physics/gpuCompute.js](src/physics/gpuCompute.js) | simulation | 425 | 4 | 0 | 4 |
 | [src/physics/interactionSpace.js](src/physics/interactionSpace.js) | simulation | 132 | 4 | 2 | 16 |
-| [src/physics/lawGraph.js](src/physics/lawGraph.js) | simulation | 170 | 8 | 3 | 4 |
+| [src/physics/lawGraph.js](src/physics/lawGraph.js) | simulation | 173 | 8 | 3 | 5 |
 | [src/physics/lawgroups/biologyLaws.js](src/physics/lawgroups/biologyLaws.js) | simulation | 53 | 1 | 2 | 2 |
 | [src/physics/lawgroups/chemistryLaws.js](src/physics/lawgroups/chemistryLaws.js) | simulation | 88 | 1 | 2 | 1 |
 | [src/physics/lawgroups/emLaws.js](src/physics/lawgroups/emLaws.js) | simulation | 67 | 1 | 2 | 1 |
@@ -153,7 +153,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/ui/tooltip.js](src/ui/tooltip.js) | ui | 171 | 2 | 4 | 122 |
 | [src/ui/tooltipDismiss.js](src/ui/tooltipDismiss.js) | ui | 106 | 5 | 0 | 0 |
 | [src/ui/ui.js](src/ui/ui.js) | ui | 557 | 5 | 18 | 1 |
-| [src/ui/worldPanel.js](src/ui/worldPanel.js) | ui | 759 | 3 | 8 | 128 |
+| [src/ui/worldPanel.js](src/ui/worldPanel.js) | ui | 763 | 3 | 8 | 128 |
 | [src/worker/physics.worker.js](src/worker/physics.worker.js) | simulation | 434 | 0 | 5 | 3 |
 | [style.css](style.css) | repository | 4436 | 0 | 0 | 2 |
 | [tests/audit/batch_01.test.js](tests/audit/batch_01.test.js) | testing | 223 | 0 | 7 | 9 |
@@ -211,7 +211,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [tests/bench/harness.js](tests/bench/harness.js) | testing | 198 | 0 | 6 | 2 |
 | [tests/bench/renderer-benchmark.spec.js](tests/bench/renderer-benchmark.spec.js) | testing | 77 | 0 | 4 | 0 |
 | [tests/e2e/pages-baseline.spec.js](tests/e2e/pages-baseline.spec.js) | testing | 45 | 0 | 1 | 0 |
-| [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 67 | 0 | 1 | 0 |
+| [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 88 | 0 | 1 | 0 |
 | [tests/e2e/runtime-acceptance.spec.js](tests/e2e/runtime-acceptance.spec.js) | testing | 59 | 0 | 1 | 1 |
 | [tests/helpers/cssSources.js](tests/helpers/cssSources.js) | testing | 137 | 6 | 3 | 0 |
 | [tests/helpers/domStub.js](tests/helpers/domStub.js) | testing | 599 | 7 | 0 | 1 |
@@ -257,7 +257,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [tests/unit/launchModal.test.js](tests/unit/launchModal.test.js) | testing | 539 | 0 | 4 | 4 |
 | [tests/unit/lawCategories.test.js](tests/unit/lawCategories.test.js) | testing | 299 | 0 | 7 | 17 |
 | [tests/unit/lawGating.test.js](tests/unit/lawGating.test.js) | testing | 186 | 0 | 6 | 8 |
-| [tests/unit/lawGraph.test.js](tests/unit/lawGraph.test.js) | testing | 55 | 0 | 4 | 10 |
+| [tests/unit/lawGraph.test.js](tests/unit/lawGraph.test.js) | testing | 58 | 0 | 4 | 11 |
 | [tests/unit/lawGrid.test.js](tests/unit/lawGrid.test.js) | testing | 243 | 0 | 7 | 5 |
 | [tests/unit/lawgroupsBiologyChemistry.test.js](tests/unit/lawgroupsBiologyChemistry.test.js) | testing | 166 | 0 | 4 | 1 |
 | [tests/unit/lawgroupsEmInfoMeta.test.js](tests/unit/lawgroupsEmInfoMeta.test.js) | testing | 179 | 0 | 5 | 2 |
