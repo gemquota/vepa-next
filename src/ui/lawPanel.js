@@ -16,7 +16,7 @@ export function createLawPanel(bus, lawStateObj) {
       const name = NAMES.get(idx);
       const executable = isLawExecutable(name);
       const status = getLawExecutionStatus(name);
-      html += `<button type="button" class="law-btn${executable ? '' : ' metadata-only'}" data-law="${idx}"${executable ? '' : ' disabled aria-disabled="true"'}>${name}${executable ? '' : ' · META'}</button>`;
+      html += `<button type="button" class="law-btn${executable ? '' : ' metadata-only'}" data-law="${idx}"${executable ? '' : ' disabled aria-disabled="true"'}>${name}${executable ? '' : ` · ${status.toUpperCase()}`}</button>`;
     }
     html += '</div></div>';
   }
