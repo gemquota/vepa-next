@@ -29,7 +29,7 @@ export const LAW_HELP_PATCHES = {
     advanced: 'FIELD is the central simulation-field gradient; ELECTRIC_FIELD is the separate electromagnetic polarity drift.',
   },
   ELECTRIC_FIELD: {
-    hint: 'Reserved metadata entry — not executable in this release.',
+    hint: 'Reserved metadata-only entry — not executable in this release.',
     explanation: 'ELECTRIC_FIELD is retained in the 136-law registry for compatibility and future specification work. It has no solver dispatch and enabling its saved bit produces no physical effect.',
     system: 'Metadata-only. No field storage, polarity force, charge coupling, parameter range, or runtime consumer is currently implemented.',
     advanced: 'Do not confuse this entry with FIELD or CHARGE_LAW. A future implementation requires a separately reviewed field model, units, boundary conditions, dispatch, and differential behavior tests.',
