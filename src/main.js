@@ -374,8 +374,14 @@ function handleWorkerTick(message) {
     // The worker owns the authoritative tick counter while it drives the
     // solver — adopt its tickCount so the HUD does not show a frozen TICK 0.
     if (typeof message.tickCount === 'number') tick = message.tickCount;
-    if (message.simShadow) bus.emit('physics:simShadow', message.simShadow);
-    if (message.simShadowStatus) bus.emit('physics:simShadowStatus', { status: message.simShadowStatus, tick: message.tickCount });
+    if (message.simShadow) {
+        window.__VEPA_SIM_SHADOW_PARITY__ = message.simShadow;
+        bus.emit('physics:simShadow', message.simShadow);
+    }
+    if (message.simShadowStatus) {
+        window.__VEPA_SIM_SHADOW_STATUS__ = message.simShadowStatus;
+        bus.emit('physics:simShadowStatus', { status: message.simShadowStatus, tick: message.tickCount });
+    }
     finishPhysicsTick(tickStart, offspring);
 }
 
@@ -607,6 +613,8 @@ async function boot() {
     startPhysicsWorker();
     window.__VEPA_SIM_SHADOW__ = (enabled) => {
         runtimeConfig.simFoundationShadow = enabled === true;
+        window.__VEPA_SIM_SHADOW_STATUS__ = enabled === true ? 'pending' : 'disabled';
+        if (!enabled) delete window.__VEPA_SIM_SHADOW_PARITY__;
         syncPhysicsWorker();
         return runtimeConfig.simFoundationShadow;
     };
