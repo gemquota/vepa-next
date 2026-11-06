@@ -142,7 +142,7 @@ const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
     reads: ['POS_X', 'POS_Y', 'POS_Z', 'FIELD_VECTOR', 'FIELD_SCALAR'],
     writes: ['VEL_X', 'VEL_Y', 'VEL_Z'],
     rationale: 'Field drift samples the world field at the particle position; charge/current coupling is explicit and does not imply a separate ELECTRIC_FIELD law.',
-    runtimeConsumers: ['src/physics/fields.js:sampleFieldForces', 'src/physics/solver.js:FIELD dispatch'],
+    runtimeConsumers: ['src/physics/laws.js:applyFieldDrift', 'src/physics/solver.js:FIELD dispatch'],
   }),
   CURRENT: freezeRecord({
     synergizesWith: ['RESISTANCE', 'CAPACITANCE', 'DISCHARGE'],
@@ -526,7 +526,7 @@ export const LAW_RELATIONSHIP_EVIDENCE = Object.freeze([
   { source: 'DISCHARGE', type: 'synergizesWith', target: 'CURRENT', rationale: 'Discharge releases stored charge through the current pathway.', runtimeConsumer: 'applyDischarge + applyCurrentTransfer' },
   { source: 'DISCHARGE', type: 'synergizesWith', target: 'PLASMA', rationale: 'Discharge can produce the charged high-energy plasma state.', runtimeConsumer: 'applyDischarge + applyPlasma' },
   { source: 'DISCHARGE', type: 'synergizesWith', target: 'HEAT', rationale: 'Discharge energy loss is routed into thermal state.', runtimeConsumer: 'applyDischarge + applyHeatTransfer' },
-  { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'CATALYSIS_LAW', rationale: 'Autocatalytic feedback changes the effective catalyst activity.', runtimeConsumer: 'applyAutocatalysis + applyCatalysis' },
+  { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'CATALYSIS_LAW', rationale: 'Autocatalytic feedback changes the effective catalyst activity.', runtimeConsumer: 'applyAutocatalysis + CATALYSIS_LAW dispatch' },
   { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'OXIDATION', rationale: 'Oxidation reaction state is an input to the catalytic reaction path.', runtimeConsumer: 'applyAutocatalysis + applyOxidationEffect' },
   { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'EXOTHERMIC', rationale: 'Reaction heat feeds back into the autocatalytic activity.', runtimeConsumer: 'applyAutocatalysis + applyExothermic' },
   { source: 'MEMORY', type: 'synergizesWith', target: 'LEARN', rationale: 'Learning reads and updates the persistent memory trace.', runtimeConsumer: 'applyMemoryRefresh + applyLearnAlign' },
