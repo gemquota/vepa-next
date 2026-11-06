@@ -577,6 +577,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const journalEvents = Object.freeze(eventJournal.snapshot());
       return Object.freeze({
         layoutVersion: PARTICLE_LAYOUT_VERSION,
+        worldId,
         stride,
         count: particleCount,
         tick,
