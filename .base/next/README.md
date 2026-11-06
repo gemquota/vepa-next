@@ -48,3 +48,11 @@ Re-run the workflow on the current PR/commit before treating these results as cu
 - [ ] Convert each retained feature into an atomic vertical-slice task with tests and browser acceptance.
 - [ ] Add browser validation on a supported CI host and capture desktop/mobile evidence.
 - [ ] Only enable Pages publication after an explicit release decision and successful browser/release gates.
+
+## Reconciled 9.3.5 working documents
+
+- [Feature coverage matrix](FEATURE_COVERAGE_9.3.5.md): product subsystems, law evidence, and the separate SIM foundation.
+- [Operation map](OPERATION_MAP_9.3.5.md): boot, tick, worker, solver, post-tick, rendering and persistence paths.
+- [Atomic roadmap](ATOMIC_ROADMAP_9.3.5.md): sequenced parity gates and decomposed integration tasks.
+
+These documents were checked against the 9.3.5 source pin, the current 136-entry law registry, generated implementation-status and ontology-coverage reports, the worker entrypoints, the UI module report, and SIM contract modules. They are an audit snapshot, not generated truth; refresh them when source ownership or call paths change.
