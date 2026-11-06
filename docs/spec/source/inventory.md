@@ -2,7 +2,7 @@
 
 # Source: Inventory
 
-The generator scanned `297` files from active repository inputs. Individual module records are under [source/modules/](modules/).
+The generator scanned `298` files from active repository inputs. Individual module records are under [source/modules/](modules/).
 
 | Area | Files | Exports | Law references |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | Repository | 7 | 2 | 3 |
 | Simulation | 30 | 218 | 370 |
 | State | 37 | 300 | 297 |
-| Testing | 156 | 25 | 502 |
+| Testing | 157 | 25 | 502 |
 | Ui | 27 | 100 | 381 |
 
 ## Module list
@@ -211,8 +211,9 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [tests/bench/harness.js](tests/bench/harness.js) | testing | 198 | 0 | 6 | 2 |
 | [tests/bench/renderer-benchmark.spec.js](tests/bench/renderer-benchmark.spec.js) | testing | 77 | 0 | 4 | 0 |
 | [tests/e2e/pages-baseline.spec.js](tests/e2e/pages-baseline.spec.js) | testing | 45 | 0 | 1 | 0 |
-| [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 118 | 0 | 1 | 0 |
+| [tests/e2e/physics-worker.spec.js](tests/e2e/physics-worker.spec.js) | testing | 88 | 0 | 1 | 0 |
 | [tests/e2e/runtime-acceptance.spec.js](tests/e2e/runtime-acceptance.spec.js) | testing | 59 | 0 | 1 | 1 |
+| [tests/e2e/sim-shadow-baseline.spec.js](tests/e2e/sim-shadow-baseline.spec.js) | testing | 37 | 0 | 1 | 0 |
 | [tests/helpers/cssSources.js](tests/helpers/cssSources.js) | testing | 137 | 6 | 3 | 0 |
 | [tests/helpers/domStub.js](tests/helpers/domStub.js) | testing | 599 | 7 | 0 | 1 |
 | [tests/run.mjs](tests/run.mjs) | testing | 236 | 0 | 4 | 3 |

@@ -20,6 +20,6 @@ VEPA4 is a browser simulation with a main-thread orchestrator, optional physics 
 - Particle stride: `100` floats.
 - Species DNA count: `64`.
 - Declared law count: `136`.
-- Source records scanned: `297`.
+- Source records scanned: `298`.
 
 The generated module inventory is the detailed API index. This document describes ownership and execution boundaries rather than reproducing every function.
