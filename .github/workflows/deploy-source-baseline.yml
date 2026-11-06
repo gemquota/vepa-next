@@ -31,6 +31,8 @@ jobs:
         run: npm run baseline:capture
       - name: Capture deterministic product solver golden fixture
         run: npm run golden:capture
+      - name: Capture backend error and timing envelopes
+        run: npm run bench:acceptance
       - name: Run product and SIM contract suites
         run: npm run test:all
       - name: Check generated specs and repository consistency
@@ -53,4 +55,5 @@ jobs:
             test-results/
             playwright-report/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 30
