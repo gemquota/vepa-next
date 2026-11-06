@@ -509,6 +509,12 @@ export function validateLawOntology() {
       if (resourceTypes.has(key) && !Array.isArray(record[key])) {
         errors.push(`${lawName}.${key} must be an array`);
       }
+      if (key === 'rationale' && (typeof record[key] !== 'string' || record[key].trim().length < 12)) {
+        errors.push(`${lawName}.rationale must explain the declared behavior`);
+      }
+      if (key === 'runtimeConsumers' && (!Array.isArray(record[key]) || record[key].some(value => typeof value !== 'string' || !value.trim()))) {
+        errors.push(`${lawName}.runtimeConsumers must contain non-empty consumer references`);
+      }
     }
     for (const type of ['dependsOn', 'synergizesWith', 'antagonizes']) {
       const targets = record[type] || [];
