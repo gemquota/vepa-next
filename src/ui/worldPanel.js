@@ -374,7 +374,11 @@ function renderLawGrid(grid, lawStateObj, bus) {
         targetCount: targetIndexes.length, excluded: excluded.map((idx) => idx === LAW_INDEXES.WRAP ? 'WRAP' : LAW_NAME_BY_IDX[idx]),
       });
       const scope = `${targetIndexes.length} visible target${targetIndexes.length === 1 ? '' : 's'}`;
-      const exception = excluded.length ? ` Excluded non-editable entries: ${excluded.map((idx) => idx === LAW_INDEXES.WRAP ? 'WRAP boundary mode' : LAW_NAME_BY_IDX[idx] + ' (metadata-only)').join(', ')}.` : '';
+      const exceptionParts = [];
+      if (excluded.includes(LAW_INDEXES.WRAP)) exceptionParts.push('WRAP boundary mode was preserved.');
+      const metadataOnly = excluded.filter((idx) => idx !== LAW_INDEXES.WRAP);
+      if (metadataOnly.length) exceptionParts.push(`Excluded metadata-only entries: ${metadataOnly.map((idx) => LAW_NAME_BY_IDX[idx]).join(', ')}.`);
+      const exception = exceptionParts.length ? ` ${exceptionParts.join(' ')}` : '';
       bus.emit('narrative:system', {
         text: `${btn.dataset.cat}: ${changed ? (wantOn ? 'staged ON for' : 'staged OFF for') : 'unchanged'} ${scope}; ${changed} changed.${exception}`,
       });
