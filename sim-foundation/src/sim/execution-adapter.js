@@ -301,18 +301,25 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       if (values[PARTICLE_SLOTS.DEAD] >= 0.5 || values[PARTICLE_SLOTS.MASS] <= 0) throw new TypeError('new particle values must describe a live particle');
       const identity = particleIdentities.allocate(slot);
       const previous = state.slice(base, base + stride);
+      const auditSnapshot = energyLifecycleAudit.createSnapshot();
+      const journalSnapshot = eventJournal.snapshot();
       state.set(values, base);
       const mass = values[PARTICLE_SLOTS.MASS];
       const vx = values[PARTICLE_SLOTS.VEL_X], vy = values[PARTICLE_SLOTS.VEL_Y], vz = values[PARTICLE_SLOTS.VEL_Z];
       try {
+        const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
         energyLifecycleAudit.record({ kind: 'particle-created', sourceId: 'particle-creation',
           entityId: String(identity), tick, massDelta: mass,
-          kineticEnergyDelta: 0.5 * mass * (vx * vx + vy * vy + vz * vz),
+          kineticEnergyDelta: kineticEnergy,
           momentumDelta: [mass * vx, mass * vy, mass * vz],
           metadata: { slot, speciesId: values[PARTICLE_SLOTS.SPECIES_ID] } });
+        appendDomainEvent('particle.created', { slot, entityId: String(identity), sourceId: 'particle-creation',
+          massDelta: mass, kineticEnergyDelta: kineticEnergy, momentum: [mass * vx, mass * vy, mass * vz] });
       } catch (error) {
         state.set(previous, base);
         particleIdentities.release(identity);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: auditSnapshot });
+        eventJournal = createEventJournal(worldId, { events: journalSnapshot });
         throw error;
       }
       return identity;
@@ -323,13 +330,29 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const base = slot * stride;
       const mass = state[base + PARTICLE_SLOTS.MASS];
       const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
-      energyLifecycleAudit.record({ kind: 'particle-retired', sourceId: 'particle-retirement',
-        entityId: String(identity), tick, massDelta: -mass,
-        kineticEnergyDelta: -0.5 * mass * (vx * vx + vy * vy + vz * vz),
-        momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot } });
-      state[base + PARTICLE_SLOTS.DEAD] = 1;
-      state[base + PARTICLE_SLOTS.MASS] = 0;
-      return particleIdentities.release(identity);
+      const previous = state.slice(base, base + stride);
+      const identitySnapshot = particleIdentities.snapshot();
+      const auditSnapshot = energyLifecycleAudit.createSnapshot();
+      const journalSnapshot = eventJournal.snapshot();
+      const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+      try {
+        energyLifecycleAudit.record({ kind: 'particle-retired', sourceId: 'particle-retirement',
+          entityId: String(identity), tick, massDelta: -mass,
+          kineticEnergyDelta: -kineticEnergy,
+          momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot } });
+        state[base + PARTICLE_SLOTS.DEAD] = 1;
+        state[base + PARTICLE_SLOTS.MASS] = 0;
+        particleIdentities.release(identity);
+        appendDomainEvent('particle.retired', { slot, entityId: String(identity), sourceId: 'particle-retirement',
+          massDelta: -mass, kineticEnergyDelta: -kineticEnergy, momentum: [-mass * vx, -mass * vy, -mass * vz] });
+        return true;
+      } catch (error) {
+        state.set(previous, base);
+        particleIdentities.restore(identitySnapshot);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: auditSnapshot });
+        eventJournal = createEventJournal(worldId, { events: journalSnapshot });
+        throw error;
+      }
     },
     readState() { return new Float64Array(state); },
     readRenderState() {
@@ -347,8 +370,20 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       return render;
     },
     configure(proposal) {
+      const previous = activeConfig;
       const next = validateParticleExecutionConfig({ ...activeConfig, ...proposal, activeLawIds: proposal.activeLawIds ?? activeConfig.activeLawIds });
       activeConfig = next;
+      try {
+        appendDomainEvent('world.configured', {
+          changedKeys: Object.keys(proposal).sort(),
+          activeLawIds: next.activeLawIds,
+          dt: next.dt,
+          worldSize: next.worldSize,
+        });
+      } catch (error) {
+        activeConfig = previous;
+        throw error;
+      }
       return copyConfig(activeConfig);
     },
     step() {
