@@ -111,6 +111,7 @@ let WORKER_SEED = 0x51f15e;
 let launchSettings = null;
 
 let bus, prng, particleBuffer, particleView, lawState, dnaBuffer, renderer;
+let mainPrngSeed = 0;
 let insightEngine, narrativeEngine, lineageEngine, goalEngine, timelineEngine;
 let groupRegistry = null; // Set F.1 — social groups (declared + detected)
 let speciationEngine = null, ecoEngine = null, worldEventEngine = null; // Set A.1/A.2/A.3
@@ -249,7 +250,7 @@ async function resolveLaunchConfiguration() {
     const settings = normaliseLaunchSettings(choice || remembered);
     launchSettings = settings;
     if (settings.launchSeed !== null) {
-        prng = new PRNG(settings.launchSeed);
+        setMainPrng(settings.launchSeed);
         WORKER_SEED = settings.launchSeed;
     } else {
         WORKER_SEED = Date.now() | 0;
@@ -287,6 +288,16 @@ const LEGACY_WORLD_PARAM_KEYS = Object.freeze({
     dt: '__RUNTIME_DT__',
 });
 
+function setMainPrng(seed, state = seed) {
+    mainPrngSeed = seed >>> 0;
+    prng = new PRNG(mainPrngSeed).restore({ algorithm: 'splitmix32-v1', state: state >>> 0 });
+}
+function captureWorldPrng() {
+    const main = { algorithm: 'splitmix32-v1', seed: mainPrngSeed, state: prng.snapshot().state };
+    const worker = workerPrngSnapshot ? { ...workerPrngSnapshot } : null;
+    const primary = worker ?? main;
+    return { algorithm: 'splitmix32-v1', seed: primary.seed, state: primary.state, main, worker };
+}
 function rng() { return prng.next(); }
 
 function canUsePhysicsWorker() {
@@ -468,7 +479,7 @@ async function boot() {
     const t0 = performance.now();
 
     bus = new EventBus();
-    prng = new PRNG(Date.now());
+    setMainPrng(Date.now());
 
     const buf = createParticleBuffer(MAX_PARTICLES, PARTICLE_STRIDE);
     particleBuffer = buf.buffer;
@@ -899,7 +910,7 @@ function setDNAFromProfile(species, profile) {
         worldSize,
         tick,
         name,
-        prng: workerPrngSnapshot,
+        prng: captureWorldPrng(),
         civilization: civilization ? serializeCivilization(civilization) : null,
         codex: codex ? serializeCodex(codex) : null,
     });
@@ -934,7 +945,17 @@ function setDNAFromProfile(species, profile) {
         speciesCount = out.speciesCount;
         worldSize = out.worldSize;
         tick = Number.isInteger(state.tick) && state.tick >= 0 ? state.tick : 0;
-        workerPrngSnapshot = out.prng ?? null;
+        if (out.prng?.main || out.prng?.worker) {
+            workerPrngSnapshot = out.prng.worker ?? null;
+            if (out.prng.main) setMainPrng(out.prng.main.seed, out.prng.main.state);
+        } else if (out.prng) {
+            // Compatibility with the early additive checkpoint shape: restore
+            // the same stream into both paths rather than silently reseeding.
+            workerPrngSnapshot = { algorithm: out.prng.algorithm, seed: out.prng.seed, state: out.prng.state };
+            setMainPrng(out.prng.seed, out.prng.state);
+        } else {
+            workerPrngSnapshot = null;
+        }
         setWorldSize(out.worldSize);
         resetOffspringRing();
         resetIntelligence();
@@ -1141,7 +1162,7 @@ function setDNAFromProfile(species, profile) {
             text: `Restart applied ${appliedDNA.length} staged DNA edit${appliedDNA.length === 1 ? '' : 's'}.`,
         });
         spawnAccumulator = 0;
-        prng = new PRNG(launchSettings?.launchSeed ?? Date.now());
+        setMainPrng(launchSettings?.launchSeed ?? Date.now());
         WORKER_SEED = launchSettings?.launchSeed ?? (Date.now() | 0);
         particleView.fill(0);
         resetOffspringRing();
