@@ -50,11 +50,11 @@ test('neighbor truncation falls back to complete scan or explicitly reports insu
   const points = makePoints(32, 100);
   const grid = createSpatialGrid({ worldSize: 100, dim: 5 });
   points.forEach((p, i) => insertParticle(grid, i, ...p));
-  const complete = queryNeighborsOrAll(grid, ...points[0], new Int32Array(points.length), points.length, 1);
+  const complete = queryNeighborsOrAll(grid, ...points[0], new Int32Array(points.length), points.length, 0);
   assert.equal(complete.complete, true);
   assert.equal(complete.usedFallback, true);
   assert.equal(complete.count, points.length);
-  const incomplete = queryNeighborsOrAll(grid, ...points[0], new Int32Array(2), points.length, 1);
+  const incomplete = queryNeighborsOrAll(grid, ...points[0], new Int32Array(2), points.length, 0);
   assert.equal(incomplete.complete, false);
   assert.equal(incomplete.reason, 'fallback-buffer-too-small');
 });
