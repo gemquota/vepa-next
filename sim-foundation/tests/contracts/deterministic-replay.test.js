@@ -57,6 +57,8 @@ test('execution adapter journals particle lifecycle, configuration, snapshots, r
   assert.equal(reset.tick, 0);
   assert.equal(adapter.readEventJournal().at(-1).type, 'world.reset');
   assert.equal(adapter.createSnapshot().randomState.rootSeed, 99);
+  adapter.restoreSnapshot(snapshot);
+  assert.equal(adapter.createSnapshot().randomState.rootSeed, 77);
   const events = adapter.readEventJournal();
   for (let i = 1; i < events.length; i++) {
     assert.equal(events[i].sequence, events[i - 1].sequence + 1);
