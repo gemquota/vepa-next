@@ -1,7 +1,7 @@
 {
   "name": "vepa-next",
   "version": "9.3.5",
-  "description": "VEPA4 \u2014 Vector Emergent Physics Automata (Integrated Intelligence release)",
+  "description": "VEPA4 — Vector Emergent Physics Automata (Integrated Intelligence release)",
   "type": "module",
   "scripts": {
     "concat": "node exports/generate-vepa-all.mjs",
@@ -28,7 +28,10 @@
     "exports:check": "node scripts/check-export-publication.mjs",
     "bench:backends:json": "node bench/backend-compare.mjs --json",
     "test:sim": "npm --prefix sim-foundation test",
-    "test:all": "npm test && npm run test:sim"
+    "test:all": "npm test && npm run test:sim",
+    "baseline:capture": "node scripts/capture-baseline.mjs",
+    "golden:capture": "node scripts/capture-product-golden.mjs",
+    "test:e2e:baseline": "playwright test --config=playwright.baseline.config.js"
   },
   "dependencies": {
     "pixi.js": "^8.18.1",
