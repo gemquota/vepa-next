@@ -20,8 +20,8 @@ because none of the body below is written by hand.
 
 | Sub-tab | Module | What it displays | Controls |
 | --- | --- | --- | --- |
-| ⚖️ LAWS | `src/ui/lawPanel.js`<br>47 lines | The law switchboard: 136 physics, biology, chemistry, thermodynamic, metaphysical, electromagnetic, information and quantum laws across nine categories. | `button` |
-| 🌍 WORLD | `src/ui/worldPanel.js`<br>753 lines | World parameters, presets and the network panel: size, physics tuning, epoch length and thresholds. | `button`, `input`, 3 slider controls |
+| ⚖️ LAWS | `src/ui/lawPanel.js`<br>52 lines | The law switchboard: 136 physics, biology, chemistry, thermodynamic, metaphysical, electromagnetic, information and quantum laws across nine categories. | `button` |
+| 🌍 WORLD | `src/ui/worldPanel.js`<br>763 lines | World parameters, presets and the network panel: size, physics tuning, epoch length and thresholds. | `button`, `input`, 3 slider controls |
 | 🦠 SPECIES | `src/ui/speciesPanel.js`<br>248 lines | Per-species genome: the 64 DNA parameters that drive morphology, behaviour and reproduction. | `button`, 3 slider controls |
 | 🎛️ SETTINGS | `src/ui/settingsPanel.js`<br>273 lines | Runtime and renderer options: backend selection, performance knobs and display preferences. | `button`, `select`, 4 slider controls |
 
@@ -36,8 +36,8 @@ because none of the body below is written by hand.
 
 **Visual characteristics.**
 
-- 5 CSS rules target its own classes.
-- Type runs from 9px to 11px (9 / 11px). Floors are enforced by `tests/unit/typeScale.test.js`.
+- 1 CSS rules target its own classes.
+- Type is 11px throughout. Floors are enforced by `tests/unit/typeScale.test.js`.
 - Layout: `display: grid`; `grid-template-columns: repeat(4, 1fr)`.
 
 **Controls.**
@@ -492,7 +492,7 @@ every entry is one behaviour that would otherwise be a second implementation.
 | `ui/helpOverlay.js`<br><sub>410 lines</sub> | Long-press help overlay for tabs, graphs and analytics cells | `ui.js` | wired at init |
 | `ui/helpRegistry.js`<br><sub>494 lines</sub> | Help registry for tabs, sub-tabs, graphs and analytics cells | `helpOverlay.js` | single owner |
 | `ui/launchModal.js`<br><sub>674 lines</sub> | Launch modal | `main.js` | single owner |
-| `ui/lawPanel.js`<br><sub>47 lines</sub> | — | `settingsPanel.js` | single owner |
+| `ui/lawPanel.js`<br><sub>52 lines</sub> | — | `settingsPanel.js` | single owner |
 | `ui/dnaPanel.js`<br><sub>191 lines</sub> | DNA Parameter Panel | **nothing** | **not imported** |
 
 ### Loose ends
@@ -524,12 +524,12 @@ anywhere in `src/`.
 - **From the UI:** `dna:speciesChanged` (dnaPanel.js); `preset:deleted` (presetPanel.js); `preset:saved` (presetPanel.js).
 - **From the orchestrator:** `artifacts:pass` (main.js); `boot:complete` (main.js); `codex:uncertain` (main.js); `culture:transmitted` (main.js); `dna:editRejected` (state/pendingDNA.js); `economy:trade` (main.js); `epoch:listResponse` (main.js); `exotic:pass` (main.js); `law:editRejected` (state/pendingLaws.js); `multiplex:imported` (multiplex/multiplexUI.js); `physics:backend` (main.js); `quantum:pass` (main.js); `relativity:pass` (main.js); `selection:changed` (state/selection.js); `stellar:pass` (main.js); `structures:pass` (main.js); `synthetic:pass` (main.js); `timeline:recording` (main.js); `timeline:scrubbed` (engines/timelineEngine.js).
 
-**9 modules nothing reachable loads.** Walking imports from the entry
+**8 modules nothing reachable loads.** Walking imports from the entry
 script named in `index.html` (`react-entry.js`) reaches every other file in `src/`
 except these. They are checked and shipped; nothing calls them.
 
 - `ui/dnaPanel.js` (191 lines) — DNA Parameter Panel. Imported by nothing at all.
-- Outside the UI layer: `physics/interactionSpace.js`, `physics/lawGraph.js`, `physics/mechanicsDiagnostics.js`, `physics/pairGeometry.js`, `physics/relationshipExplorer.js`, `physics/relationshipState.js`, `state/lawOntology.js`, `state/presetManager.js`.
+- Outside the UI layer: `physics/interactionSpace.js`, `physics/lawGraph.js`, `physics/mechanicsDiagnostics.js`, `physics/pairGeometry.js`, `physics/relationshipExplorer.js`, `physics/relationshipState.js`, `state/presetManager.js`.
 
 ### Cross-references
 

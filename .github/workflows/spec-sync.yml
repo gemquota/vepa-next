@@ -37,6 +37,8 @@ jobs:
       - run: npm ci
       - name: Regenerate checked-in specification artifacts
         run: npm run spec:generate
+      - name: Regenerate checked-in UI module report
+        run: npm run report:ui
       - name: Commit generated artifacts only
         shell: bash
         run: |
