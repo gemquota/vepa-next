@@ -507,7 +507,7 @@ export const LAW_RELATIONSHIP_EVIDENCE = Object.freeze([
   { source: 'HEAT', type: 'antagonizes', target: 'COLD', rationale: 'Heating and cooling drive the shared temperature state in opposite directions.', runtimeConsumer: 'applyHeatTransfer + applyColdDamping' },
   { source: 'COLD', type: 'antagonizes', target: 'HEAT', rationale: 'Cooling opposes heating through the same temperature state.', runtimeConsumer: 'applyColdDamping + applyHeatTransfer' },
   { source: 'ENERGY', type: 'synergizesWith', target: 'LIFE', rationale: 'Metabolic viability consumes and replenishes the energy pool.', runtimeConsumer: 'applyLifeCycle' },
-  { source: 'ENERGY', type: 'synergizesWith', target: 'REPRO', rationale: 'Reproduction is constrained by the parent's stored energy.', runtimeConsumer: 'applyReproduction' },
+  { source: 'ENERGY', type: 'synergizesWith', target: 'REPRO', rationale: 'Reproduction is constrained by the parent’s stored energy.', runtimeConsumer: 'applyReproduction' },
   { source: 'ENERGY', type: 'synergizesWith', target: 'HEAT', rationale: 'Thermal conversion consumes or transfers energy into temperature.', runtimeConsumer: 'applyHeatTransfer' },
   { source: 'REPRO', type: 'synergizesWith', target: 'ENERGY', rationale: 'Offspring creation is bounded by parent energy expenditure.', runtimeConsumer: 'applyReproduction' },
   { source: 'REPRO', type: 'synergizesWith', target: 'GENOTYPE', rationale: 'Offspring inherit genome state with mutation applied in the lifecycle pipeline.', runtimeConsumer: 'applyReproduction + applyGenotypeMutation' },
