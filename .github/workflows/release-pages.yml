@@ -1,0 +1,75 @@
+name: Explicit VEPA Next Pages release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch, tag or commit to release
+        required: true
+        default: main
+        type: string
+      expected_sha:
+        description: Full 40-character commit SHA expected from source_ref
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: vepa-next-pages-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages-release
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout the explicitly selected source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+      - name: Verify source and release provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          expected="${{ inputs.expected_sha }}"
+          if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "expected_sha must be a full 40-character commit SHA" >&2
+            exit 1
+          fi
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Source ref resolved to $actual, not expected $expected" >&2
+            exit 1
+          fi
+          echo "RELEASE_SHA=$actual" >> "$GITHUB_ENV"
+          echo "Verified source commit: $actual"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run release validation
+        run: |
+          npm run test:all
+          npm run repository:check
+          npm run syntax-check
+      - name: Build Pages payload
+        run: VITE_BASE=/vepa-next/ npm run build
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload the exact verified Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Publish approved release
+        id: deployment
+        uses: actions/deploy-pages@v4
