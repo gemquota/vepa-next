@@ -59,14 +59,26 @@ export function productSaveToSimSnapshot(save, { worldId, generation = 0 } = {})
  typed(save.particles, Float32Array, 'product particles'); if (save.particles.length !== save.particleCount * 100) throw new RangeError('product particle buffer length mismatch');
  if (save.dna !== null) typed(save.dna, Uint16Array, 'product DNA'); record(save.laws, 'product law mask');
  const productLawMask = Object.freeze({ low: word(save.laws.low, 'laws.low'), high: word(save.laws.high, 'laws.high'), ext: word(save.laws.ext, 'laws.ext'), quad: word(save.laws.quad, 'laws.quad'), penta: word(save.laws.penta, 'laws.penta') });
- return createWorldSnapshot({ worldId, tick: Number.isSafeInteger(save.tick) && save.tick >= 0 ? save.tick : 0, generation, config: { source: { format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION }, worldSize: save.worldSize, worldParams: save.worldParams ?? {}, runtime: save.runtime ?? {}, productLawMask, lawIdentityPolicy: 'opaque-product-index-space-v1', deterministicContinuation: 'unavailable-product-save-has-no-prng-state' }, simulationState: { layoutVersion: 1, particleStride: 100, particleCount: save.particleCount, speciesCount: save.speciesCount, particles: save.particles, dna: save.dna, civilization: save.civilization ?? null }, prngState: null, lastEventSequence: -1 });
+ let prngState = null;
+ if (save.prng != null) {
+  record(save.prng, 'product PRNG checkpoint');
+  if (save.prng.algorithm !== 'splitmix32-v1') throw new TypeError('Unsupported product PRNG algorithm');
+  prngState = Object.freeze({ algorithm: 'splitmix32-v1', seed: word(save.prng.seed, 'prng.seed'), state: word(save.prng.state, 'prng.state') });
+ }
+ const deterministicContinuation = prngState ? 'splitmix32-v1-checkpoint-available' : 'unavailable-legacy-save-has-no-prng-state';
+ return createWorldSnapshot({ worldId, tick: Number.isSafeInteger(save.tick) && save.tick >= 0 ? save.tick : 0, generation, config: { source: { format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION }, worldSize: save.worldSize, worldParams: save.worldParams ?? {}, runtime: save.runtime ?? {}, productLawMask, lawIdentityPolicy: 'opaque-product-index-space-v1', deterministicContinuation }, simulationState: { layoutVersion: 1, particleStride: 100, particleCount: save.particleCount, speciesCount: save.speciesCount, particles: save.particles, dna: save.dna, civilization: save.civilization ?? null }, prngState, lastEventSequence: -1 });
 }
 export function simSnapshotToProductSave(snapshot, { expectedWorldId } = {}) {
  const verdict = validateWorldSnapshot(snapshot, { expectedWorldId }); if (!verdict.valid) throw new TypeError('Invalid SIM snapshot: ' + verdict.errors.join(', '));
  const config = restoreSnapshotValue(snapshot.config); const state = restoreSnapshotValue(snapshot.simulationState);
  if (config?.source?.format !== PRODUCT_SAVE_FORMAT || config.source.version !== PRODUCT_SAVE_VERSION || state?.layoutVersion !== 1 || state.particleStride !== 100) throw new TypeError('SIM snapshot does not contain a supported product v1 payload');
  typed(state.particles, Float32Array, 'snapshot particles'); if (state.particles.length !== state.particleCount * 100) throw new RangeError('snapshot particle buffer length mismatch'); if (state.dna !== null) typed(state.dna, Uint16Array, 'snapshot DNA');
- return Object.freeze({ format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION, tick: snapshot.tick, worldSize: config.worldSize, particleCount: state.particleCount, speciesCount: state.speciesCount, particles: state.particles.slice(), dna: state.dna?.slice() ?? null, laws: { ...config.productLawMask }, worldParams: { ...config.worldParams }, runtime: { ...config.runtime }, civilization: state.civilization ?? null, migration: Object.freeze({ source: 'vepa.world-snapshot/v2', prngRestored: false }) });
+ const prng = snapshot.prngState == null ? null : Object.freeze({
+  algorithm: snapshot.prngState.algorithm,
+  seed: word(snapshot.prngState.seed, 'snapshot.prngState.seed'),
+  state: word(snapshot.prngState.state, 'snapshot.prngState.state'),
+ });
+ return Object.freeze({ format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION, tick: snapshot.tick, worldSize: config.worldSize, particleCount: state.particleCount, speciesCount: state.speciesCount, particles: state.particles.slice(), dna: state.dna?.slice() ?? null, laws: { ...config.productLawMask }, worldParams: { ...config.worldParams }, runtime: { ...config.runtime }, prng, civilization: state.civilization ?? null, migration: Object.freeze({ source: 'vepa.world-snapshot/v2', prngRestored: prng !== null }) });
 }
 export const PRODUCT_SOLVER_PHASE_CONTRACT = Object.freeze([
  ...[['prepare','solver','tick',['scratch','runtime-limits']],['field-update','solver','cadence',['field-state']],['backend-selection','solver','tick',['backend-local-state']],['neighbor-build','solver','tick-or-reuse',['neighbor-index']],['force-evaluation','solver','particle-and-pair',['force-accumulators']],['mechanics-boundaries','solver','particle-and-pair',['particle-physical-state']],['integration','solver','particle',['particle-physical-state']],['lifecycle','solver','particle-and-population',['particle-lifecycle','offspring-buffer']],['post-tick','main-thread','cadence',['population','lineage','metrics','events']],['render','renderer','frame',['render-cache-only']]].map(([id,ownership,granularity,writes]) => Object.freeze({ id, ownership, granularity, writes: Object.freeze(writes) }))
