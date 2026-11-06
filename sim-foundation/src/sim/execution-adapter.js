@@ -140,7 +140,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   let solverEnergyEvidence = createSolverEnergyEvidence();
   let forceWorkJournal = createForceWorkJournal();
   for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
-  const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
+  let randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
   let eventJournal = createEventJournal(worldId);
   let worldGeneration = 0;
   let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
@@ -560,7 +560,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       tick = 0;
       worldGeneration++;
       activeConfig = nextConfig;
-      randomStreams.restore(createDeterministicRandomStreams({ seed: nextSeed }).snapshot());
+      randomStreams = createDeterministicRandomStreams({ seed: nextSeed });
       for (let slot = 0; slot < particleCount; slot++) {
         const base = slot * stride;
         if (state[base + PARTICLE_SLOTS.DEAD] < 0.5 && state[base + PARTICLE_SLOTS.MASS] > 0) particleIdentities.allocate(slot);
@@ -614,7 +614,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         throw new TypeError('Snapshot event journal sequence does not match lastEventSequence');
       }
       const nextRandomStreams = createDeterministicRandomStreams({
-        seed: randomSeed,
+        seed: snapshot.randomState?.rootSeed ?? randomStreams.seed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
       });
       if (snapshot.identityState === undefined) throw new TypeError('Snapshot is missing particle identity state');
@@ -624,7 +624,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         const alive = snapshot.state[base + PARTICLE_SLOTS.DEAD] < 0.5 && snapshot.state[base + PARTICLE_SLOTS.MASS] > 0;
         if (alive !== Boolean(nextIdentities.get(i))) throw new TypeError('Snapshot particle identity state does not match particle liveness');
       }
-      randomStreams.restore(nextRandomStreams.snapshot());
+      randomStreams = nextRandomStreams;
       particleIdentities = nextIdentities;
       energyLedger = nextEnergyLedger;
       energyBudgetTimeline = nextEnergyBudgetTimeline;
