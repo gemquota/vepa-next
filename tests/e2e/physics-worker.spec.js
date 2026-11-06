@@ -85,3 +85,36 @@ test('hardware WebGPU device loss is observed by the same fallback monitor used 
   expect(result.status.reason).toBe('destroyed');
   expect(result.status.message).toBeTruthy();
 });
+
+
+test('live physics worker enables the opt-in SIM shadow without replacing product ticks', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    if (!crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') return { supported: false };
+    const deadline = performance.now() + 6000;
+    while (typeof window.__VEPA_SIM_SHADOW__ !== 'function' && performance.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    if (typeof window.__VEPA_SIM_SHADOW__ !== 'function') return { supported: false };
+    const before = document.querySelector('#hud-tick')?.textContent || '';
+    window.__VEPA_SIM_SHADOW__(true);
+    while (performance.now() < deadline) {
+      const status = window.__VEPA_SIM_SHADOW_STATUS__;
+      const tick = document.querySelector('#hud-tick')?.textContent || '';
+      if (status === 'ready' || status === 'unsupported' || status === 'error') {
+        return { supported: true, status, before, tick };
+      }
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    return {
+      supported: true,
+      status: window.__VEPA_SIM_SHADOW_STATUS__ ?? 'timeout',
+      before,
+      tick: document.querySelector('#hud-tick')?.textContent || '',
+    };
+  });
+  if (!result.supported) test.skip();
+  expect(result.status).toBe('ready');
+  expect(result.tick).toMatch(/\\d[\\d,]*\\n\\d+\\.\\d/);
+  expect(result.tick).not.toBe(result.before);
+});
