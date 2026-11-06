@@ -64,3 +64,24 @@ test('GPU opt-in remains safe when WebGPU is unavailable', async ({ page }) => {
   });
   expect(fallback).toBeNull();
 });
+
+test('hardware WebGPU device loss is observed by the same fallback monitor used in the worker', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const module = await import('/src/physics/gpuCompute.js');
+    const gpu = await module.createGPUContext();
+    if (!gpu) return { skipped: true };
+    const observed = new Promise(resolve => module.watchGPUDeviceLoss(gpu, resolve));
+    gpu.device.destroy();
+    const status = await Promise.race([
+      observed,
+      new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 5000)),
+    ]);
+    return { skipped: false, status };
+  });
+  test.info().annotations.push({ type: 'webgpu-device-loss', description: result.skipped ? 'no adapter available' : 'device.destroy() observed by worker loss monitor' });
+  if (result.skipped) return;
+  expect(result.status.timeout).not.toBe(true);
+  expect(result.status.reason).toBe('destroyed');
+  expect(result.status.message).toBeTruthy();
+});

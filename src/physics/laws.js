@@ -530,7 +530,6 @@ export function applyLifeCycle(lawState, view, base, dnaParams, dt, prng, synerg
   view[base + S.HUNGER] = hunger;
 
   // === BIOLOGICAL VARIANCE ===
-  const ageNorm = Math.min(1.0, age / 5000);
   const birthRate = Math.abs(dnaParams[10] || 0.5); // BIRTH_RATE=10
   const mutRate = Math.abs(dnaParams[12] || 0.5); // MUTATION=12
 
@@ -558,19 +557,33 @@ export function applyLifeCycle(lawState, view, base, dnaParams, dt, prng, synerg
   view[base + S.MASS] = Math.max(0.1, Math.min(50, view[base + S.MASS] || 1));
   // === END BIOLOGICAL VARIANCE ===
 
-  // Senescence (LAW_INDEXES.SENESCENCE = 12)
-  if (isSet(lawState, LAW_INDEXES.SENESCENCE)) {
-    // TELOMERE_LENGTH (60, genome-only) — longer telomeres resist aging death.
-    const telomere = dnaBuffer ? readSpeciesDNAParam(dnaBuffer, view[base + S.SPECIES_ID] || 0, 60) : 0.5;
-    const deathRate = dnaParams[11] * 0.001 * (1.0 + ageNorm * 0.5) * (1 - telomere * 0.5);
-    if (age > 500 && prng() < deathRate * dt) {
-      view[base + S.DEAD] = 1.0;
-      return;
-    }
-  }
 
   // Radiation damage lives in the standalone RADIATION law (applyRadiationDamage)
   // — applying it here as well would double-drain every irradiated organism.
+}
+
+/**
+ * Aging-driven mortality is a distinct SENESCENCE gate layered on LIFE.
+ * LIFE owns baseline metabolic viability; SENESCENCE adds age/telomere mortality.
+ * Keeping this dispatch separate makes both law gates independently inspectable.
+ */
+export function applySenescence(lawState, view, base, dnaParams, dt, prng, dnaBuffer) {
+  if (!isSet(lawState, LAW_INDEXES.LIFE) || !isSet(lawState, LAW_INDEXES.SENESCENCE)) return false;
+  const age = view[base + S.AGE];
+  if (!Number.isFinite(age) || age <= 500 || !Number.isFinite(dt) || dt <= 0) return false;
+  const rawDeathRate = Number(dnaParams?.[11]);
+  if (!Number.isFinite(rawDeathRate)) return false;
+  const ageNorm = Math.min(1.0, age / 5000);
+  const rawTelomere = dnaBuffer ? readSpeciesDNAParam(dnaBuffer, view[base + S.SPECIES_ID] || 0, 60) : 0.5;
+  const telomere = Number.isFinite(rawTelomere) ? Math.max(0, Math.min(1, rawTelomere)) : 0.5;
+  const deathRate = Math.max(0, rawDeathRate) * 0.001 * (1.0 + ageNorm * 0.5) * (1 - telomere * 0.5);
+  const probability = Math.min(1, deathRate * dt);
+  const sample = prng();
+  if (Number.isFinite(sample) && sample >= 0 && sample < probability) {
+    view[base + S.DEAD] = 1.0;
+    return true;
+  }
+  return false;
 }
 
 // ============================================================================
@@ -1292,13 +1305,16 @@ export function applyVoid(lawState, view, base, px, py, pz, worldSize, synergy) 
 // TEMPERATURE (stride 66) is heated by RESISTANCE, fusion and stellar output.
 export function applyBuoyancy(lawState, view, base) {
   if (!isSet(lawState, LAW_INDEXES.BUOYANCY)) return null;
-  const heatOutput = view[base + S.DNA_CACHE_START + DNA_INDEXES.HEAT_OUTPUT] || 0;
-  const temp = view[base + S.TEMPERATURE] || 0;
-  const ambient = 0.5; // mid-scale ambient temperature
-  const delta = temp - ambient;
-  if (Math.abs(delta) < 0.01) return null;
+  const rawTemp = view[base + S.TEMPERATURE];
+  if (!Number.isFinite(rawTemp)) return null;
+  const rawHeatOutput = view[base + S.DNA_CACHE_START + DNA_INDEXES.HEAT_OUTPUT];
+  const heatOutput = Number.isFinite(rawHeatOutput) ? Math.max(0, Math.min(1, rawHeatOutput)) : 0;
+  const ambient = 0.5; // normalized mid-scale ambient temperature
+  const delta = rawTemp - ambient;
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.01) return null;
   const k = 0.02 * (0.5 + heatOutput);
-  return { ax: 0, ay: 0, az: -delta * k }; // negative z = up
+  const az = -delta * k;
+  return Number.isFinite(az) ? { ax: 0, ay: 0, az } : null; // negative z = up
 }
 
 // ============================================================================
@@ -2135,14 +2151,20 @@ export function applyFieldDrift(p1Ptr, k) {
 /** CURRENT — charge diffusion between conductive neighbors. */
 export function applyCurrentTransfer(p1Ptr, p2Ptr, distSq, k) {
   const buf = buffer_global;
-  if (distSq > 300) return;
+  if (!Number.isFinite(distSq) || distSq < 0 || distSq > 300 || !Number.isFinite(k) || k <= 0) return;
   // Real conduction needs both materials to conduct (confirmed batch-14).
-  const cond = Math.min(readDNA(p1Ptr, D.CONDUCTIVITY) || 0, readDNA(p2Ptr, D.CONDUCTIVITY) || 0);
+  const rawA = readDNA(p1Ptr, D.CONDUCTIVITY), rawB = readDNA(p2Ptr, D.CONDUCTIVITY);
+  const q1 = buf[p1Ptr + S.CHARGE], q2 = buf[p2Ptr + S.CHARGE];
+  if (![rawA, rawB, q1, q2].every(Number.isFinite)) return;
+  const cond = Math.min(clamp(rawA, 0, 1), clamp(rawB, 0, 1));
   if (cond <= 0) return;
-  const dq = (buf[p2Ptr + S.CHARGE] - buf[p1Ptr + S.CHARGE]) * cond * k;
-  if (dq === 0) return;
-  buf[p1Ptr + S.CHARGE] += dq;
-  buf[p2Ptr + S.CHARGE] -= dq;
+  // Equalization occurs after transferring half the charge difference.
+  // Cap the fraction at 0.5 so a large timestep cannot overshoot or swap signs.
+  const fraction = clamp(cond * k, 0, 0.5);
+  const dq = (q2 - q1) * fraction;
+  if (!Number.isFinite(dq) || dq === 0) return;
+  buf[p1Ptr + S.CHARGE] = q1 + dq;
+  buf[p2Ptr + S.CHARGE] = q2 - dq;
 }
 
 /** RESISTANCE — kinetic energy → heat + velocity damping (per-particle).
@@ -2151,14 +2173,22 @@ export function applyCurrentTransfer(p1Ptr, p2Ptr, distSq, k) {
  * feedback — prevents runaway charge-driven velocities). */
 export function applyResistance(p1Ptr, vx, vy, vz, k) {
   const buf = buffer_global;
-  const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
-  if (speed < 0.01) return null;
-  const cond = readDNA(p1Ptr, D.CONDUCTIVITY) || 0;
+  if (![vx, vy, vz, k].every(Number.isFinite) || k < 0) return null;
+  const speed = Math.hypot(vx, vy, vz);
+  if (!Number.isFinite(speed) || speed < 0.01) return null;
+  const rawCond = readDNA(p1Ptr, D.CONDUCTIVITY);
+  if (!Number.isFinite(rawCond)) return null;
+  const rawTemperature = buf[p1Ptr + S.TEMPERATURE];
+  if (!Number.isFinite(rawTemperature)) return null;
+  const cond = clamp(rawCond, 0, 1);
   const materialFactor = 1 - cond * 0.9; // conductors glide, insulators resist
-  const heatFactor = 1 + (buf[p1Ptr + S.TEMPERATURE] || 0) * 2; // hotter → slower
+  const heatFactor = 1 + Math.max(0, rawTemperature) * 2; // hotter → slower
   const damp = speed * k * materialFactor * heatFactor;
-  buf[p1Ptr + S.TEMPERATURE] = Math.min(1, (buf[p1Ptr + S.TEMPERATURE] || 0) + speed * k * materialFactor * 0.5);
-  return { ax: -vx * damp, ay: -vy * damp, az: -vz * damp };
+  const temperature = Math.min(1, Math.max(0, rawTemperature) + speed * k * materialFactor * 0.5);
+  const ax = -vx * damp, ay = -vy * damp, az = -vz * damp;
+  if (![damp, temperature, ax, ay, az].every(Number.isFinite)) return null;
+  buf[p1Ptr + S.TEMPERATURE] = temperature;
+  return { ax, ay, az };
 }
 
 /** CAPACITANCE — store surplus energy as charge (per-particle).
@@ -2217,15 +2247,13 @@ export function applyInductance(p1Ptr, p2Ptr, dist, k) {
 export function applyMagneticForce(p1Ptr, p2Ptr, dx, dy, dz, dist, k) {
   const m1 = readDNA(p1Ptr, D.MAGNETIC_MOMENT) || 0;
   const m2 = readDNA(p2Ptr, D.MAGNETIC_MOMENT) || 0;
+  if (![m1, m2, dx, dy, dz, dist, k].every(Number.isFinite) || dist <= 0 || k < 0) return null;
   const mm = m1 * m2;
-  if (mm === 0) return null;
+  if (!Number.isFinite(mm) || mm === 0) return null;
   const force = k * mm / (dist * dist + 0.5);
   const invDist = 1.0 / (dist + 0.001);
-  return {
-    ax: nanGuard(dx * invDist * force),
-    ay: nanGuard(dy * invDist * force),
-    az: nanGuard(dz * invDist * force),
-  };
+  const result = { ax: dx * invDist * force, ay: dy * invDist * force, az: dz * invDist * force };
+  return Object.values(result).every(Number.isFinite) ? result : null;
 }
 
 /** RESONANCE — sympathetic vibration: matched pulsing pairs attract and amplify.

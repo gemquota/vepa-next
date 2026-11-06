@@ -8,9 +8,9 @@ The law catalog is generated from LAW_INDEXES, LAW_CATEGORIES and associated met
 
 | Category | Color | Count | Solver-wired records | Merged help records |
 | --- | --- | --- | --- | --- |
-| Physics | RED | 16 | 15 | 0 |
+| Physics | RED | 16 | 16 | 0 |
 | Mechanics | SLATE | 8 | 8 | 8 |
-| Biology | ORANGE | 16 | 15 | 0 |
+| Biology | ORANGE | 16 | 16 | 0 |
 | Chemistry | YELLOW | 16 | 16 | 0 |
 | Thermodynamics | GREEN | 16 | 16 | 0 |
 | Metaphysics | TEAL | 16 | 16 | 0 |

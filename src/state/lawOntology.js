@@ -1,4 +1,4 @@
-import { LAW_INDEXES } from '../constants.js';
+import { LAW_INDEXES, DNA_INDEXES, DNA_RANGES } from '../constants.js';
 
 /**
  * Relationship vocabulary for the law ontology.
@@ -18,6 +18,8 @@ export const LAW_RELATIONSHIP_TYPES = Object.freeze([
   'produces',
   'feedback',
   'notes',
+  'rationale',
+  'runtimeConsumers',
 ]);
 
 export const LAW_EDGE_RELATIONSHIP_TYPES = Object.freeze([
@@ -28,11 +30,72 @@ export const LAW_EDGE_RELATIONSHIP_TYPES = Object.freeze([
 
 const LAW_NAMES = new Set(Object.keys(LAW_INDEXES));
 
+function dnaParameter(name, unit, semantic) {
+  const index = DNA_INDEXES[name];
+  const range = DNA_RANGES[index];
+  if (index === undefined || !range) throw new Error(`Missing canonical DNA range for ${name}`);
+  return Object.freeze({ name, index, min: range.min, max: range.max, default: range.default, unit, semantic });
+}
+
+// High-risk parameter contracts. Values remain dimensionless simulation
+// controls unless a world/stride field explicitly declares another unit;
+// these are not SI measurements.
+export const LAW_PARAMETER_CONTRACTS = Object.freeze({
+  GRAV: Object.freeze({ parameters: [dnaParameter('FORCE', 'dimensionless force modifier', 'Scales the particle gravity contribution.')], invariants: Object.freeze(['pair forces are equal and opposite', 'acceleration remains finite']) }),
+  DRAG: Object.freeze({ parameters: [dnaParameter('VISCOSITY', 'dimensionless damping control', 'Controls velocity retention in the drag path.')], invariants: Object.freeze(['positive damping does not increase kinetic energy', 'zero drag leaves velocity unchanged']) }),
+  COLL: Object.freeze({ parameters: [dnaParameter('ELASTICITY', 'dimensionless restitution coefficient', 'Bounds the normal velocity response for an impact.')], invariants: Object.freeze(['linear momentum is conserved for an isolated pair', 'restitution one does not create kinetic energy']) }),
+  BUOYANCY: Object.freeze({ parameters: [dnaParameter('HEAT_OUTPUT', 'dimensionless normalized modifier', 'Scales the temperature-relative vertical acceleration.')], invariants: Object.freeze(['force sign opposes temperature minus ambient', 'non-finite inputs cannot produce non-finite acceleration']) }),
+  LIFE: Object.freeze({ parameters: [dnaParameter('ENERGY_EFFICIENCY', 'dimensionless metabolic scale (0–10)', 'Scales the energy cost of maintaining viability; this is not a bounded efficiency fraction.')], invariants: Object.freeze(['metabolic death is gated by LIFE', 'a dead particle does not continue lifecycle writes']) }),
+  REPRO: Object.freeze({ parameters: [dnaParameter('BIRTH_RATE', 'dimensionless reproduction-rate modifier', 'Controls the reproduction gate and offspring cadence.'), dnaParameter('SEX_CHANCE', 'dimensionless mating-mode modifier', 'Controls reproductive mode selection.')], invariants: Object.freeze(['offspring occupies a distinct live slot', 'parent and offspring identity records do not alias']) }),
+  SENESCENCE: Object.freeze({ parameters: [dnaParameter('DEATH_RATE', 'dimensionless hazard-rate modifier', 'Scales the age-dependent death probability.'), dnaParameter('TELOMERE_LENGTH', 'dimensionless normalized resistance', 'Reduces the age-dependent mortality probability.')], invariants: Object.freeze(['requires LIFE and SENESCENCE gates', 'probability is clamped to [0, 1]', 'longer telomeres do not increase mortality']) }),
+  ENERGY: Object.freeze({ parameters: [dnaParameter('ENERGY_EFFICIENCY', 'dimensionless metabolic scale (0–10)', 'Controls the metabolic energy budget; this is not a bounded efficiency fraction.')], invariants: Object.freeze(['internal transfers preserve ledger balance', 'unexplained residuals are reported rather than clamped']) }),
+  ALLOY: Object.freeze({ parameters: [dnaParameter('FUSION', 'dimensionless fusion efficiency', 'Controls the fusion contribution.'), dnaParameter('FUSION_MOMENTUM', 'dimensionless momentum threshold modifier', 'Controls impact-based fusion qualification.'), dnaParameter('FUSION_TIME', 'simulation time units', 'Controls sustained-contact fusion qualification in the configured world time scale.')], invariants: Object.freeze(['survivor slot is stable', 'linear momentum is conserved', 'extensive DNA and colour values are mass weighted']) }),
+  BOND: Object.freeze({ parameters: [dnaParameter('STIFFNESS', 'dimensionless spring stiffness', 'Controls the bond restoring response.'), dnaParameter('BOND_ANGLE', 'degrees', 'Controls the preferred bond orientation.')], invariants: Object.freeze(['bond partner references are bilateral', 'bond count matches live partner slots']) }),
+  CHARGE_LAW: Object.freeze({ parameters: [dnaParameter('POLARITY', 'dimensionless signed polarity', 'Controls the sign of the charge response.')], invariants: Object.freeze(['isolated pair force is equal and opposite', 'zero charge produces zero Coulomb force']) }),
+  CURRENT: Object.freeze({ parameters: [dnaParameter('CONDUCTIVITY', 'dimensionless normalized conductivity', 'Controls charge-transfer rate.')], invariants: Object.freeze(['charge transfer is bounded', 'closed pair transfer preserves total charge']) }),
+  RESISTANCE: Object.freeze({ parameters: [dnaParameter('CONDUCTIVITY', 'dimensionless normalized conductivity', 'Controls resistive response as the inverse transport property.')], invariants: Object.freeze(['resistive work is non-negative dissipation', 'dissipation is routed to thermal ownership']) }),
+  MAGNETISM: Object.freeze({ parameters: [dnaParameter('MAGNETIC_MOMENT', 'dimensionless signed magnetic moment', 'Controls the magnetic response strength.')], invariants: Object.freeze(['force remains finite for finite state', 'zero charge or zero magnetic moment removes the corresponding force']) }),
+});
+
+export function validateLawParameterContracts() {
+  const errors = [];
+  for (const [lawName, contract] of Object.entries(LAW_PARAMETER_CONTRACTS)) {
+    if (!LAW_NAMES.has(lawName)) errors.push(`Unknown parameter-contract law: ${lawName}`);
+    if (!Array.isArray(contract.parameters) || contract.parameters.length === 0) errors.push(`${lawName}: parameter contract is empty`);
+    if (!Array.isArray(contract.invariants) || contract.invariants.length === 0) errors.push(`${lawName}: invariant contract is empty`);
+    for (const parameter of contract.parameters) {
+      const index = DNA_INDEXES[parameter.name];
+      const range = DNA_RANGES[index];
+      if (index !== parameter.index || !range) errors.push(`${lawName}: ${parameter.name} index mismatch`);
+      else if (range.min !== parameter.min || range.max !== parameter.max || range.default !== parameter.default) errors.push(`${lawName}: ${parameter.name} range drift`);
+      if (!parameter.unit || !parameter.semantic) errors.push(`${lawName}: ${parameter.name} lacks unit/meaning`);
+    }
+  }
+  return errors;
+}
+
+// Execution status is deliberately separate from descriptive relationships.
+// Metadata-only laws remain in the registry/save mask for forward compatibility,
+// but the UI must not present them as executable controls.
+export const LAW_EXECUTION_STATUS = Object.freeze({
+  ELECTRIC_FIELD: 'metadata-only',
+});
+
+export function getLawExecutionStatus(lawName) {
+  if (!LAW_NAMES.has(lawName)) throw new RangeError(`Unknown law name: ${lawName}`);
+  return LAW_EXECUTION_STATUS[lawName] ?? 'wired';
+}
+
+export function isLawExecutable(lawName) {
+  return getLawExecutionStatus(lawName) !== 'metadata-only';
+}
+
+
 function freezeRecord(record) {
   const result = {};
   for (const type of LAW_RELATIONSHIP_TYPES) {
     const value = record[type];
-    if (type === 'feedback') {
+    if (type === 'feedback' || type === 'rationale') {
       if (value !== undefined) result[type] = value;
     } else if (value !== undefined) {
       result[type] = Object.freeze([...value]);
@@ -48,6 +111,86 @@ function freezeRecord(record) {
  * readable and reviewable.
  */
 const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
+  DRAG: freezeRecord({
+    consumes: ['KINETIC_ENERGY'],
+    produces: ['DISSIPATION'],
+    transforms: ['VELOCITY -> DAMPED_VELOCITY'],
+    reads: ['MASS', 'VEL_X', 'VEL_Y', 'VEL_Z', 'VISCOSITY'],
+    writes: ['VEL_X', 'VEL_Y', 'VEL_Z'],
+    rationale: 'Velocity damping removes kinetic energy; it is a dissipative sink, not a conservative pair force.',
+    runtimeConsumers: ['src/physics/solver.js:per-particle drag dispatch', 'src/physics/laws.js:applyDrag'],
+  }),
+  BUOYANCY: freezeRecord({
+    synergizesWith: ['HEAT'],
+    transforms: ['TEMPERATURE_MINUS_AMBIENT -> VERTICAL_ACCELERATION'],
+    reads: ['TEMPERATURE', 'HEAT_OUTPUT'],
+    writes: ['ACCELERATION'],
+    rationale: 'Thermal lift depends on the particle temperature relative to ambient and its heat-output modifier.',
+    runtimeConsumers: ['src/physics/solver.js:active[BUOYANCY] dispatch', 'src/physics/laws.js:applyBuoyancy'],
+  }),
+  CHARGE_LAW: freezeRecord({
+    synergizesWith: ['FIELD', 'CURRENT', 'MAGNETISM'],
+    transforms: ['CHARGE_PAIR_AND_SEPARATION -> COULOMB_ACCELERATION'],
+    reads: ['CHARGE', 'POS_X', 'POS_Y', 'POS_Z', 'MASS'],
+    writes: ['VEL_X', 'VEL_Y', 'VEL_Z'],
+    rationale: 'The charge pair force depends on both charge values and their separation; field and current systems consume the same charge state.',
+    runtimeConsumers: ['src/physics/solver.js:applyChargeForce', 'src/physics/laws.js:applyChargeForce'],
+  }),
+  FIELD: freezeRecord({
+    synergizesWith: ['CHARGE_LAW', 'CURRENT'],
+    transforms: ['FIELD_GRADIENT -> PARTICLE_ACCELERATION'],
+    reads: ['POLARITY', 'CHARGE'],
+    writes: ['VEL_X', 'VEL_Y', 'VEL_Z'],
+    rationale: 'Field drift samples the world field at the particle position; charge/current coupling is explicit and does not imply a separate ELECTRIC_FIELD law.',
+    runtimeConsumers: ['src/physics/laws.js:applyFieldDrift', 'src/physics/solver.js:FIELD dispatch'],
+  }),
+  CURRENT: freezeRecord({
+    synergizesWith: ['RESISTANCE', 'CAPACITANCE', 'DISCHARGE'],
+    transforms: ['CHARGE_DIFFERENCE_AND_CONDUCTIVITY -> CHARGE_TRANSFER'],
+    reads: ['CHARGE', 'CONDUCTIVITY', 'POS_X', 'POS_Y', 'POS_Z'],
+    writes: ['CHARGE', 'TEMPERATURE'],
+    rationale: 'Current transfers charge through the configured conductivity path; resistance and storage alter that transfer.',
+    runtimeConsumers: ['src/physics/solver.js:applyCurrentTransfer', 'src/physics/laws.js:applyCurrentTransfer'],
+  }),
+  RESISTANCE: freezeRecord({
+    synergizesWith: ['CURRENT', 'HEAT'],
+    consumes: ['KINETIC_ENERGY'],
+    produces: ['TEMPERATURE'],
+    transforms: ['CURRENT_AND_RESISTANCE -> JOULE_HEATING'],
+    reads: ['VEL_X', 'VEL_Y', 'VEL_Z', 'CONDUCTIVITY', 'TEMPERATURE'],
+    writes: ['TEMPERATURE'],
+    rationale: 'Resistive loss is accounted as heat and must not be represented as a conservative electric potential.',
+    runtimeConsumers: ['src/physics/solver.js:applyResistance', 'src/physics/laws.js:applyResistance'],
+  }),
+  MAGNETISM: freezeRecord({
+    synergizesWith: ['CHARGE_LAW', 'CURRENT', 'INDUCTANCE'],
+    transforms: ['CHARGED_MOTION_AND_MAGNETIC_FIELD -> LORENTZ_ACCELERATION'],
+    reads: ['MAGNETIC_MOMENT', 'POS_X', 'POS_Y', 'POS_Z'],
+    writes: ['VEL_X', 'VEL_Y', 'VEL_Z'],
+    rationale: 'The magnetic force couples charge, motion and magnetic field; it is separate from the reserved ELECTRIC_FIELD metadata entry.',
+    runtimeConsumers: ['src/physics/solver.js:applyMagneticForce', 'src/physics/laws.js:applyMagneticForce'],
+  }),
+  ALLOY: freezeRecord({
+    consumes: ['MASS', 'ENERGY'],
+    produces: ['MASS', 'ENERGY', 'DEAD'],
+    transforms: ['OVERLAPPING_UNBONDED_SPECIES -> MASS_WEIGHTED_HYBRID'],
+    reads: ['MASS', 'VEL_X', 'VEL_Y', 'VEL_Z', 'DNA_CACHE', 'COLOR_R/G/B', 'ENERGY', 'BOND_COUNT'],
+    writes: ['MASS', 'VEL_X', 'VEL_Y', 'VEL_Z', 'DNA_CACHE', 'COLOR_R/G/B', 'ENERGY', 'DEAD'],
+    rationale: 'ALLOY is a one-body fusion operation: the subject slot survives, the absorbed endpoint retires, and extensive state is mass-weighted.',
+    runtimeConsumers: ['src/physics/mergePhysics.js:applyAlloy', 'src/physics/solver.js:ALLOY pair dispatch'],
+  }),
+  POLYMER: freezeRecord({
+    synergizesWith: ['BOND', 'TOPOLOGY'],
+    transforms: ['COMPATIBLE_CHAIN_ENDPOINTS -> POLYMER_LINK'],
+    reads: ['BOND_COUNT', 'BOND_PARTNER_1-6', 'STIFFNESS'],
+    writes: ['BOND_COUNT', 'BOND_PARTNER_1-6'],
+    rationale: 'Polymerization extends compatible bonded chains; topology owns the resulting graph correction.',
+    runtimeConsumers: ['src/physics/solver.js:applyPolymer', 'src/physics/laws.js:applyPolymer'],
+  }),
+  ELECTRIC_FIELD: freezeRecord({
+    rationale: 'Reserved metadata-only registry entry. No solver consumer, field state, units or executable force is declared in this release.',
+    runtimeConsumers: [],
+  }),
   COLL: freezeRecord({
     synergizesWith: ['CONTACT', 'MOMENTUM'],
     antagonizes: ['FRAGMENTATION'],
@@ -137,7 +280,7 @@ const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
     writes: ['VEL_X', 'VEL_Y', 'VEL_Z'],
   }),
   IONIZATION: freezeRecord({
-    synergizesWith: ['PLASMA', 'ELECTRIC_FIELD', 'CHARGE_LAW'],
+    synergizesWith: ['PLASMA', 'CHARGE_LAW'],
     transforms: ['ENERGY_AND_TEMPERATURE -> CHARGE'],
     reads: ['TEMPERATURE', 'ENERGY', 'RADIATION_EXPOSURE'],
     writes: ['CHARGE', 'TEMPERATURE'],
@@ -211,6 +354,8 @@ const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
     reads: ['AGE', 'ENERGY', 'BIRTH_RATE', 'DEATH_RATE'],
     writes: ['ENERGY', 'DEAD'],
     notes: ['Behavioral evidence lives in audit batches 02/04 and lawGating; viability thresholds are proxy-level.'],
+    rationale: 'LIFE owns baseline energy/hunger viability; REPRO consumes viable parent state and SENESCENCE adds a separate age-dependent mortality gate.',
+    runtimeConsumers: ['src/physics/solver.js:active[LIFE] dispatch', 'src/physics/laws.js:applyLifeCycle'],
   }),
   REPRO: freezeRecord({
     dependsOn: ['LIFE'],
@@ -220,6 +365,8 @@ const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
     reads: ['ENERGY', 'DNA_CACHE', 'PARTNER_ID', 'REPRO_DRIVE', 'SEX_CHANCE'],
     writes: ['ENERGY', 'PARTNER_ID'],
     notes: ['Offspring creation writes a new particle slot outside this record; partner formation semantics live in relationshipCompatibility, not PARTNER_ID alone.'],
+    rationale: 'Reproduction depends on LIFE viability and consumes parent energy/genome state to create a distinct offspring slot.',
+    runtimeConsumers: ['src/physics/solver.js:applyReproduction', 'src/physics/laws.js:applyReproduction'],
   }),
   SENESCENCE: freezeRecord({
     dependsOn: ['LIFE'],
@@ -227,6 +374,8 @@ const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
     reads: ['AGE', 'TELOMERE_LENGTH'],
     writes: ['DEAD'],
     notes: ['Damps aging-driven death with TELOMERE_LENGTH; behavior verified by parameter audit batches, not by a closed-form model.'],
+    rationale: 'SENESCENCE adds age/telomere mortality only while LIFE is active; it does not replace metabolic viability.',
+    runtimeConsumers: ['src/physics/solver.js:active[LIFE] && active[SENESCENCE] dispatch', 'src/physics/laws.js:applySenescence'],
   }),
   ENERGY: freezeRecord({
     synergizesWith: ['LIFE', 'REPRO', 'HEAT'],
@@ -236,6 +385,8 @@ const DECLARED_LAW_RELATIONSHIPS = Object.freeze({
     transforms: ['METABOLIC_INTAKE -> ENERGY_POOL'],
     reads: ['ENERGY', 'ENERGY_EFFICIENCY', 'TEMPERATURE'],
     writes: ['ENERGY'],
+    rationale: 'The energy pool couples metabolism, reproduction and thermal conversion; transfers between named accounts remain separately journaled.',
+    runtimeConsumers: ['src/physics/laws.js:applyLifeCycle', 'src/physics/solver.js:energy and heat dispatch'],
   }),
   // ── Risk-prioritized expansion (remediation §6.1): shared state ──
   COMMS: freezeRecord({
@@ -303,6 +454,129 @@ export const LAW_RELATIONSHIPS = Object.freeze(
   ])),
 );
 
+export const LAW_RELATIONSHIP_EVIDENCE = Object.freeze([
+  { source: 'LIFE', type: 'synergizesWith', target: 'ENERGY', rationale: 'LIFE spends and replenishes the particle energy pool.', runtimeConsumer: 'applyLifeCycle' },
+  { source: 'LIFE', type: 'synergizesWith', target: 'REPRO', rationale: 'Reproduction is only meaningful for a viable living parent.', runtimeConsumer: 'applyReproduction' },
+  { source: 'LIFE', type: 'antagonizes', target: 'SENESCENCE', rationale: 'Baseline viability and age-driven mortality are separate gates that can compete to end life.', runtimeConsumer: 'applyLifeCycle + applySenescence' },
+  { source: 'REPRO', type: 'dependsOn', target: 'LIFE', rationale: 'The parent must pass LIFE viability before reproduction dispatch.', runtimeConsumer: 'solver lifecycle phase' },
+  { source: 'SENESCENCE', type: 'dependsOn', target: 'LIFE', rationale: 'Senescence is an additional mortality mechanism, not a standalone life-support model.', runtimeConsumer: 'active[LIFE] && active[SENESCENCE]' },
+  { source: 'BUOYANCY', type: 'synergizesWith', target: 'HEAT', rationale: 'Thermal output and temperature are the buoyancy inputs.', runtimeConsumer: 'applyBuoyancy' },
+  { source: 'CHARGE_LAW', type: 'synergizesWith', target: 'FIELD', rationale: 'Charge couples to the sampled field force path.', runtimeConsumer: 'applyChargeForce + FIELD dispatch' },
+  { source: 'CHARGE_LAW', type: 'synergizesWith', target: 'CURRENT', rationale: 'Charge state is the transported quantity in the current subsystem.', runtimeConsumer: 'applyCurrentTransfer' },
+  { source: 'CHARGE_LAW', type: 'synergizesWith', target: 'MAGNETISM', rationale: 'Magnetic force depends on moving charge.', runtimeConsumer: 'applyMagneticForce' },
+  { source: 'FIELD', type: 'synergizesWith', target: 'CURRENT', rationale: 'The field system and current system share field/charge state, but remain separate consumers.', runtimeConsumer: 'sampleFieldForces + applyCurrentTransfer' },
+  { source: 'CURRENT', type: 'synergizesWith', target: 'RESISTANCE', rationale: 'Resistance modifies current transfer and routes electrical loss to heat.', runtimeConsumer: 'applyResistance' },
+  { source: 'CURRENT', type: 'synergizesWith', target: 'CAPACITANCE', rationale: 'Capacitance stores and releases transferred charge.', runtimeConsumer: 'applyCapacitanceStore' },
+  { source: 'CURRENT', type: 'synergizesWith', target: 'DISCHARGE', rationale: 'Discharge consumes stored charge and emits thermal/impulse effects.', runtimeConsumer: 'applyDischarge' },
+  { source: 'RESISTANCE', type: 'synergizesWith', target: 'HEAT', rationale: 'Resistive work loss is converted into thermal energy.', runtimeConsumer: 'applyResistance' },
+  { source: 'MAGNETISM', type: 'synergizesWith', target: 'INDUCTANCE', rationale: 'Inductance couples changing current to magnetic state.', runtimeConsumer: 'applyInductance' },
+  { source: 'POLYMER', type: 'synergizesWith', target: 'BOND', rationale: 'Polymer chains are represented by persistent bonds.', runtimeConsumer: 'applyPolymer' },
+  { source: 'POLYMER', type: 'synergizesWith', target: 'TOPOLOGY', rationale: 'Chain extension changes the bond graph that topology constrains.', runtimeConsumer: 'applyTopology' },
+  { source: 'COLL', type: 'synergizesWith', target: 'CONTACT', rationale: 'Collision impulses follow the positional contact projection.', runtimeConsumer: 'applyCollisionImpulse + applyContactCorrection' },
+  { source: 'COLL', type: 'synergizesWith', target: 'MOMENTUM', rationale: 'Collision response changes pair momentum through equal-and-opposite impulses.', runtimeConsumer: 'applyCollisionImpulse' },
+  { source: 'COLL', type: 'antagonizes', target: 'FRAGMENTATION', rationale: 'Contact response and fragmentation are competing outcomes for an impact event.', runtimeConsumer: 'applyCollisionImpulse + applyFragmentation' },
+  { source: 'CONTACT', type: 'synergizesWith', target: 'COLL', rationale: 'Penetration correction establishes valid geometry before collision response.', runtimeConsumer: 'applyContactCorrection + applyCollisionImpulse' },
+  { source: 'CONTACT', type: 'synergizesWith', target: 'CONSTRAINT', rationale: 'Contact separation and structural constraints both resolve geometric error.', runtimeConsumer: 'applyContactCorrection + applyConstraint' },
+  { source: 'MOMENTUM', type: 'synergizesWith', target: 'CONTACT', rationale: 'Contact impulses are evaluated against the pair relative velocity.', runtimeConsumer: 'applyMomentum + applyContactCorrection' },
+  { source: 'MOMENTUM', type: 'synergizesWith', target: 'WRAP', rationale: 'Periodic coordinate remapping must not change physical momentum.', runtimeConsumer: 'applyMomentum + applyWrapBoundary' },
+  { source: 'MOMENTUM', type: 'synergizesWith', target: 'TORQUE', rationale: 'Torque changes angular momentum while the linear momentum path remains explicit.', runtimeConsumer: 'applyMomentum + applyTorque' },
+  { source: 'MASS_INERTIA', type: 'synergizesWith', target: 'GRAV', rationale: 'Gravity force becomes acceleration through inverse mass.', runtimeConsumer: 'applyGravity + mass-scaled integration' },
+  { source: 'MASS_INERTIA', type: 'synergizesWith', target: 'MOMENTUM', rationale: 'Impulse response depends on the participating masses.', runtimeConsumer: 'applyMomentum' },
+  { source: 'MASS_INERTIA', type: 'antagonizes', target: 'TORQUE', rationale: 'Rotational inertia resists angular acceleration generated by torque.', runtimeConsumer: 'applyMassInertia + applyTorque' },
+  { source: 'WRAP', type: 'synergizesWith', target: 'ENTR', rationale: 'Periodic coordinate remapping changes representation, not physical state or entropy.', runtimeConsumer: 'applyWrapBoundary' },
+  { source: 'WRAP', type: 'synergizesWith', target: 'PLANETARY', rationale: 'Periodic geometry supplies the displacement convention for long-range orbital forces.', runtimeConsumer: 'minimum-image gravity and planetary force dispatch' },
+  { source: 'WRAP', type: 'antagonizes', target: 'HORIZON', rationale: 'Periodic re-entry and horizon capture are distinct boundary outcomes.', runtimeConsumer: 'applyWrapBoundary + applyHorizon' },
+  { source: 'ACCR', type: 'synergizesWith', target: 'CONTACT', rationale: 'Persistent accretion seams begin with a valid close-contact geometry.', runtimeConsumer: 'adjoinParticles + applyContactCorrection' },
+  { source: 'ACCR', type: 'synergizesWith', target: 'TOPOLOGY', rationale: 'Adjoined particle seams contribute edges to the structural graph.', runtimeConsumer: 'maintainAdjoinedPair + applyTopology' },
+  { source: 'BOND', type: 'synergizesWith', target: 'CONSTRAINT', rationale: 'Bond edges provide the graph links whose rest lengths constraints enforce.', runtimeConsumer: 'applyBond + applyConstraint' },
+  { source: 'BOND', type: 'synergizesWith', target: 'POLYMER', rationale: 'Polymer chains are constructed from persistent bond edges.', runtimeConsumer: 'applyBond + applyPolymer' },
+  { source: 'BOND', type: 'synergizesWith', target: 'TOPOLOGY', rationale: 'Topology operates on the bond graph rather than proximity alone.', runtimeConsumer: 'applyBond + applyTopology' },
+  { source: 'BOND', type: 'synergizesWith', target: 'ADHESION', rationale: 'Adhesion can form the close-contact conditions that later become bonds.', runtimeConsumer: 'applyAdhesion + applyBond' },
+  { source: 'CONSTRAINT', type: 'synergizesWith', target: 'TOPOLOGY', rationale: 'Topology supplies graph structure and constraints correct its geometric embedding.', runtimeConsumer: 'applyTopology + applyConstraint' },
+  { source: 'CONSTRAINT', type: 'synergizesWith', target: 'CONTACT', rationale: 'Constraint correction must respect non-penetrating contact geometry.', runtimeConsumer: 'applyConstraint + applyContactCorrection' },
+  { source: 'TOPOLOGY', type: 'dependsOn', target: 'BOND', rationale: 'The current topology correction consumes explicit bond links.', runtimeConsumer: 'applyTopology' },
+  { source: 'TOPOLOGY', type: 'dependsOn', target: 'CONSTRAINT', rationale: 'Structural topology correction is bounded by constraint geometry.', runtimeConsumer: 'applyTopology + applyConstraint' },
+  { source: 'TOPOLOGY', type: 'synergizesWith', target: 'CRYSTALLIZATION', rationale: 'Crystallization creates ordered links that topology can constrain.', runtimeConsumer: 'applyCrystallization + applyTopology' },
+  { source: 'ADHESION', type: 'synergizesWith', target: 'CONTACT', rationale: 'Adhesion acts in the near-contact regime.', runtimeConsumer: 'applyAdhesion + applyContactCorrection' },
+  { source: 'ADHESION', type: 'synergizesWith', target: 'BOND', rationale: 'Persistent adhesion can transition into a bond edge.', runtimeConsumer: 'applyAdhesion + applyBond' },
+  { source: 'ADHESION', type: 'antagonizes', target: 'FRAGMENTATION', rationale: 'Persistent adhesion resists separation while fragmentation creates new free endpoints.', runtimeConsumer: 'applyAdhesion + applyFragmentation' },
+  { source: 'HEAT', type: 'synergizesWith', target: 'COLD', rationale: 'The thermal state is shared while the two laws drive opposing transfers.', runtimeConsumer: 'applyHeatTransfer + applyColdDamping' },
+  { source: 'HEAT', type: 'synergizesWith', target: 'EQUILIBRIUM', rationale: 'Thermal gradients are inputs to the equilibrium relaxation path.', runtimeConsumer: 'applyHeatTransfer + applyEquilibrium' },
+  { source: 'HEAT', type: 'synergizesWith', target: 'CONVECTION', rationale: 'Temperature gradients drive convective particle motion.', runtimeConsumer: 'applyHeatTransfer + applyConvection' },
+  { source: 'HEAT', type: 'synergizesWith', target: 'OXIDATION', rationale: 'Temperature and energy state modulate oxidation reactions.', runtimeConsumer: 'applyHeatTransfer + applyOxidationEffect' },
+  { source: 'HEAT', type: 'antagonizes', target: 'COLD', rationale: 'Heating and cooling drive the shared temperature state in opposite directions.', runtimeConsumer: 'applyHeatTransfer + applyColdDamping' },
+  { source: 'COLD', type: 'antagonizes', target: 'HEAT', rationale: 'Cooling opposes heating through the same temperature state.', runtimeConsumer: 'applyColdDamping + applyHeatTransfer' },
+  { source: 'ENERGY', type: 'synergizesWith', target: 'LIFE', rationale: 'Metabolic viability consumes and replenishes the energy pool.', runtimeConsumer: 'applyLifeCycle' },
+  { source: 'ENERGY', type: 'synergizesWith', target: 'REPRO', rationale: 'Reproduction is constrained by the parent’s stored energy.', runtimeConsumer: 'applyReproduction' },
+  { source: 'ENERGY', type: 'synergizesWith', target: 'HEAT', rationale: 'Thermal conversion consumes or transfers energy into temperature.', runtimeConsumer: 'applyHeatTransfer' },
+  { source: 'REPRO', type: 'synergizesWith', target: 'ENERGY', rationale: 'Offspring creation is bounded by parent energy expenditure.', runtimeConsumer: 'applyReproduction' },
+  { source: 'REPRO', type: 'synergizesWith', target: 'GENOTYPE', rationale: 'Offspring inherit genome state with mutation applied in the lifecycle pipeline.', runtimeConsumer: 'applyReproduction + applyGenotypeMutation' },
+  { source: 'REPRO', type: 'synergizesWith', target: 'PHENOTYPE', rationale: 'Inherited genomes are expressed into offspring traits.', runtimeConsumer: 'applyReproduction + applyPhenotype' },
+  { source: 'REPRO', type: 'antagonizes', target: 'SENESCENCE', rationale: 'Reproductive capacity and age-driven mortality compete over organism viability.', runtimeConsumer: 'applyReproduction + applySenescence' },
+  { source: 'GENOTYPE', type: 'synergizesWith', target: 'PHENOTYPE', rationale: 'Phenotypic expression consumes inherited genotype state.', runtimeConsumer: 'applyGenotypeMutation + applyPhenotype' },
+  { source: 'GENOTYPE', type: 'synergizesWith', target: 'REPRO', rationale: 'Reproduction copies parent genome state into offspring.', runtimeConsumer: 'applyReproduction + applyGenotypeMutation' },
+  { source: 'GENOTYPE', type: 'synergizesWith', target: 'RADIATION', rationale: 'Radiation exposure modulates mutation input to the genome.', runtimeConsumer: 'applyRadiationDamage + applyGenotypeMutation' },
+  { source: 'PHENOTYPE', type: 'dependsOn', target: 'GENOTYPE', rationale: 'Trait expression reads the genotype cache.', runtimeConsumer: 'applyPhenotype' },
+  { source: 'RADIATION', type: 'synergizesWith', target: 'HEAT', rationale: 'Radiation deposits exposure and energy that can alter thermal state.', runtimeConsumer: 'applyRadiationDamage + applyHeatTransfer' },
+  { source: 'RADIATION', type: 'synergizesWith', target: 'IONIZATION', rationale: 'Radiation exposure is an input to ionization.', runtimeConsumer: 'applyRadiationDamage + applyIonization' },
+  { source: 'RADIATION', type: 'synergizesWith', target: 'GENOTYPE', rationale: 'Exposure is consumed by the mutation pathway.', runtimeConsumer: 'applyRadiationDamage + applyGenotypeMutation' },
+  { source: 'RADIATION', type: 'synergizesWith', target: 'HORIZON', rationale: 'Horizon capture/emission and radiation share energy/exposure accounting.', runtimeConsumer: 'applyHorizon + applyRadiationDamage' },
+  { source: 'IONIZATION', type: 'synergizesWith', target: 'PLASMA', rationale: 'Ionization supplies charged particles to the plasma state.', runtimeConsumer: 'applyIonization + applyPlasma' },
+  { source: 'IONIZATION', type: 'synergizesWith', target: 'CHARGE_LAW', rationale: 'Ionization changes charge used by the Coulomb force path.', runtimeConsumer: 'applyIonization + applyChargeForce' },
+  { source: 'DISCHARGE', type: 'synergizesWith', target: 'CURRENT', rationale: 'Discharge releases stored charge through the current pathway.', runtimeConsumer: 'applyDischarge + applyCurrentTransfer' },
+  { source: 'DISCHARGE', type: 'synergizesWith', target: 'PLASMA', rationale: 'Discharge can produce the charged high-energy plasma state.', runtimeConsumer: 'applyDischarge + applyPlasma' },
+  { source: 'DISCHARGE', type: 'synergizesWith', target: 'HEAT', rationale: 'Discharge energy loss is routed into thermal state.', runtimeConsumer: 'applyDischarge + applyHeatTransfer' },
+  { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'CATALYSIS_LAW', rationale: 'Autocatalytic feedback changes the effective catalyst activity.', runtimeConsumer: 'applyAutocatalysis + CATALYSIS_LAW dispatch' },
+  { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'OXIDATION', rationale: 'Oxidation reaction state is an input to the catalytic reaction path.', runtimeConsumer: 'applyAutocatalysis + applyOxidationEffect' },
+  { source: 'AUTOCATALYSIS', type: 'synergizesWith', target: 'EXOTHERMIC', rationale: 'Reaction heat feeds back into the autocatalytic activity.', runtimeConsumer: 'applyAutocatalysis + applyExothermic' },
+  { source: 'MEMORY', type: 'synergizesWith', target: 'LEARN', rationale: 'Learning reads and updates the persistent memory trace.', runtimeConsumer: 'applyMemoryRefresh + applyLearnAlign' },
+  { source: 'MEMORY', type: 'synergizesWith', target: 'PREDICT', rationale: 'Prediction reads stored memory state to form a forecast.', runtimeConsumer: 'applyMemoryRefresh + applyPredictForce' },
+  { source: 'MEMORY', type: 'synergizesWith', target: 'HISTORY', rationale: 'History records and reuses persistent state over time.', runtimeConsumer: 'applyMemoryRefresh + applyHistoryWrite' },
+  { source: 'MEMORY', type: 'synergizesWith', target: 'FEEDBACK', rationale: 'Feedback amplifies a response using the memory trace.', runtimeConsumer: 'applyMemoryRefresh + applyFeedback' },
+  { source: 'OBSERVER', type: 'dependsOn', target: 'MEMORY', rationale: 'The observer proxy consumes a stored observation/memory state.', runtimeConsumer: 'applyObserver' },
+  { source: 'OBSERVER', type: 'synergizesWith', target: 'DECOHERENCE', rationale: 'Observation changes the coherence state in the macro-scale quantum proxy.', runtimeConsumer: 'applyObserver + applyDecoherence' },
+  { source: 'OBSERVER', type: 'synergizesWith', target: 'WAVE_PARTICLE', rationale: 'The observed state feeds the wave/particle representation transition.', runtimeConsumer: 'applyObserver + applyWaveParticle' },
+  { source: 'NAVIGATION', type: 'dependsOn', target: 'MEMORY', rationale: 'Navigation uses remembered route and landmark state.', runtimeConsumer: 'applyNavigation' },
+  { source: 'NAVIGATION', type: 'synergizesWith', target: 'HISTORY', rationale: 'Navigation uses prior positions and path history.', runtimeConsumer: 'applyNavigation + applyHistoryWrite' },
+  { source: 'NAVIGATION', type: 'synergizesWith', target: 'PREDICT', rationale: 'Navigation can use predicted local motion when choosing a steering vector.', runtimeConsumer: 'applyNavigation + applyPredictForce' },
+  { source: 'NAVIGATION', type: 'synergizesWith', target: 'TRACK', rationale: 'Navigation uses target tracking as an observable steering input.', runtimeConsumer: 'applyNavigation + applyTrackingBehavior' },
+  { source: 'LEARN', type: 'dependsOn', target: 'MEMORY', rationale: 'Learning requires a persistent memory trace to update.', runtimeConsumer: 'applyLearnAlign' },
+  { source: 'LEARN', type: 'synergizesWith', target: 'PREDICT', rationale: 'Prediction error is a learning signal for behavior alignment.', runtimeConsumer: 'applyLearnAlign + applyPredictForce' },
+  { source: 'LEARN', type: 'synergizesWith', target: 'CULTURE', rationale: 'Learned state can be transmitted and retained through cultural behavior.', runtimeConsumer: 'applyLearnAlign + applyCulture' },
+  { source: 'FEEDBACK', type: 'dependsOn', target: 'MEMORY', rationale: 'Feedback amplification requires a stored trace to amplify.', runtimeConsumer: 'applyFeedback' },
+  { source: 'ENTANGLEMENT', type: 'synergizesWith', target: 'OBSERVER', rationale: 'Observation consumes the paired correlation state.', runtimeConsumer: 'applyEntanglePair + applyObserver' },
+  { source: 'ENTANGLEMENT', type: 'synergizesWith', target: 'TELEPORT', rationale: 'Teleportation reads the pair correlation and phase produced by entanglement.', runtimeConsumer: 'applyEntanglePair + applyEntanglement' },
+  { source: 'TELEPORT', type: 'dependsOn', target: 'ENTANGLEMENT', rationale: 'Teleportation requires an established pair identifier and phase.', runtimeConsumer: 'applyEntanglement' },
+  { source: 'COMMS', type: 'synergizesWith', target: 'MEMORY', rationale: 'Communication writes signal information into memory.', runtimeConsumer: 'applySignalDecay + applyMemoryRefresh' },
+  { source: 'COMMS', type: 'synergizesWith', target: 'LEARN', rationale: 'Received signals provide inputs to the learning update.', runtimeConsumer: 'applySignalExchange + applyLearnAlign' },
+  { source: 'COMMS', type: 'synergizesWith', target: 'FEEDBACK', rationale: 'Feedback can amplify a received communication trace.', runtimeConsumer: 'applySignalExchange + applyFeedback' },
+  { source: 'SUPERPOSITION', type: 'dependsOn', target: 'DECOHERENCE', rationale: 'The current proxy transition is defined relative to the decoherence state.', runtimeConsumer: 'applySuperposition + applyDecoherence' },
+  { source: 'SUPERPOSITION', type: 'synergizesWith', target: 'OBSERVER', rationale: 'Observation is the consumer that collapses the stored macro-scale mixture.', runtimeConsumer: 'applySuperposition + applyObserver' },
+  { source: 'SUPERPOSITION', type: 'synergizesWith', target: 'ENTANGLEMENT', rationale: 'The proxy shares phase/correlation fields with entangled pairs.', runtimeConsumer: 'applySuperposition + applyEntanglement' },
+  { source: 'SUPERPOSITION', type: 'synergizesWith', target: 'WAVE_PARTICLE', rationale: 'Both laws operate on the same phase and quantum-state proxy fields.', runtimeConsumer: 'applySuperposition + applyWaveParticle' },
+  { source: 'GRAV', type: 'synergizesWith', target: 'PLANETARY', rationale: 'Planetary curvature modifies the base gravitational acceleration.', runtimeConsumer: 'applyGravity + applyPlanetary' },
+  { source: 'GRAV', type: 'synergizesWith', target: 'SINGULARITY', rationale: 'The singularity proxy adds a density-dependent attraction to gravity.', runtimeConsumer: 'applyGravity + applySingularityForce' },
+  { source: 'GRAV', type: 'synergizesWith', target: 'MASS_INERTIA', rationale: 'Gravitational force is converted into acceleration through inertial mass.', runtimeConsumer: 'applyGravity + applyMassInertia' },
+  { source: 'PLANETARY', type: 'dependsOn', target: 'GRAV', rationale: 'Planetary curvature is an additional term on the gravitational baseline.', runtimeConsumer: 'applyPlanetary' },
+  { source: 'PLANETARY', type: 'synergizesWith', target: 'GRAV', rationale: 'The planetary force term is combined with the base gravity term.', runtimeConsumer: 'applyPlanetary + applyGravity' },
+  { source: 'PLANETARY', type: 'synergizesWith', target: 'SINGULARITY', rationale: 'Both terms contribute to the same large-scale attraction field.', runtimeConsumer: 'applyPlanetary + applySingularityForce' },
+  { source: 'SINGULARITY', type: 'dependsOn', target: 'GRAV', rationale: 'The singularity force is a correction to the gravitational baseline.', runtimeConsumer: 'applySingularityForce' },
+  { source: 'SINGULARITY', type: 'synergizesWith', target: 'GRAV', rationale: 'The singularity term is accumulated with gravity.', runtimeConsumer: 'applySingularityForce + applyGravity' },
+  { source: 'SINGULARITY', type: 'synergizesWith', target: 'PLANETARY', rationale: 'The two large-scale force terms share position and mass inputs.', runtimeConsumer: 'applySingularityForce + applyPlanetary' },
+  { source: 'SINGULARITY', type: 'synergizesWith', target: 'HORIZON', rationale: 'The horizon proxy uses the singularity mass and escape threshold.', runtimeConsumer: 'applySingularityForce + applyHorizon' },
+  { source: 'SINGULARITY', type: 'synergizesWith', target: 'ACCR', rationale: 'Capture can act on already adjoined structural particle groups.', runtimeConsumer: 'applySingularityAbsorb + maintainAdjoinedPair' },
+  { source: 'SINGULARITY', type: 'antagonizes', target: 'BOND', rationale: 'Capture/fusion can terminate a persistent molecular bond.', runtimeConsumer: 'applySingularityAbsorb + breakBondPair' },
+  { source: 'HORIZON', type: 'dependsOn', target: 'SINGULARITY', rationale: 'Horizon capture is evaluated around the singularity centre.', runtimeConsumer: 'applyHorizon' },
+  { source: 'HORIZON', type: 'dependsOn', target: 'GRAV', rationale: 'The escape/capture threshold is derived from the gravitational field.', runtimeConsumer: 'applyHorizon + applyGravity' },
+  { source: 'HORIZON', type: 'synergizesWith', target: 'SINGULARITY', rationale: 'Horizon state is attached to the singularity capture boundary.', runtimeConsumer: 'applyHorizon + applySingularityAbsorb' },
+  { source: 'HORIZON', type: 'synergizesWith', target: 'RADIATION', rationale: 'Capture and emission share the energy and exposure accounting path.', runtimeConsumer: 'applyHorizon + applyRadiationDamage' },
+  { source: 'FIELD', type: 'synergizesWith', target: 'CHARGE_LAW', rationale: 'The field gradient and charge force are accumulated by the same particle force phase.', runtimeConsumer: 'FIELD dispatch + applyChargeForce' },
+  { source: 'RESISTANCE', type: 'synergizesWith', target: 'CURRENT', rationale: 'Resistance modifies the charge-transfer rate in the current path.', runtimeConsumer: 'applyResistance + applyCurrentTransfer' },
+  { source: 'MAGNETISM', type: 'synergizesWith', target: 'CHARGE_LAW', rationale: 'Magnetic response requires the charge state produced by the charge law.', runtimeConsumer: 'applyMagneticForce + applyChargeForce' },
+  { source: 'MAGNETISM', type: 'synergizesWith', target: 'CURRENT', rationale: 'Magnetic field evolution shares the current state used by inductive coupling.', runtimeConsumer: 'applyMagneticForce + applyCurrentTransfer' },
+  { source: 'TOPOLOGY', type: 'synergizesWith', target: 'POLYMER', rationale: 'Polymer chain extension mutates the structural graph consumed by topology.', runtimeConsumer: 'applyTopology + applyPolymer' },
+]);
+
 /** Return a defensive empty relationship record for laws without metadata. */
 export function getLawRelationships(lawName) {
   if (!LAW_NAMES.has(lawName)) throw new RangeError(`Unknown law name: ${lawName}`);
@@ -328,6 +602,12 @@ export function validateLawOntology() {
       if (resourceTypes.has(key) && !Array.isArray(record[key])) {
         errors.push(`${lawName}.${key} must be an array`);
       }
+      if (key === 'rationale' && (typeof record[key] !== 'string' || record[key].trim().length < 12)) {
+        errors.push(`${lawName}.rationale must explain the declared behavior`);
+      }
+      if (key === 'runtimeConsumers' && (!Array.isArray(record[key]) || record[key].some(value => typeof value !== 'string' || !value.trim()))) {
+        errors.push(`${lawName}.runtimeConsumers must contain non-empty consumer references`);
+      }
     }
     for (const type of ['dependsOn', 'synergizesWith', 'antagonizes']) {
       const targets = record[type] || [];
@@ -338,6 +618,32 @@ export function validateLawOntology() {
         if (!LAW_NAMES.has(target)) errors.push(`${lawName}.${type} references unknown law ${target}`);
         if (target === lawName) errors.push(`${lawName}.${type} references itself`);
       }
+    }
+  }
+  const evidenceKeys = new Set();
+  for (const edge of LAW_RELATIONSHIP_EVIDENCE) {
+    const key = `${edge.source}|${edge.type}|${edge.target}`;
+    if (evidenceKeys.has(key)) errors.push(`Duplicate relationship evidence: ${key}`);
+    evidenceKeys.add(key);
+    if (!LAW_NAMES.has(edge.source) || !LAW_NAMES.has(edge.target)) errors.push(`Unknown law in relationship evidence: ${key}`);
+    if (!LAW_EDGE_RELATIONSHIP_TYPES.includes(edge.type)) errors.push(`Invalid evidence edge type: ${key}`);
+    if (!LAW_RELATIONSHIPS[edge.source]?.[edge.type]?.includes(edge.target)) errors.push(`Evidence does not match declared edge: ${key}`);
+    if (typeof edge.rationale !== 'string' || edge.rationale.trim().length < 12) errors.push(`Missing rationale for relationship evidence: ${key}`);
+    if (typeof edge.runtimeConsumer !== 'string' || !edge.runtimeConsumer.trim()) errors.push(`Missing runtime consumer for relationship evidence: ${key}`);
+  }
+  for (const [source, record] of Object.entries(LAW_RELATIONSHIPS)) {
+    for (const type of LAW_EDGE_RELATIONSHIP_TYPES) {
+      for (const target of record[type] || []) {
+        const key = `${source}|${type}|${target}`;
+        if (!evidenceKeys.has(key)) errors.push(`Missing rationale/runtime consumer evidence: ${key}`);
+      }
+    }
+  }
+  for (const [lawName, status] of Object.entries(LAW_EXECUTION_STATUS)) {
+    if (!LAW_NAMES.has(lawName)) errors.push(`Unknown execution status law: ${lawName}`);
+    if (status !== 'metadata-only') errors.push(`Unsupported execution status for ${lawName}: ${status}`);
+    if (status === 'metadata-only' && Object.values(LAW_RELATIONSHIPS[lawName] || {}).some(value => Array.isArray(value) && value.length)) {
+      errors.push(`${lawName}: metadata-only law must not declare executable relationships`);
     }
   }
   return errors;

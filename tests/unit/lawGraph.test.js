@@ -20,7 +20,10 @@ describe('law relationship ontology', () => {
   it('represents every registered law without inventing missing relationships', () => {
     expect(Object.keys(LAW_RELATIONSHIPS)).toHaveLength(LAW_COUNT);
     expect(validateLawOntology()).toEqual([]);
-    expect(getLawRelationships('DRAG')).toEqual({});
+    const unlisted = Object.entries(LAW_RELATIONSHIPS).find(([, record]) => Object.keys(record).length === 0)?.[0];
+    expect(unlisted).toBeTruthy();
+    expect(getLawRelationships(unlisted)).toEqual({});
+    expect(getLawRelationships('DRAG').consumes).toContain('KINETIC_ENERGY');
     expect(getLawRelationships('GRAV').synergizesWith).toContain('PLANETARY');
     expect(getLawRelationships('TELEPORT').dependsOn).toEqual(['ENTANGLEMENT']);
   });

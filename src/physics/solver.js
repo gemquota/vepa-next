@@ -27,6 +27,7 @@ import {
   applyAccretion,
   applyPlanetary,
   applyLifeCycle,
+  applySenescence,
   applySignalDecay,
   applyAffinity,
   applyReproduction,
@@ -1360,9 +1361,11 @@ export function solve(particleBuffer, particleCount, stride, lawState, dnaBuffer
       az += voidForce.az;
     }
 
-    // Buoyancy (thermal lift — replaced WRAP at bit 3)
-    const buoyForce = applyBuoyancy(lawState, view, iBase);
-    if (buoyForce) az += buoyForce.az;
+    // Buoyancy has an explicit solver gate; the helper remains independently safe.
+    if (active[LAW_INDEXES.BUOYANCY]) {
+      const buoyForce = applyBuoyancy(lawState, view, iBase);
+      if (buoyForce) az += buoyForce.az;
+    }
 
     // Dimensionality
     vz += applyDimensionality(lawState, view, iBase, prng, localTimeStep,
@@ -1830,10 +1833,17 @@ export function solve(particleBuffer, particleCount, stride, lawState, dnaBuffer
       applySignalDecay(lawState, view, iBase, dnaI, localTimeStep);
     }
 
-    // ── Life cycle ──
+    // ── Life cycle (explicit LIFE gate) ──
+    if (active[LAW_INDEXES.LIFE]) {
+      applyLifeCycle(lawState, view, iBase, dnaI, localTimeStep, prng,
+        syn[LAW_INDEXES.LIFE] * runtimeConfig.deathRate, dnaBuffer);
+    }
 
-    applyLifeCycle(lawState, view, iBase, dnaI, localTimeStep, prng,
-      syn[LAW_INDEXES.LIFE] * runtimeConfig.deathRate, dnaBuffer);
+    // SENESCENCE is independent but requires LIFE. Metabolic death already
+    // produced by LIFE short-circuits aging mortality for this tick.
+    if (active[LAW_INDEXES.LIFE] && active[LAW_INDEXES.SENESCENCE] && view[iBase + S.DEAD] < 0.5) {
+      applySenescence(lawState, view, iBase, dnaI, localTimeStep, prng, dnaBuffer);
+    }
 
     // ── Glow ──
     applyGlowEffect(lawState, view, iBase, dnaI, localTimeStep,

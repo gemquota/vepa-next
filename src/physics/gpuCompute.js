@@ -138,6 +138,32 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 /**
  * Create a WebGPU compute context. Returns null if WebGPU is unavailable.
  */
+/**
+ * Attach a single-shot GPU device-loss monitor. The worker uses this same
+ * helper as the hardware acceptance tests, so loss and monitor-rejection
+ * paths cannot drift apart.
+ *
+ * @param {{lost?: Promise<{reason?: string, message?: string}>}} gpu
+ * @param {(status: {reason: string, message: string}) => void} onLost
+ * @returns {() => void} cancellation function
+ */
+export function watchGPUDeviceLoss(gpu, onLost) {
+  if (!gpu?.lost || typeof onLost !== 'function') return () => {};
+  let active = true;
+  const notify = (status) => {
+    if (!active) return;
+    active = false;
+    onLost({
+      reason: String(status?.reason || 'device-loss-monitor'),
+      message: String(status?.message || 'WebGPU device was lost'),
+    });
+  };
+  Promise.resolve(gpu.lost).then(notify).catch((error) => {
+    notify({ reason: 'device-loss-monitor', message: error?.message || String(error) });
+  });
+  return () => { active = false; };
+}
+
 export async function createGPUContext() {
   if (typeof navigator === 'undefined' || !navigator.gpu) {
     return null;

@@ -69,8 +69,16 @@
         "tests/unit/lawGraph.test.js",
         "tests/unit/tidalBloom.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "transforms",
+        "reads",
+        "writes",
+        "consumes",
+        "produces",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -101,11 +109,14 @@
       "index": 3,
       "name": "BUOYANCY",
       "category": "physics",
-      "status": "implemented-not-gated",
+      "status": "wired",
       "implementationFiles": [
-        "src/physics/laws.js"
+        "src/physics/laws.js",
+        "src/physics/solver.js"
       ],
-      "solverGateFiles": [],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
       "testFiles": [
         "tests/audit/batch_01.test.js",
         "tests/audit/batch_02.test.js",
@@ -135,8 +146,15 @@
         "tests/unit/lawCategories.test.js",
         "tests/unit/lawGating.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -285,7 +303,9 @@
         "transforms",
         "reads",
         "writes",
-        "notes"
+        "notes",
+        "rationale",
+        "runtimeConsumers"
       ],
       "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
@@ -368,7 +388,9 @@
         "transforms",
         "reads",
         "writes",
-        "notes"
+        "notes",
+        "rationale",
+        "runtimeConsumers"
       ],
       "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
@@ -397,11 +419,14 @@
       "index": 12,
       "name": "SENESCENCE",
       "category": "biology",
-      "status": "implemented-not-gated",
+      "status": "wired",
       "implementationFiles": [
-        "src/physics/laws.js"
+        "src/physics/laws.js",
+        "src/physics/solver.js"
       ],
-      "solverGateFiles": [],
+      "solverGateFiles": [
+        "src/physics/solver.js"
+      ],
       "testFiles": [
         "tests/audit/batch_04.test.js",
         "tests/audit/params_batch_14.test.js"
@@ -411,7 +436,9 @@
         "transforms",
         "reads",
         "writes",
-        "notes"
+        "notes",
+        "rationale",
+        "runtimeConsumers"
       ],
       "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
@@ -487,6 +514,7 @@
         "tests/unit/infrastructure.test.js",
         "tests/unit/lawCategories.test.js",
         "tests/unit/lawGating.test.js",
+        "tests/unit/lawGraph.test.js",
         "tests/unit/lawgroupsBiologyChemistry.test.js",
         "tests/unit/lawgroupsEmInfoMeta.test.js",
         "tests/unit/lawgroupsPhysicsThermo.test.js",
@@ -508,7 +536,9 @@
         "writes",
         "consumes",
         "produces",
-        "feedback"
+        "feedback",
+        "rationale",
+        "runtimeConsumers"
       ],
       "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
@@ -693,8 +723,15 @@
         "tests/audit/batch_10.test.js",
         "tests/unit/contactStructures.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -1161,8 +1198,16 @@
         "tests/audit/batch_11.test.js",
         "tests/unit/interactionSpace.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "transforms",
+        "reads",
+        "writes",
+        "consumes",
+        "produces",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -1422,8 +1467,15 @@
         "tests/unit/lawCategories.test.js",
         "tests/unit/synergyCache.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -1436,8 +1488,10 @@
       "testFiles": [
         "tests/unit/deadLawToggles.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "rationale"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -1458,8 +1512,15 @@
         "tests/audit/params_batch_13.test.js",
         "tests/unit/lawsSingleton.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -1478,8 +1539,17 @@
       "testFiles": [
         "tests/audit/batch_15.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "consumes",
+        "produces",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -1538,8 +1608,15 @@
         "tests/audit/params_batch_13.test.js",
         "tests/unit/synergyCache.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -2208,8 +2285,15 @@
         "tests/unit/launchModal.test.js",
         "tests/unit/lawCategories.test.js"
       ],
-      "relationshipTypes": [],
-      "relationshipMetadataComplete": false,
+      "relationshipTypes": [
+        "synergizesWith",
+        "transforms",
+        "reads",
+        "writes",
+        "rationale",
+        "runtimeConsumers"
+      ],
+      "relationshipMetadataComplete": true,
       "evidenceBoundary": "Text-level source references are evidence candidates, not semantic correctness proof."
     },
     {
@@ -3220,10 +3304,10 @@
     }
   ],
   "summary": {
-    "wired": 133,
-    "implementedNotGated": 2,
+    "wired": 135,
+    "implementedNotGated": 0,
     "metadataOnly": 1,
     "withTests": 134,
-    "withRelationshipMetadata": 35
+    "withRelationshipMetadata": 45
   }
 }
