@@ -514,6 +514,7 @@
         "tests/unit/infrastructure.test.js",
         "tests/unit/lawCategories.test.js",
         "tests/unit/lawGating.test.js",
+        "tests/unit/lawGraph.test.js",
         "tests/unit/lawgroupsBiologyChemistry.test.js",
         "tests/unit/lawgroupsEmInfoMeta.test.js",
         "tests/unit/lawgroupsPhysicsThermo.test.js",
