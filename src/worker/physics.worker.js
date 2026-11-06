@@ -23,6 +23,7 @@ import {
   LAW_INDEXES,
 } from '../constants.js';
 import { runtimeConfig } from '../state/runtimeConfig.js';
+import { createProductRandomAdapter } from '../core/prng.js';
 import { createGPUContext, gpuComputeForces, watchGPUDeviceLoss } from '../physics/gpuCompute.js';
 
 const hasSAB = typeof SharedArrayBuffer !== 'undefined';
@@ -151,7 +152,7 @@ async function rebaseSimShadow(reason = 'config', config = {}) {
     worldParams: runtimeConfig.worldParams,
     activeLawNames: activeProductLawNames(),
     seed: _prngSeed,
-    legacyPrngState: _prngState,
+    legacyPrngState: getWorkerPrngState(),
     config: {
       worldId,
       worldSize,
@@ -263,6 +264,8 @@ async function handleInit(msg) {
     lawState: serializeLawState(lawState),
     gpuAvailable: gpuReady,
     gpuActive: false,
+    prngSeed: _prngSeed >>> 0,
+    prngState: getWorkerPrngState(),
     simShadowStatus,
   });
 }
@@ -310,7 +313,11 @@ function applyConfig(config) {
   if (config.particleCount !== undefined) particleCount = config.particleCount;
   if (config.worldSize !== undefined) worldSize = config.worldSize;
   if (config.dt !== undefined) dt = config.dt;
-  if (config.seed !== undefined && tickCount === 0) { _prngSeed = config.seed | 0; _prngState = _prngSeed; }
+  if (tickCount === 0 && Number.isInteger(config.prngSeed) && Number.isInteger(config.prngState)) {
+    setWorkerPrngState(config.prngSeed, config.prngState);
+  } else if (config.seed !== undefined && tickCount === 0) {
+    setWorkerPrngState(config.seed, config.seed);
+  }
   if (config.stride !== undefined) stride = config.stride;
   if (config.worldParams) runtimeConfig.worldParams = config.worldParams;
   if (config.computeEngine === 'gpu' || config.computeEngine === 'cpu') {
@@ -438,7 +445,7 @@ async function handleTick(msg) {
     await simShadowReadyPromise;
     if (simShadow?.status === 'ready') {
       const productState = tickCount % 60 === 0 ? new Float32Array(particleView) : undefined;
-      const shadowResponse = simShadow.request('TICK', { dt, productState, legacyPrngState: _prngState >>> 0 });
+      const shadowResponse = simShadow.request('TICK', { dt, productState, legacyPrngState: getWorkerPrngState() });
       if (shadowResponse.type === 'ERROR') {
         simShadowDiagnostics = { status: 'error', error: shadowResponse.error };
       } else if (productState) {
@@ -456,6 +463,8 @@ async function handleTick(msg) {
     particleCount,
     gpuAvailable: gpuReady,
     gpuActive: !!gpuForces,
+    prngSeed: _prngSeed >>> 0,
+    prngState: getWorkerPrngState(),
     simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
     ...(simShadowDiagnostics ? { simShadow: simShadowDiagnostics } : {}),
   };
@@ -479,7 +488,7 @@ function handleGetState() {
     hasSharedArrayBuffer,
     gpuAvailable: gpuReady,
     prngSeed: _prngSeed >>> 0,
-    prngState: _prngState >>> 0,
+    prngState: getWorkerPrngState(),
     simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
     simShadowSnapshot: simShadow?.snapshot ?? null,
   });
@@ -498,11 +507,9 @@ function handleRestore(msg) {
     tickCount = msg.tickCount;
   }
   if (Number.isInteger(msg.prngSeed) && Number.isInteger(msg.prngState)) {
-    _prngSeed = msg.prngSeed | 0;
-    _prngState = msg.prngState | 0;
+    setWorkerPrngState(msg.prngSeed, msg.prngState);
   } else if (msg.simShadowSnapshot?.legacyPrng) {
-    _prngSeed = msg.simShadowSnapshot.legacyPrng.seed | 0;
-    _prngState = msg.simShadowSnapshot.legacyPrng.state | 0;
+    setWorkerPrngState(msg.simShadowSnapshot.legacyPrng.seed, msg.simShadowSnapshot.legacyPrng.state);
   }
 
   if (runtimeConfig.simFoundationShadow && msg.simShadowSnapshot && simShadow) {
@@ -522,19 +529,23 @@ function handleRestore(msg) {
 
 // ── PRNG for Worker ──
 
-// SplitMix32-style PRNG (deterministic, fast, no Math.random dependency)
+// SplitMix32 compatibility adapter preserves the exact legacy sequence
+// while exposing a serializable checkpoint for worker snapshots and SIM bridge.
 let _prngSeed = 0x51f15e;
-let _prngState = 0x51f15e;
+let _prngStream = createProductRandomAdapter({ seed: _prngSeed, state: _prngSeed });
+
+function setWorkerPrngState(seed, state) {
+  if (!Number.isInteger(seed) || !Number.isInteger(state)) throw new TypeError('worker PRNG checkpoint requires integer seed/state');
+  _prngSeed = seed | 0;
+  _prngStream = createProductRandomAdapter({ seed: _prngSeed, state: state >>> 0 });
+}
+
+function getWorkerPrngState() {
+  return _prngStream.snapshot().state;
+}
 
 function prng() {
-  let z = (_prngState + 0x9e3779b9) | 0;
-  _prngState = z;
-  z = (z ^ (z >>> 16)) | 0;
-  z = Math.imul(z, 0x21f0aaad);
-  z = z ^ (z >>> 15);
-  z = Math.imul(z, 0x735a2d97);
-  z = z ^ (z >>> 15);
-  return (z >>> 0) / 4294967296;
+  return _prngStream.next();
 }
 
 // ── Main-Thread Fallback Mode ──
