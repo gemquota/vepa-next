@@ -116,7 +116,9 @@ self.onmessage = function onWorkerMessage(event) {
 // copy and reports parity diagnostics only; unsupported product laws fail closed.
 function activeProductLawNames() {
   return Object.entries(LAW_INDEXES)
-    .filter(([, index]) => isSet(lawState, index))
+    // WRAP is represented by boundaryMode from world parameters, not a
+    // force-law dispatch in the SIM adapter.
+    .filter(([name, index]) => name !== 'WRAP' && isSet(lawState, index))
     .map(([name]) => name);
 }
 
