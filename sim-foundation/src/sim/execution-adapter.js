@@ -600,7 +600,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     },
     restoreSnapshot(snapshot) {
       if (!snapshot || snapshot.layoutVersion !== PARTICLE_LAYOUT_VERSION || snapshot.stride !== stride || snapshot.count !== particleCount) throw new TypeError('Snapshot layout is incompatible with this execution adapter');
+      if (snapshot.worldId !== undefined && snapshot.worldId !== worldId) throw new TypeError('Snapshot worldId does not match this execution adapter');
       validateState(snapshot.state, snapshot.tick);
+      if (snapshot.stateDigest !== undefined && stateDigest(snapshot.state) !== snapshot.stateDigest) throw new TypeError('Snapshot state digest does not match its particle buffer');
       const nextConfig = validateParticleExecutionConfig(snapshot.config);
       const nextEnergyLedger = snapshot.energyLedger ? createEnergyLedger({ snapshot: snapshot.energyLedger }) : createEnergyLedger({ tick: snapshot.tick });
       const nextEnergyBudgetTimeline = createEnergyBudgetTimeline({ snapshot: snapshot.energyBudgetTimeline ?? null });
