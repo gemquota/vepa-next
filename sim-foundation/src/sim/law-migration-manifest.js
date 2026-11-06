@@ -8,7 +8,7 @@ import { STABLE_LAW_INVENTORY } from './stable-law-inventory.js';
  */
 const EXECUTABLE = new Set([
   'law.gravity', 'law.drag', 'law.collision', 'law.charge',
-  'law.entrainment', 'law.buoyancy', 'law.accretion', 'law.bond',
+  'law.entrainment', 'law.buoyancy', 'law.bond',
 ]);
 
 const PRIMITIVE_CLASS = Object.freeze({
@@ -31,9 +31,11 @@ export const LAW_MIGRATION_MANIFEST = Object.freeze(STABLE_LAW_INVENTORY.map(law
   runtimeStatus: EXECUTABLE.has(law.canonicalId) ? 'executable' : 'catalog-only',
   primitiveClass: PRIMITIVE_CLASS[law.category] ?? 'unclassified',
   migrationPriority: EXECUTABLE.has(law.canonicalId) ? 'done' : FOUNDATIONAL.has(law.canonicalId) ? 'next-foundation' : 'queued',
-  implementationNote: EXECUTABLE.has(law.canonicalId)
-    ? 'Covered by the deterministic Next particle solver.'
-    : 'Requires a concrete simulation primitive before it can be claimed executable.',
+  implementationNote: law.canonicalId === 'law.accretion'
+    ? 'Held back: product ACCR is a structural adjacency contract; the current SIM accretion path fuses particle state and is not semantically compatible.'
+    : EXECUTABLE.has(law.canonicalId)
+      ? 'Covered by the deterministic Next particle solver.'
+      : 'Requires a concrete simulation primitive before it can be claimed executable.',
 })));
 
 export const LAW_MIGRATION_SUMMARY = Object.freeze({
