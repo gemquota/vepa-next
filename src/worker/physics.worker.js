@@ -23,7 +23,7 @@ import {
   LAW_INDEXES,
 } from '../constants.js';
 import { runtimeConfig } from '../state/runtimeConfig.js';
-import { createGPUContext, gpuComputeForces } from '../physics/gpuCompute.js';
+import { createGPUContext, gpuComputeForces, watchGPUDeviceLoss } from '../physics/gpuCompute.js';
 
 const hasSAB = typeof SharedArrayBuffer !== 'undefined';
 const isShared = (value) => hasSAB && value instanceof SharedArrayBuffer;
@@ -43,6 +43,7 @@ let tickCount = 0;
 let hasSharedArrayBuffer = hasSAB;
 let gpuContext = null;
 let gpuReady = false;
+let gpuLossMonitorCancel = null;
 let tickInFlight = false;
 
 // ── Fallback State (no SharedArrayBuffer) ──
@@ -149,18 +150,13 @@ async function handleInit(msg) {
   if (runtimeConfig.computeEngine === 'gpu') {
     gpuContext = await createGPUContext();
     gpuReady = !!gpuContext;
-    if (gpuContext?.lost) {
-      gpuContext.lost.then((status) => {
-        if (!gpuReady) return;
-        gpuReady = false;
-        gpuContext = null;
-        self.postMessage({ type: 'GPU_FALLBACK', reason: status.reason, error: status.message });
-      }).catch((error) => {
-        gpuReady = false;
-        gpuContext = null;
-        self.postMessage({ type: 'GPU_FALLBACK', reason: 'device-loss-monitor', error: error.message || String(error) });
-      });
-    }
+    gpuLossMonitorCancel?.();
+    gpuLossMonitorCancel = watchGPUDeviceLoss(gpuContext, (status) => {
+      if (!gpuReady) return;
+      gpuReady = false;
+      gpuContext = null;
+      self.postMessage({ type: 'GPU_FALLBACK', reason: status.reason, error: status.message });
+    });
   }
 
   // DNA buffer
