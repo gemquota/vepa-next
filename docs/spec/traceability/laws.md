@@ -7,7 +7,7 @@
 | 0 | [GRAV](../laws/physics/000_GRAV.md) | physics | 2 | 4 | 20 | NONE |
 | 1 | [DRAG](../laws/physics/001_DRAG.md) | physics | 2 | 2 | 7 | NONE |
 | 2 | [ENTR](../laws/physics/002_ENTR.md) | physics | 2 | 1 | 7 | NONE |
-| 3 | [BUOYANCY](../laws/physics/003_BUOYANCY.md) | physics | 0 | 1 | 27 | NONE |
+| 3 | [BUOYANCY](../laws/physics/003_BUOYANCY.md) | physics | 1 | 2 | 27 | NONE |
 | 4 | [COLL](../laws/physics/004_COLL.md) | physics | 2 | 9 | 14 | NONE |
 | 5 | [ACCR](../laws/physics/005_ACCR.md) | physics | 1 | 6 | 4 | NONE |
 | 6 | [PLANETARY](../laws/physics/006_PLANETARY.md) | physics | 1 | 5 | 5 | NONE |
@@ -16,7 +16,7 @@
 | 9 | [AFFINITY](../laws/biology/009_AFFINITY.md) | biology | 1 | 2 | 7 | NONE |
 | 10 | [REPRO](../laws/biology/010_REPRO.md) | biology | 2 | 4 | 9 | NONE |
 | 11 | [TRACK](../laws/biology/011_TRACK.md) | biology | 1 | 3 | 1 | NONE |
-| 12 | [SENESCENCE](../laws/biology/012_SENESCENCE.md) | biology | 0 | 1 | 2 | NONE |
+| 12 | [SENESCENCE](../laws/biology/012_SENESCENCE.md) | biology | 1 | 2 | 2 | NONE |
 | 13 | [ENERGY](../laws/biology/013_ENERGY.md) | biology | 1 | 13 | 60 | NONE |
 | 14 | [RADIATION](../laws/biology/014_RADIATION.md) | biology | 1 | 2 | 3 | NONE |
 | 15 | [GENOTYPE](../laws/biology/015_GENOTYPE.md) | biology | 2 | 3 | 2 | NONE |
@@ -134,7 +134,7 @@
 | 127 | [ANTIMATTER](../laws/quantum/127_ANTIMATTER.md) | quantum | 1 | 2 | 3 | NONE |
 | 128 | [CONTACT](../laws/mechanics/128_CONTACT.md) | mechanics | 1 | 5 | 9 | MECHANICS_HELP |
 | 129 | [MOMENTUM](../laws/mechanics/129_MOMENTUM.md) | mechanics | 1 | 3 | 5 | MECHANICS_HELP |
-| 130 | [WRAP](../laws/mechanics/130_WRAP.md) | mechanics | 2 | 4 | 9 | MECHANICS_HELP |
+| 130 | [WRAP](../laws/mechanics/130_WRAP.md) | mechanics | 2 | 4 | 10 | MECHANICS_HELP |
 | 131 | [TORQUE](../laws/mechanics/131_TORQUE.md) | mechanics | 1 | 3 | 4 | MECHANICS_HELP |
 | 132 | [CONSTRAINT](../laws/mechanics/132_CONSTRAINT.md) | mechanics | 1 | 3 | 1 | MECHANICS_HELP |
 | 133 | [FRAGMENTATION](../laws/mechanics/133_FRAGMENTATION.md) | mechanics | 1 | 2 | 2 | MECHANICS_HELP |
