@@ -35,7 +35,7 @@ The shadow is not a second authoritative solver, a rollback mechanism for produc
 
 ## Supported product-law mapping
 
-The adapter currently maps the seven explicitly reviewed product laws: GRAV, DRAG, COLL, CHARGE_LAW, ENTR, BUOYANCY and BOND. Unsupported laws fail closed. ACCR is intentionally excluded because its product semantics preserve distinct particle identities and do not match a generic force-law mapping.
+The adapter currently maps the seven explicitly reviewed product laws: GRAV, DRAG, COLL, CHARGE_LAW, ENTR, BUOYANCY and BOND. WRAP is excluded from the law-name map because its topology is carried through the explicit boundaryMode configuration. Other unsupported active laws fail closed. ACCR is intentionally excluded because its product semantics preserve distinct particle identities and do not match a generic force-law mapping.
 
 ## Validation
 
