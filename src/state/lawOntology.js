@@ -28,6 +28,23 @@ export const LAW_EDGE_RELATIONSHIP_TYPES = Object.freeze([
 
 const LAW_NAMES = new Set(Object.keys(LAW_INDEXES));
 
+// Execution status is deliberately separate from descriptive relationships.
+// Metadata-only laws remain in the registry/save mask for forward compatibility,
+// but the UI must not present them as executable controls.
+export const LAW_EXECUTION_STATUS = Object.freeze({
+  ELECTRIC_FIELD: 'metadata-only',
+});
+
+export function getLawExecutionStatus(lawName) {
+  if (!LAW_NAMES.has(lawName)) throw new RangeError(`Unknown law name: ${lawName}`);
+  return LAW_EXECUTION_STATUS[lawName] ?? 'wired';
+}
+
+export function isLawExecutable(lawName) {
+  return getLawExecutionStatus(lawName) !== 'metadata-only';
+}
+
+
 function freezeRecord(record) {
   const result = {};
   for (const type of LAW_RELATIONSHIP_TYPES) {
