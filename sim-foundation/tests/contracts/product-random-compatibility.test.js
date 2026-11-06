@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProductRandomBridge } from '../../src/interop/product-boundary.js';
+import { createProductRandomAdapter } from '../../../src/core/prng.js';
+import { readFileSync } from 'node:fs';
 import { createDeterministicRandomStreams } from '../../src/core/random-streams.js';
 
 function legacyWorkerNext(stateRef) {
@@ -17,8 +19,14 @@ function legacyWorkerNext(stateRef) {
 test('product worker SplitMix32 and SIM compatibility bridge produce identical legacy sequences', () => {
   const seed = 0x51f15e;
   const legacy = { state: seed | 0 };
+  const product = createProductRandomAdapter({ seed, state: seed });
   const bridge = createProductRandomBridge({ seed, state: seed });
-  for (let i = 0; i < 128; i++) assert.equal(bridge.nextUint32(), legacyWorkerNext(legacy));
+  for (let i = 0; i < 128; i++) {
+    const expected = legacyWorkerNext(legacy);
+    assert.equal(product.nextUint32(), expected);
+    assert.equal(bridge.nextUint32(), expected);
+  }
+  assert.equal(product.snapshot().state, legacy.state >>> 0);
   assert.equal(bridge.state, legacy.state >>> 0);
 });
 
@@ -39,4 +47,11 @@ test('named random streams are independent of access order and survive snapshot 
   const restored = createDeterministicRandomStreams({ seed: 0x1234, snapshot });
   assert.equal(restored.get('mutation', 'particle:0').nextUint32(), aMutation.nextUint32());
   assert.equal(restored.get('reproduction', 'particle:0').nextUint32(), aReproduction.nextUint32());
+});
+
+test('live physics worker uses the checkpointable product random adapter', () => {
+  const worker = readFileSync(new URL('../../../src/worker/physics.worker.js', import.meta.url), 'utf8');
+  assert.match(worker, /createProductRandomAdapter/);
+  assert.match(worker, /getWorkerPrngState/);
+  assert.match(worker, /prngState: getWorkerPrngState\(\)/);
 });
