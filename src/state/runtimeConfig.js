@@ -32,6 +32,8 @@ export const runtimeConfig = {
   // WebGPU once and falls back to the validated CPU path when unavailable;
   // explicit CPU selection remains available in SETTINGS > COMPUTE.
   computeEngine: 'gpu',
+  // v9.3.6 — opt-in SIM foundation shadow; product solver remains authoritative.
+  simFoundationShadow: false,
   // v9.1.22 — browser presentation backend. Canvas2D remains the safe
   // reference default; PixiJS is opt-in until browser benchmark evidence is
   // available for the target device and population.
