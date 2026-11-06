@@ -148,8 +148,8 @@ export function createProductSimShadow({ worldId = 'product-shadow', seed = 0, t
     return Object.freeze({
       status, count, stride, tick: adapter.tick,
       supportedLawIds: Object.freeze([...supportedLawIds]),
-      identityState: adapter.createSnapshot().identityState,
-      randomState: adapter.createSnapshot().randomState,
+      identityCount: adapter.getParticleIdentityCount(),
+      randomStreamCount: adapter.getRandomStreamCount(),
       legacyPrng: legacyBridge.snapshot(),
     });
   }
@@ -198,8 +198,8 @@ export function createProductSimShadow({ worldId = 'product-shadow', seed = 0, t
     return Object.freeze({
       status, tick: adapter.tick, metrics,
       comparison,
-      identityCount: adapter.createSnapshot().identityState.active.length,
-      randomStreamCount: adapter.createSnapshot().randomState.streams.length,
+      identityCount: adapter.getParticleIdentityCount(),
+      randomStreamCount: adapter.getRandomStreamCount(),
     });
   }
 
