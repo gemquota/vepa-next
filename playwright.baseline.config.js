@@ -14,7 +14,7 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
+    command: 'VITE_BASE=/vepa-next/ npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173/vepa-next/',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
