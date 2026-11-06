@@ -1741,7 +1741,7 @@ function updateIntelligenceCore() {
                 worldSize,
                 tick,
                 name: `Epoch ${epochEngine.era}`,
-                prng: workerPrngSnapshot,
+                prng: captureWorldPrng(),
                 civilization: civilization ? serializeCivilization(civilization) : null,
                 codex: codex ? serializeCodex(codex) : null,
             }),
