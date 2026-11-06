@@ -44,6 +44,10 @@ let hasSharedArrayBuffer = hasSAB;
 let gpuContext = null;
 let gpuReady = false;
 let gpuLossMonitorCancel = null;
+let simShadow = null;
+let simShadowModulePromise = null;
+let simShadowReadyPromise = Promise.resolve();
+let simShadowWorldId = null;
 let tickInFlight = false;
 
 // ── Fallback State (no SharedArrayBuffer) ──
@@ -105,6 +109,80 @@ self.onmessage = function onWorkerMessage(event) {
       });
   }
 };
+
+// ── Opt-in SIM foundation shadow ──
+// The product solver remains authoritative. The SIM adapter evolves an isolated
+// copy and reports parity diagnostics only; unsupported product laws fail closed.
+function activeProductLawNames() {
+  return Object.entries(LAW_INDEXES)
+    .filter(([, index]) => isSet(lawState, index))
+    .map(([name]) => name);
+}
+
+async function rebaseSimShadow(reason = 'config', config = {}) {
+  if (!runtimeConfig.simFoundationShadow) {
+    simShadow = null;
+    simShadowWorldId = null;
+    return { status: 'disabled' };
+  }
+  if (!particleView) return { status: 'uninitialized' };
+  if (!simShadowModulePromise) {
+    simShadowModulePromise = import('../../sim-foundation/src/interop/product-shadow-runtime.js');
+  }
+  const module = await simShadowModulePromise;
+  const worldId = String(config.worldId ?? simShadowWorldId ?? 'vepa-product-world');
+  if (!simShadow || simShadowWorldId !== worldId) {
+    simShadow = module.createProductSimShadow({
+      worldId,
+      seed: _prngSeed,
+      tolerance: Number.isFinite(config.simShadowTolerance) ? config.simShadowTolerance : 1e-4,
+    });
+    simShadowWorldId = worldId;
+  }
+  const payload = {
+    worldId,
+    state: new Float32Array(particleView),
+    count: particleCount,
+    stride,
+    worldSize,
+    dt,
+    worldParams: runtimeConfig.worldParams,
+    activeLawNames: activeProductLawNames(),
+    seed: _prngSeed,
+    legacyPrngState: _prngState,
+    config: {
+      worldId,
+      worldSize,
+      dt,
+      worldParams: runtimeConfig.worldParams,
+      dragCoefficient: 0.015 * (runtimeConfig.dragMultiplier || 1),
+      electricConstant: config.electricConstant ?? runtimeConfig.worldParams?.ELECTRIC_K ?? 0,
+      boundaryMode: config.boundaryMode ?? runtimeConfig.worldParams?.BOUNDARY_MODE ?? 'toroidal',
+      interactionRadius: config.simInteractionRadius,
+      numerics: config.simNumerics,
+      advancedPhysics: config.simAdvancedPhysics ?? null,
+    },
+  };
+  const response = simShadow.request(reason === 'init' ? 'INIT' : 'CONFIG', payload);
+  if (response.type === 'ERROR') {
+    self.postMessage({ type: 'SIM_SHADOW_ERROR', reason, error: response.error });
+    return { status: 'error', error: response.error };
+  }
+  const result = response.payload ?? {};
+  if (result.status === 'unsupported') {
+    self.postMessage({ type: 'SIM_SHADOW_UNSUPPORTED', reason, unsupportedLawNames: result.unsupportedLawNames ?? [] });
+  }
+  return result;
+}
+
+function scheduleSimShadowRebase(reason = 'config', config = {}) {
+  simShadowReadyPromise = rebaseSimShadow(reason, config).catch((error) => {
+    const message = error?.message || String(error);
+    self.postMessage({ type: 'SIM_SHADOW_ERROR', reason, error: message });
+    return { status: 'error', error: message };
+  });
+  return simShadowReadyPromise;
+}
 
 // ── INIT Handler ──
 
@@ -177,13 +255,16 @@ async function handleInit(msg) {
     dnaView = new Uint16Array(dnaBuffer);
   }
 
+  const simShadowStatus = await rebaseSimShadow('init', config ?? {});
   self.postMessage({
     type: 'INIT_COMPLETE',
     tickCount: 0,
     hasSharedArrayBuffer,
     particleCount,
-    lawState: serializeLawState(lawState),      gpuAvailable: gpuReady,
+    lawState: serializeLawState(lawState),
+    gpuAvailable: gpuReady,
     gpuActive: false,
+    simShadowStatus,
   });
 }
 
@@ -216,11 +297,13 @@ function handleConfig(msg) {
     }
   }
 
+  scheduleSimShadowRebase('config', config ?? {});
   self.postMessage({
     type: 'CONFIG_COMPLETE',
     particleCount,
     worldSize,
     lawState: serializeLawState(lawState),
+    simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
   });
 }
 
@@ -228,12 +311,13 @@ function applyConfig(config) {
   if (config.particleCount !== undefined) particleCount = config.particleCount;
   if (config.worldSize !== undefined) worldSize = config.worldSize;
   if (config.dt !== undefined) dt = config.dt;
-  if (config.seed !== undefined && tickCount === 0) _prngState = config.seed | 0;
+  if (config.seed !== undefined && tickCount === 0) { _prngSeed = config.seed | 0; _prngState = _prngSeed; }
   if (config.stride !== undefined) stride = config.stride;
   if (config.worldParams) runtimeConfig.worldParams = config.worldParams;
   if (config.computeEngine === 'gpu' || config.computeEngine === 'cpu') {
     runtimeConfig.computeEngine = config.computeEngine;
   }
+  if (config.simFoundationShadow !== undefined) runtimeConfig.simFoundationShadow = config.simFoundationShadow === true;
 
   // Restore law state from serialized form
   if (config.lawState) {
@@ -274,11 +358,13 @@ function handleToggleLaw(msg) {
     toggleLaw(lawState, lawIndex);
   }
 
+  scheduleSimShadowRebase('law-toggle');
   self.postMessage({
     type: 'LAW_TOGGLED',
     lawIndex,
     active: isSet(lawState, lawIndex),
     lawState: serializeLawState(lawState),
+    simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
   });
 }
 
@@ -348,6 +434,20 @@ async function handleTick(msg) {
   const offspring = drainOffspring();
 
   tickCount++;
+  let simShadowDiagnostics = null;
+  if (runtimeConfig.simFoundationShadow) {
+    await simShadowReadyPromise;
+    if (simShadow?.status === 'ready') {
+      const productState = tickCount % 60 === 0 ? new Float32Array(particleView) : undefined;
+      const shadowResponse = simShadow.request('TICK', { dt, productState });
+      if (shadowResponse.type === 'ERROR') {
+        self.postMessage({ type: 'SIM_SHADOW_ERROR', reason: 'tick', error: shadowResponse.error });
+      } else if (productState) {
+        simShadowDiagnostics = shadowResponse.payload;
+        self.postMessage({ type: 'SIM_SHADOW_PARITY', tickCount, ...shadowResponse.payload });
+      }
+    }
+  }
   const tickDuration = performance.now() - tickStart;
 
   // Post result back to main thread
@@ -358,6 +458,8 @@ async function handleTick(msg) {
     particleCount,
     gpuAvailable: gpuReady,
     gpuActive: !!gpuForces,
+    simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
+    ...(simShadowDiagnostics ? { simShadow: simShadowDiagnostics } : {}),
   };
 
   if (offspring.length > 0) {
@@ -378,6 +480,10 @@ function handleGetState() {
     lawState: serializeLawState(lawState),
     hasSharedArrayBuffer,
     gpuAvailable: gpuReady,
+    prngSeed: _prngSeed >>> 0,
+    prngState: _prngState >>> 0,
+    simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
+    simShadowSnapshot: simShadow?.snapshot ?? null,
   });
 }
 
@@ -394,16 +500,25 @@ function handleRestore(msg) {
     tickCount = msg.tickCount;
   }
 
+  if (runtimeConfig.simFoundationShadow && msg.simShadowSnapshot && simShadow) {
+    const response = simShadow.request('RESTORE', { snapshot: msg.simShadowSnapshot });
+    if (response.type === 'ERROR') self.postMessage({ type: 'SIM_SHADOW_ERROR', reason: 'restore', error: response.error });
+  } else if (runtimeConfig.simFoundationShadow) {
+    scheduleSimShadowRebase('restore-without-sim-checkpoint');
+  }
+
   self.postMessage({
     type: 'RESTORE_COMPLETE',
     tickCount,
     lawState: serializeLawState(lawState),
+    simShadowStatus: simShadow?.status ?? (runtimeConfig.simFoundationShadow ? 'pending' : 'disabled'),
   });
 }
 
 // ── PRNG for Worker ──
 
 // SplitMix32-style PRNG (deterministic, fast, no Math.random dependency)
+let _prngSeed = 0x51f15e;
 let _prngState = 0x51f15e;
 
 function prng() {
