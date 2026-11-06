@@ -55,7 +55,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/engines/speciation.js](src/engines/speciation.js) | application | 210 | 4 | 3 | 0 |
 | [src/engines/timelineEngine.js](src/engines/timelineEngine.js) | application | 180 | 8 | 0 | 0 |
 | [src/engines/worldEvents.js](src/engines/worldEvents.js) | application | 80 | 1 | 0 | 3 |
-| [src/main.js](src/main.js) | application | 1957 | 0 | 54 | 14 |
+| [src/main.js](src/main.js) | application | 1978 | 0 | 54 | 14 |
 | [src/multiplex/multiplex.js](src/multiplex/multiplex.js) | application | 1523 | 30 | 11 | 7 |
 | [src/multiplex/multiplexHelp.js](src/multiplex/multiplexHelp.js) | application | 460 | 7 | 0 | 5 |
 | [src/multiplex/multiplexUI.js](src/multiplex/multiplexUI.js) | application | 841 | 1 | 2 | 2 |
@@ -310,7 +310,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [tests/unit/typeScale.test.js](tests/unit/typeScale.test.js) | testing | 212 | 0 | 3 | 1 |
 | [tests/unit/uiModuleReport.test.js](tests/unit/uiModuleReport.test.js) | testing | 174 | 1 | 4 | 1 |
 | [tests/unit/webgpuContract.test.js](tests/unit/webgpuContract.test.js) | testing | 95 | 0 | 4 | 0 |
-| [tests/unit/worldSave.test.js](tests/unit/worldSave.test.js) | testing | 358 | 0 | 7 | 5 |
+| [tests/unit/worldSave.test.js](tests/unit/worldSave.test.js) | testing | 382 | 0 | 7 | 5 |
 | [tests/unit/wrapLaw.test.js](tests/unit/wrapLaw.test.js) | testing | 66 | 0 | 4 | 1 |
 | [vercel.json](vercel.json) | repository | 35 | 0 | 0 | 0 |
 | [vite.config.js](vite.config.js) | repository | 34 | 1 | 1 | 0 |
