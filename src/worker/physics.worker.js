@@ -439,7 +439,7 @@ async function handleTick(msg) {
     await simShadowReadyPromise;
     if (simShadow?.status === 'ready') {
       const productState = tickCount % 60 === 0 ? new Float32Array(particleView) : undefined;
-      const shadowResponse = simShadow.request('TICK', { dt, productState });
+      const shadowResponse = simShadow.request('TICK', { dt, productState, legacyPrngState: _prngState >>> 0 });
       if (shadowResponse.type === 'ERROR') {
         self.postMessage({ type: 'SIM_SHADOW_ERROR', reason: 'tick', error: shadowResponse.error });
       } else if (productState) {
@@ -498,6 +498,13 @@ function handleRestore(msg) {
   }
   if (msg.tickCount !== undefined) {
     tickCount = msg.tickCount;
+  }
+  if (Number.isInteger(msg.prngSeed) && Number.isInteger(msg.prngState)) {
+    _prngSeed = msg.prngSeed | 0;
+    _prngState = msg.prngState | 0;
+  } else if (msg.simShadowSnapshot?.legacyPrng) {
+    _prngSeed = msg.simShadowSnapshot.legacyPrng.seed | 0;
+    _prngState = msg.simShadowSnapshot.legacyPrng.state | 0;
   }
 
   if (runtimeConfig.simFoundationShadow && msg.simShadowSnapshot && simShadow) {
