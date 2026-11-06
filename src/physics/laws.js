@@ -569,12 +569,17 @@ export function applyLifeCycle(lawState, view, base, dnaParams, dt, prng, synerg
  */
 export function applySenescence(lawState, view, base, dnaParams, dt, prng, dnaBuffer) {
   if (!isSet(lawState, LAW_INDEXES.LIFE) || !isSet(lawState, LAW_INDEXES.SENESCENCE)) return false;
-  const age = view[base + S.AGE] || 0;
-  if (age <= 500) return false;
+  const age = view[base + S.AGE];
+  if (!Number.isFinite(age) || age <= 500 || !Number.isFinite(dt) || dt <= 0) return false;
+  const rawDeathRate = Number(dnaParams?.[11]);
+  if (!Number.isFinite(rawDeathRate)) return false;
   const ageNorm = Math.min(1.0, age / 5000);
-  const telomere = dnaBuffer ? readSpeciesDNAParam(dnaBuffer, view[base + S.SPECIES_ID] || 0, 60) : 0.5;
-  const deathRate = dnaParams[11] * 0.001 * (1.0 + ageNorm * 0.5) * (1 - telomere * 0.5);
-  if (prng() < deathRate * dt) {
+  const rawTelomere = dnaBuffer ? readSpeciesDNAParam(dnaBuffer, view[base + S.SPECIES_ID] || 0, 60) : 0.5;
+  const telomere = Number.isFinite(rawTelomere) ? Math.max(0, Math.min(1, rawTelomere)) : 0.5;
+  const deathRate = Math.max(0, rawDeathRate) * 0.001 * (1.0 + ageNorm * 0.5) * (1 - telomere * 0.5);
+  const probability = Math.min(1, deathRate * dt);
+  const sample = prng();
+  if (Number.isFinite(sample) && sample >= 0 && sample < probability) {
     view[base + S.DEAD] = 1.0;
     return true;
   }
@@ -1300,13 +1305,16 @@ export function applyVoid(lawState, view, base, px, py, pz, worldSize, synergy) 
 // TEMPERATURE (stride 66) is heated by RESISTANCE, fusion and stellar output.
 export function applyBuoyancy(lawState, view, base) {
   if (!isSet(lawState, LAW_INDEXES.BUOYANCY)) return null;
-  const heatOutput = view[base + S.DNA_CACHE_START + DNA_INDEXES.HEAT_OUTPUT] || 0;
-  const temp = view[base + S.TEMPERATURE] || 0;
-  const ambient = 0.5; // mid-scale ambient temperature
-  const delta = temp - ambient;
-  if (Math.abs(delta) < 0.01) return null;
+  const rawTemp = view[base + S.TEMPERATURE];
+  if (!Number.isFinite(rawTemp)) return null;
+  const rawHeatOutput = view[base + S.DNA_CACHE_START + DNA_INDEXES.HEAT_OUTPUT];
+  const heatOutput = Number.isFinite(rawHeatOutput) ? Math.max(0, Math.min(1, rawHeatOutput)) : 0;
+  const ambient = 0.5; // normalized mid-scale ambient temperature
+  const delta = rawTemp - ambient;
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.01) return null;
   const k = 0.02 * (0.5 + heatOutput);
-  return { ax: 0, ay: 0, az: -delta * k }; // negative z = up
+  const az = -delta * k;
+  return Number.isFinite(az) ? { ax: 0, ay: 0, az } : null; // negative z = up
 }
 
 // ============================================================================
