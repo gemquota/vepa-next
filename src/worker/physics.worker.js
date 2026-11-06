@@ -139,6 +139,8 @@ async function rebaseSimShadow(reason = 'config', config = {}) {
     });
     simShadowWorldId = worldId;
   }
+  const rawBoundaryMode = config.boundaryMode ?? runtimeConfig.worldParams?.BOUNDARY_MODE;
+  const boundaryMode = ['toroidal', 'reflective', 'open'].includes(rawBoundaryMode) ? rawBoundaryMode : 'toroidal';
   const payload = {
     worldId,
     state: new Float32Array(particleView),
@@ -157,7 +159,7 @@ async function rebaseSimShadow(reason = 'config', config = {}) {
       worldParams: runtimeConfig.worldParams,
       dragCoefficient: 0.015 * (runtimeConfig.dragMultiplier || 1),
       electricConstant: config.electricConstant ?? runtimeConfig.worldParams?.ELECTRIC_K ?? 0,
-      boundaryMode: config.boundaryMode ?? runtimeConfig.worldParams?.BOUNDARY_MODE ?? 'toroidal',
+      boundaryMode,
       interactionRadius: config.simInteractionRadius,
       numerics: config.simNumerics,
       advancedPhysics: config.simAdvancedPhysics ?? null,
