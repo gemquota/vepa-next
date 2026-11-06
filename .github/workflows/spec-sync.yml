@@ -1,0 +1,52 @@
+name: Sync generated VEPA specifications
+
+on:
+  push:
+    branches:
+      - feat/gate-0-and-gate-2-verification
+      - feat/gate-3-law-evidence
+      - feat/gate-4-production-integration
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'sim-foundation/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'package.json'
+      - 'vite.config.js'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vepa-spec-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Regenerate checked-in specification artifacts
+        run: npm run spec:generate
+      - name: Commit generated artifacts only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Generated specifications already match source."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(spec): sync generated VEPA source specifications"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

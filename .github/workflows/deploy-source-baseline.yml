@@ -1,9 +1,9 @@
-name: Validate VEPA Next mainline and Pages payload
+name: Validate VEPA Next and Pages payload
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: vepa-next-mainline-validation
+  group: vepa-next-validation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,14 +27,30 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Capture immutable source and dependency baseline
+        run: npm run baseline:capture
+      - name: Capture deterministic product solver golden fixture
+        run: npm run golden:capture
       - name: Run product and SIM contract suites
         run: npm run test:all
       - name: Check generated specs and repository consistency
         run: npm run repository:check
+      - name: Check source syntax
+        run: npm run syntax-check
       - name: Build the GitHub Pages application
         run: VITE_BASE=/vepa-next/ npm run build
-      - name: Verify deployable output
-        run: |
-          test -s dist/index.html
-          test -d dist/assets
-          echo "Built Pages payload from ${GITHUB_SHA}: dist/"
+      - name: Install Chromium for production-preview acceptance
+        run: npx playwright install --with-deps chromium
+      - name: Verify built Pages payload, worker and main-thread fallback
+        run: npm run test:e2e:baseline
+      - name: Upload baseline, golden fixture and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vepa-gate0-evidence-${{ github.sha }}
+          path: |
+            .artifacts/
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 30

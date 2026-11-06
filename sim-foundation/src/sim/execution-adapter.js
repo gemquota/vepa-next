@@ -215,12 +215,57 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     nextRandom(domain, entityId) { return randomStreams.get(domain, entityId).next(); },
     getParticleIdentity(slot) { return particleIdentities.get(slot); },
     applyV3Behaviors(behaviorConfig, pairs = []) {
-      return applyV3BehaviorKernel({
-        state, count: particleCount, stride, dt: activeConfig.dt,
-        identities: particleIdentities, streams: randomStreams,
-        worldId: behaviorConfig?.worldId ?? 'world',
-        config: behaviorConfig, pairs,
-      });
+      const beforeState = new Float64Array(state);
+      const beforeIdentities = Array.from({ length: particleCount }, (_, slot) => particleIdentities.get(slot));
+      const identitySnapshot = particleIdentities.snapshot();
+      const randomSnapshot = randomStreams.snapshot();
+      const lifecycleSnapshot = energyLifecycleAudit.createSnapshot();
+      try {
+        const result = applyV3BehaviorKernel({
+          state, count: particleCount, stride, dt: activeConfig.dt,
+          identities: particleIdentities, streams: randomStreams,
+          worldId: behaviorConfig?.worldId ?? worldId,
+          config: behaviorConfig, pairs,
+        });
+        for (let slot = 0; slot < particleCount; slot++) {
+          const base = slot * stride;
+          const beforeIdentity = beforeIdentities[slot];
+          const afterIdentity = particleIdentities.get(slot);
+          const wasLive = Boolean(beforeIdentity) && beforeState[base + PARTICLE_SLOTS.DEAD] < 0.5 &&
+            beforeState[base + PARTICLE_SLOTS.MASS] > 0;
+          const isLive = Boolean(afterIdentity) && state[base + PARTICLE_SLOTS.DEAD] < 0.5 &&
+            state[base + PARTICLE_SLOTS.MASS] > 0;
+          if (!wasLive && isLive) {
+            const mass = state[base + PARTICLE_SLOTS.MASS];
+            const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
+            energyLifecycleAudit.record({
+              kind: 'particle-created', sourceId: behaviorConfig?.features?.reproduction ? 'reproduction' : 'behavior-creation',
+              entityId: String(afterIdentity.id), tick, massDelta: mass,
+              kineticEnergyDelta: 0.5 * mass * (vx * vx + vy * vy + vz * vz),
+              momentumDelta: [mass * vx, mass * vy, mass * vz],
+              metadata: { slot, speciesId: state[base + PARTICLE_SLOTS.SPECIES_ID], worldId: behaviorConfig?.worldId ?? worldId },
+            });
+          } else if (wasLive && !isLive) {
+            const mass = beforeState[base + PARTICLE_SLOTS.MASS];
+            const vx = beforeState[base + PARTICLE_SLOTS.VEL_X], vy = beforeState[base + PARTICLE_SLOTS.VEL_Y], vz = beforeState[base + PARTICLE_SLOTS.VEL_Z];
+            energyLifecycleAudit.record({
+              kind: 'particle-retired',
+              sourceId: behaviorConfig?.features?.senescence ? 'senescence' : behaviorConfig?.features?.radiation ? 'radiation' : 'behavior-retirement',
+              entityId: String(beforeIdentity.id), tick, massDelta: -mass,
+              kineticEnergyDelta: -0.5 * mass * (vx * vx + vy * vy + vz * vz),
+              momentumDelta: [-mass * vx, -mass * vy, -mass * vz],
+              metadata: { slot, worldId: behaviorConfig?.worldId ?? worldId },
+            });
+          }
+        }
+        return result;
+      } catch (error) {
+        state = beforeState;
+        particleIdentities.restore(identitySnapshot);
+        randomStreams.restore(randomSnapshot);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: lifecycleSnapshot });
+        throw error;
+      }
     },
     allocateParticle(slot, values) {
       if (!Number.isInteger(slot) || slot < 0 || slot >= particleCount) throw new RangeError('particle slot is outside execution capacity');

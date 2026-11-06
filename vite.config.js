@@ -21,6 +21,12 @@ export default defineConfig({
     },
     host: true,
   },
+  preview: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
   worker: {
     format: 'es',
   },

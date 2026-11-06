@@ -134,7 +134,7 @@
 | 127 | [ANTIMATTER](../laws/quantum/127_ANTIMATTER.md) | quantum | 1 | 2 | 3 | NONE |
 | 128 | [CONTACT](../laws/mechanics/128_CONTACT.md) | mechanics | 1 | 5 | 9 | MECHANICS_HELP |
 | 129 | [MOMENTUM](../laws/mechanics/129_MOMENTUM.md) | mechanics | 1 | 3 | 5 | MECHANICS_HELP |
-| 130 | [WRAP](../laws/mechanics/130_WRAP.md) | mechanics | 2 | 4 | 9 | MECHANICS_HELP |
+| 130 | [WRAP](../laws/mechanics/130_WRAP.md) | mechanics | 2 | 4 | 10 | MECHANICS_HELP |
 | 131 | [TORQUE](../laws/mechanics/131_TORQUE.md) | mechanics | 1 | 3 | 4 | MECHANICS_HELP |
 | 132 | [CONSTRAINT](../laws/mechanics/132_CONSTRAINT.md) | mechanics | 1 | 3 | 1 | MECHANICS_HELP |
 | 133 | [FRAGMENTATION](../laws/mechanics/133_FRAGMENTATION.md) | mechanics | 1 | 2 | 2 | MECHANICS_HELP |
