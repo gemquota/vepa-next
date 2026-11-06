@@ -136,6 +136,7 @@ let codex = null;
 // particle memory without copying; browsers without cross-origin isolation
 // keep the safe main-thread path instead of paying a per-tick transfer cost.
 let physicsWorker = null;
+let workerPrngSnapshot = null;
 let workerReady = false;
 let workerPending = false;
 let workerBusy = false;
@@ -314,6 +315,9 @@ function workerConfig() {
         seed: WORKER_SEED,
         worldParams: { ...(runtimeConfig.worldParams || {}) },
         computeEngine: runtimeConfig.computeEngine,
+        simFoundationShadow: runtimeConfig.simFoundationShadow === true,
+        prngSeed: workerPrngSnapshot?.seed ?? WORKER_SEED,
+        prngState: workerPrngSnapshot?.state ?? WORKER_SEED,
         lawState: serializeLawState(lawState),
     };
 }
@@ -359,6 +363,8 @@ function handleWorkerTick(message) {
     // The worker owns the authoritative tick counter while it drives the
     // solver — adopt its tickCount so the HUD does not show a frozen TICK 0.
     if (typeof message.tickCount === 'number') tick = message.tickCount;
+    if (message.simShadow) bus.emit('physics:simShadow', message.simShadow);
+    if (message.simShadowStatus) bus.emit('physics:simShadowStatus', { status: message.simShadowStatus, tick: message.tickCount });
     finishPhysicsTick(tickStart, offspring);
 }
 
@@ -399,12 +405,18 @@ function startPhysicsWorker() {
             const message = event.data || {};
             if (message.type === 'WORKER_READY') return;
             if (message.type === 'INIT_COMPLETE') {
+                if (Number.isInteger(message.prngSeed) && Number.isInteger(message.prngState)) {
+                    workerPrngSnapshot = { algorithm: 'splitmix32-v1', seed: message.prngSeed >>> 0, state: message.prngState >>> 0 };
+                }
                 workerReady = true;
                 workerPending = false;
                 logDebug('physics worker ready (SharedArrayBuffer, deterministic solver)');
                 return;
             }
             if (message.type === 'TICK_COMPLETE') {
+                if (Number.isInteger(message.prngSeed) && Number.isInteger(message.prngState)) {
+                    workerPrngSnapshot = { algorithm: 'splitmix32-v1', seed: message.prngSeed >>> 0, state: message.prngState >>> 0 };
+                }
                 handleWorkerTick(message);
                 bus.emit('physics:backend', {
                     engine: message.gpuActive ? 'webgpu' : 'cpu',
@@ -582,6 +594,11 @@ async function boot() {
     // its spatial-grid/pairwise hot path off-thread whenever SAB is available.
     // The worker is intentionally started after all initial writes are done.
     startPhysicsWorker();
+    window.__VEPA_SIM_SHADOW__ = (enabled) => {
+        runtimeConfig.simFoundationShadow = enabled === true;
+        syncPhysicsWorker();
+        return runtimeConfig.simFoundationShadow;
+    };
     requestAnimationFrame(renderLoop);
 
     const dt = (performance.now() - t0).toFixed(1);
@@ -882,6 +899,7 @@ function setDNAFromProfile(species, profile) {
         worldSize,
         tick,
         name,
+        prng: workerPrngSnapshot,
         civilization: civilization ? serializeCivilization(civilization) : null,
         codex: codex ? serializeCodex(codex) : null,
     });
@@ -915,6 +933,8 @@ function setDNAFromProfile(species, profile) {
         particleCount = out.particleCount;
         speciesCount = out.speciesCount;
         worldSize = out.worldSize;
+        tick = Number.isInteger(state.tick) && state.tick >= 0 ? state.tick : 0;
+        workerPrngSnapshot = out.prng ?? null;
         setWorldSize(out.worldSize);
         resetOffspringRing();
         resetIntelligence();
@@ -1700,6 +1720,7 @@ function updateIntelligenceCore() {
                 worldSize,
                 tick,
                 name: `Epoch ${epochEngine.era}`,
+                prng: workerPrngSnapshot,
                 civilization: civilization ? serializeCivilization(civilization) : null,
                 codex: codex ? serializeCodex(codex) : null,
             }),
