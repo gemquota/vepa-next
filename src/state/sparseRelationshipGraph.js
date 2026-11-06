@@ -63,7 +63,7 @@ function appendHistory(edge, event, maxHistory) {
 /** Add or update one relationship. Returns a defensive edge copy. */
 export function upsertRelationship(graph, input = {}) {
   if (!graph || graph.schemaVersion !== 1) throw new TypeError('invalid relationship graph');
-  const { source, target, type, directed = false, tick = graph.tick, strength = 1, decay = 0, metadata = {} } = input;
+  const { source, target, type, directed = false, tick = graph.tick, strength, decay, metadata = {} } = input;
   if (!stableId(source) || !stableId(target) || source === target) throw new TypeError('relationship endpoints must be distinct stable IDs');
   if (typeof type !== 'string' || !type.trim()) throw new TypeError('relationship type is required');
   if (typeof directed !== 'boolean') throw new TypeError('directed must be boolean');
@@ -76,18 +76,18 @@ export function upsertRelationship(graph, input = {}) {
   let edge = graph.edges.get(key);
   if (!edge) {
     if (graph.edges.size >= graph.maxEdges) throw new RangeError('relationship graph capacity reached; prune before inserting');
-    edge = { id: key, source: a, target: b, type, directed, strength, decay, createdTick: tick, updatedTick: tick, active: true, metadata: { ...metadata }, history: [] };
+    edge = { id: key, source: a, target: b, type, directed, strength: strength ?? 1, decay: decay ?? 0, createdTick: tick, updatedTick: tick, active: true, metadata: { ...metadata }, history: [] };
     graph.edges.set(key, edge);
     addIndex(graph, a, key);
     addIndex(graph, b, key);
-    appendHistory(edge, { tick, kind: 'formed', value: strength }, graph.maxHistory);
+    appendHistory(edge, { tick, kind: 'formed', value: edge.strength }, graph.maxHistory);
   } else {
-    edge.strength = strength;
-    edge.decay = decay;
+    if (strength !== undefined) edge.strength = strength;
+    if (decay !== undefined) edge.decay = decay;
     edge.updatedTick = tick;
     edge.active = true;
     edge.metadata = { ...edge.metadata, ...metadata };
-    appendHistory(edge, { tick, kind: 'updated', value: strength }, graph.maxHistory);
+    appendHistory(edge, { tick, kind: 'updated', value: edge.strength }, graph.maxHistory);
   }
   graph.tick = Math.max(graph.tick, tick);
   return cloneEdge(edge);
