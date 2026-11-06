@@ -8,7 +8,7 @@
 | Category | biology |
 | Color | ORANGE |
 | Status | wired |
-| Solver gate references | 0 |
+| Solver gate references | 1 |
 | Help source | NONE |
 
 ## Parameters
@@ -26,7 +26,7 @@
 
 ## Implementation evidence
 
-[src/physics/laws.js](src/physics/laws.js)
+[src/physics/laws.js](src/physics/laws.js), [src/physics/solver.js](src/physics/solver.js)
 
 ## Verification evidence
 
