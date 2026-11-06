@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LAW_INDEXES, DNA_INDEXES, PARTICLE_STRIDE, STRIDE_INDEXES as S } from '../../../src/constants.js';
 import { createLawState, set } from '../../../src/state/lawState.js';
-import { applyBuoyancy, applyLifeCycle, applySenescence } from '../../../src/physics/laws.js';
+import { applyBuoyancy, applyLifeCycle, applySenescence, applyDrag, applyGravity, applyCurrentTransfer, applyResistance, applyMagneticForce, setBuffer } from '../../../src/physics/laws.js';
 import { LAW_HELP_PATCHES } from '../../../src/state/lawHelpPatches.js';
 import {
   LAW_RELATIONSHIPS, LAW_RELATIONSHIP_EVIDENCE, validateLawOntology,
-  getLawExecutionStatus, isLawExecutable,
+  getLawExecutionStatus, isLawExecutable, validateLawParameterContracts, LAW_PARAMETER_CONTRACTS,
 } from '../../../src/state/lawOntology.js';
 import { readFileSync } from 'node:fs';
 
@@ -90,6 +90,76 @@ test('ELECTRIC_FIELD is explicitly metadata-only, not an executable alias for FI
   assert.match(lawPanel, /isLawExecutable/);
   assert.match(worldPanel, /metadata-only/);
   assert.match(worldPanel, /isLawExecutable/);
+});
+
+test('DRAG returns bounded damping acceleration and zero friction is inert', () => {
+  assert.deepEqual(applyDrag(2, -1, 0.5, 0), { ax: 0, ay: 0, az: 0 });
+  const force = applyDrag(2, -1, 0.5, 0.25);
+  assert.ok(force.ax < 0 && force.ay > 0 && force.az < 0);
+  assert.ok(Math.abs(force.ax + 0.5) < 1e-12);
+});
+
+test('GRAV pair force is antisymmetric under particle exchange', () => {
+  const view = new Float32Array(2 * PARTICLE_STRIDE);
+  view[S.MASS] = 2;
+  view[PARTICLE_STRIDE + S.MASS] = 3;
+  setBuffer(view);
+  const forward = applyGravity(0, PARTICLE_STRIDE, 1, 0, 0, 1, 1);
+  const reverse = applyGravity(PARTICLE_STRIDE, 0, -1, 0, 0, 1, 1);
+  assert.ok(Math.abs(forward.ax + reverse.ax) < 1e-12);
+  assert.equal(forward.ay, 0);
+  assert.equal(forward.az, 0);
+});
+
+test('CURRENT conserves total charge and clamps a transfer to equalization', () => {
+  const view = new Float32Array(2 * PARTICLE_STRIDE);
+  view[S.CHARGE] = 0;
+  view[PARTICLE_STRIDE + S.CHARGE] = 1;
+  view[S.DNA_CACHE_START + DNA_INDEXES.CONDUCTIVITY] = 0.5;
+  view[PARTICLE_STRIDE + S.DNA_CACHE_START + DNA_INDEXES.CONDUCTIVITY] = 0.5;
+  setBuffer(view);
+  applyCurrentTransfer(0, PARTICLE_STRIDE, 10, 0.5);
+  assert.ok(Math.abs(view[S.CHARGE] + view[PARTICLE_STRIDE + S.CHARGE] - 1) < 1e-7);
+  assert.ok(Math.abs(view[S.CHARGE] - 0.25) < 1e-7);
+  applyCurrentTransfer(0, PARTICLE_STRIDE, 10, 100);
+  assert.ok(Math.abs(view[S.CHARGE] - 0.5) < 1e-7);
+  assert.ok(Math.abs(view[PARTICLE_STRIDE + S.CHARGE] - 0.5) < 1e-7);
+  const before = [view[S.CHARGE], view[PARTICLE_STRIDE + S.CHARGE]];
+  applyCurrentTransfer(0, PARTICLE_STRIDE, 10, Infinity);
+  assert.deepEqual([view[S.CHARGE], view[PARTICLE_STRIDE + S.CHARGE]], before);
+});
+
+test('RESISTANCE damps velocity and converts the response into heat without non-finite writes', () => {
+  const view = new Float32Array(PARTICLE_STRIDE);
+  view[S.TEMPERATURE] = 0;
+  view[S.DNA_CACHE_START + DNA_INDEXES.CONDUCTIVITY] = 0;
+  setBuffer(view);
+  const force = applyResistance(0, 2, 0, 0, 0.1);
+  assert.ok(force.ax < 0);
+  assert.ok(view[S.TEMPERATURE] > 0);
+  const before = view[S.TEMPERATURE];
+  assert.equal(applyResistance(0, Infinity, 0, 0, 0.1), null);
+  assert.equal(view[S.TEMPERATURE], before);
+});
+
+test('MAGNETISM is antisymmetric for equal moments and rejects non-finite controls', () => {
+  const view = new Float32Array(2 * PARTICLE_STRIDE);
+  view[S.DNA_CACHE_START + DNA_INDEXES.MAGNETIC_MOMENT] = 0.5;
+  view[PARTICLE_STRIDE + S.DNA_CACHE_START + DNA_INDEXES.MAGNETIC_MOMENT] = 0.5;
+  setBuffer(view);
+  const forward = applyMagneticForce(0, PARTICLE_STRIDE, 1, 0, 0, 1, 1);
+  const reverse = applyMagneticForce(PARTICLE_STRIDE, 0, -1, 0, 0, 1, 1);
+  assert.ok(Math.abs(forward.ax + reverse.ax) < 1e-12);
+  assert.equal(applyMagneticForce(0, PARTICLE_STRIDE, 1, 0, 0, 1, Infinity), null);
+});
+
+test('high-risk parameter contracts match canonical DNA ranges and declare invariants', () => {
+  assert.deepEqual(validateLawParameterContracts(), []);
+  assert.ok(Object.keys(LAW_PARAMETER_CONTRACTS).length >= 14);
+  for (const contract of Object.values(LAW_PARAMETER_CONTRACTS)) {
+    assert.ok(contract.parameters.length > 0);
+    assert.ok(contract.invariants.length > 0);
+  }
 });
 
 test('priority ontology edges have direction, rationale and a concrete runtime consumer', () => {
