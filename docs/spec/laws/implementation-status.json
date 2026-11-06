@@ -287,6 +287,7 @@
         "tests/audit/params_batch_06.test.js",
         "tests/audit/params_batch_14.test.js",
         "tests/audit/params_batch_15.test.js",
+        "tests/e2e/sim-shadow-baseline.spec.js",
         "tests/unit/auditSignoff.test.js",
         "tests/unit/codex.test.js",
         "tests/unit/exoticMatter.test.js",
@@ -325,7 +326,8 @@
       ],
       "testFiles": [
         "tests/audit/batch_01.test.js",
-        "tests/audit/batch_03.test.js"
+        "tests/audit/batch_03.test.js",
+        "tests/e2e/sim-shadow-baseline.spec.js"
       ],
       "relationshipTypes": [],
       "relationshipMetadataComplete": false,
@@ -376,6 +378,7 @@
         "tests/audit/params_batch_06.test.js",
         "tests/audit/params_batch_14.test.js",
         "tests/audit/params_batch_15.test.js",
+        "tests/e2e/sim-shadow-baseline.spec.js",
         "tests/unit/multiplex.test.js",
         "tests/unit/relationshipExplorer.test.js",
         "tests/unit/synergyCache.test.js",
@@ -586,6 +589,7 @@
       ],
       "testFiles": [
         "tests/audit/batch_04.test.js",
+        "tests/e2e/sim-shadow-baseline.spec.js",
         "tests/unit/synergyCache.test.js"
       ],
       "relationshipTypes": [
@@ -610,7 +614,8 @@
         "src/physics/solver.js"
       ],
       "testFiles": [
-        "tests/audit/batch_05.test.js"
+        "tests/audit/batch_05.test.js",
+        "tests/e2e/sim-shadow-baseline.spec.js"
       ],
       "relationshipTypes": [
         "dependsOn",
