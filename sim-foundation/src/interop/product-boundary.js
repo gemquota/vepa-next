@@ -28,12 +28,22 @@ export function toProductWorkerResponse(message, { requestId, productType } = {}
  const type = PRODUCT_RESPONSE[productType]; if (!type) throw new RangeError('Product worker response has no bridge mapping: ' + productType);
  return Object.freeze({ type, payload: message.payload ?? null, requestId: message.id });
 }
-export function createWorkerResponseTracker() {
- const pending = new Set(); const completed = new Set();
+export function createWorkerResponseTracker({ maxCompleted = 1024 } = {}) {
+ if (!Number.isSafeInteger(maxCompleted) || maxCompleted < 1) throw new RangeError('maxCompleted must be a positive safe integer');
+ const pending = new Set(); const completed = new Set(); const completedOrder = [];
  return Object.freeze({
   register(id) { if (!Number.isSafeInteger(id) || id < 0 || pending.has(id) || completed.has(id)) throw new TypeError('duplicate or invalid worker request id'); pending.add(id); },
-  accept(message) { const verdict = validateSimWorkerResponse(message); if (!verdict.valid) return Object.freeze({ accepted: false, errors: verdict.errors }); if (completed.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['duplicate-response']) }); if (!pending.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['unknown-or-stale-response']) }); pending.delete(message.id); completed.add(message.id); return Object.freeze({ accepted: true, requestId: message.id }); },
+  accept(message) {
+   const verdict = validateSimWorkerResponse(message);
+   if (!verdict.valid) return Object.freeze({ accepted: false, errors: verdict.errors });
+   if (completed.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['duplicate-response']) });
+   if (!pending.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['unknown-or-stale-response']) });
+   pending.delete(message.id); completed.add(message.id); completedOrder.push(message.id);
+   if (completedOrder.length > maxCompleted) completed.delete(completedOrder.shift());
+   return Object.freeze({ accepted: true, requestId: message.id });
+  },
   get pendingCount() { return pending.size; },
+  get completedCount() { return completed.size; },
  });
 }
 export function createProductRandomBridge({ seed = 0, state = seed } = {}) {
