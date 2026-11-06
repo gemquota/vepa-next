@@ -398,6 +398,10 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     step() {
       // Always retain a tick checkpoint: state and its transfer journal commit together.
       const beforeState = new Float64Array(state);
+      const beforeIdentityState = particleIdentities.snapshot();
+      const beforeIdentities = Array.from({ length: particleCount }, (_, slot) => particleIdentities.get(slot));
+      const beforeLifecycleSnapshot = energyLifecycleAudit.createSnapshot();
+      const beforeJournalSnapshot = eventJournal.snapshot();
       const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
       const maxAcceleration = activeConfig.numerics.adaptiveSubstepping
         ? estimateModeledPairAcceleration(state, particleCount, stride, activeConfig) : 0;
@@ -471,12 +475,49 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         forceWorkJournal = createForceWorkJournal({ snapshot: beforeForceWorkSnapshot });
         throw error;
       }
-      for (let i = 0; i < particleCount; i++) {
-        const identity = particleIdentities.get(i);
-        const base = i * stride;
-        if (identity && (state[base + PARTICLE_SLOTS.DEAD] >= 0.5 || state[base + PARTICLE_SLOTS.MASS] <= 0)) {
-          particleIdentities.release(identity);
+      try {
+        for (let i = 0; i < particleCount; i++) {
+          const identity = beforeIdentities[i];
+          const base = i * stride;
+          const wasLive = Boolean(identity) && beforeState[base + PARTICLE_SLOTS.DEAD] < 0.5 && beforeState[base + PARTICLE_SLOTS.MASS] > 0;
+          const isLive = state[base + PARTICLE_SLOTS.DEAD] < 0.5 && state[base + PARTICLE_SLOTS.MASS] > 0;
+          if (wasLive && !isLive) {
+            const mass = beforeState[base + PARTICLE_SLOTS.MASS];
+            const vx = beforeState[base + PARTICLE_SLOTS.VEL_X], vy = beforeState[base + PARTICLE_SLOTS.VEL_Y], vz = beforeState[base + PARTICLE_SLOTS.VEL_Z];
+            const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+            energyLifecycleAudit.record({
+              kind: 'particle-retired', sourceId: 'solver-retirement', entityId: String(identity),
+              tick: tick + 1, massDelta: -mass, kineticEnergyDelta: -kineticEnergy,
+              momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot: i },
+            });
+            appendDomainEvent('particle.retired', { slot: i, entityId: String(identity), sourceId: 'solver-retirement',
+              massDelta: -mass, kineticEnergyDelta: -kineticEnergy, momentum: [-mass * vx, -mass * vy, -mass * vz] },
+              'sim.solver', tick + 1);
+            particleIdentities.release(identity);
+          } else if (!identity && isLive) {
+            const createdIdentity = particleIdentities.allocate(i);
+            const mass = state[base + PARTICLE_SLOTS.MASS];
+            const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
+            const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+            energyLifecycleAudit.record({
+              kind: 'particle-created', sourceId: 'solver-creation', entityId: String(createdIdentity),
+              tick: tick + 1, massDelta: mass, kineticEnergyDelta: kineticEnergy,
+              momentumDelta: [mass * vx, mass * vy, mass * vz], metadata: { slot: i },
+            });
+            appendDomainEvent('particle.created', { slot: i, entityId: String(createdIdentity), sourceId: 'solver-creation',
+              massDelta: mass, kineticEnergyDelta: kineticEnergy, momentum: [mass * vx, mass * vy, mass * vz] },
+              'sim.solver', tick + 1);
+          }
         }
+      } catch (error) {
+        state = beforeState;
+        particleIdentities.restore(beforeIdentityState);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: beforeLifecycleSnapshot });
+        eventJournal = createEventJournal(worldId, { events: beforeJournalSnapshot });
+        energyLedger = createEnergyLedger({ snapshot: beforeLedgerSnapshot });
+        solverEnergyEvidence = createSolverEnergyEvidence({ snapshot: beforeEvidenceSnapshot });
+        forceWorkJournal = createForceWorkJournal({ snapshot: beforeForceWorkSnapshot });
+        throw error;
       }
       tick++;
       energyLedger.setTick(tick);
