@@ -63,7 +63,14 @@ export function productSaveToSimSnapshot(save, { worldId, generation = 0 } = {})
  if (save.prng != null) {
   record(save.prng, 'product PRNG checkpoint');
   if (save.prng.algorithm !== 'splitmix32-v1') throw new TypeError('Unsupported product PRNG algorithm');
-  prngState = Object.freeze({ algorithm: 'splitmix32-v1', seed: word(save.prng.seed, 'prng.seed'), state: word(save.prng.state, 'prng.state') });
+  const checkpoint = (value, label) => {
+   record(value, label);
+   return Object.freeze({ algorithm: 'splitmix32-v1', seed: word(value.seed, label + '.seed'), state: word(value.state, label + '.state') });
+  };
+  const primary = checkpoint(save.prng, 'prng');
+  const main = save.prng.main == null ? null : checkpoint(save.prng.main, 'prng.main');
+  const worker = save.prng.worker == null ? null : checkpoint(save.prng.worker, 'prng.worker');
+  prngState = Object.freeze({ ...primary, ...(main ? { main } : {}), ...(worker ? { worker } : {}) });
  }
  const deterministicContinuation = prngState ? 'splitmix32-v1-checkpoint-available' : 'unavailable-legacy-save-has-no-prng-state';
  return createWorldSnapshot({ worldId, tick: Number.isSafeInteger(save.tick) && save.tick >= 0 ? save.tick : 0, generation, config: { source: { format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION }, worldSize: save.worldSize, worldParams: save.worldParams ?? {}, runtime: save.runtime ?? {}, productLawMask, lawIdentityPolicy: 'opaque-product-index-space-v1', deterministicContinuation }, simulationState: { layoutVersion: 1, particleStride: 100, particleCount: save.particleCount, speciesCount: save.speciesCount, particles: save.particles, dna: save.dna, civilization: save.civilization ?? null }, prngState, lastEventSequence: -1 });
@@ -73,11 +80,18 @@ export function simSnapshotToProductSave(snapshot, { expectedWorldId } = {}) {
  const config = restoreSnapshotValue(snapshot.config); const state = restoreSnapshotValue(snapshot.simulationState);
  if (config?.source?.format !== PRODUCT_SAVE_FORMAT || config.source.version !== PRODUCT_SAVE_VERSION || state?.layoutVersion !== 1 || state.particleStride !== 100) throw new TypeError('SIM snapshot does not contain a supported product v1 payload');
  typed(state.particles, Float32Array, 'snapshot particles'); if (state.particles.length !== state.particleCount * 100) throw new RangeError('snapshot particle buffer length mismatch'); if (state.dna !== null) typed(state.dna, Uint16Array, 'snapshot DNA');
- const prng = snapshot.prngState == null ? null : Object.freeze({
-  algorithm: snapshot.prngState.algorithm,
-  seed: word(snapshot.prngState.seed, 'snapshot.prngState.seed'),
-  state: word(snapshot.prngState.state, 'snapshot.prngState.state'),
- });
+ const prng = snapshot.prngState == null ? null : (() => {
+  if (snapshot.prngState.algorithm !== 'splitmix32-v1') throw new TypeError('Unsupported snapshot PRNG algorithm');
+  const checkpoint = (value, label) => Object.freeze({
+   algorithm: 'splitmix32-v1',
+   seed: word(value.seed, label + '.seed'),
+   state: word(value.state, label + '.state'),
+  });
+  const primary = checkpoint(snapshot.prngState, 'snapshot.prngState');
+  const main = snapshot.prngState.main == null ? null : checkpoint(snapshot.prngState.main, 'snapshot.prngState.main');
+  const worker = snapshot.prngState.worker == null ? null : checkpoint(snapshot.prngState.worker, 'snapshot.prngState.worker');
+  return Object.freeze({ ...primary, ...(main ? { main } : {}), ...(worker ? { worker } : {}) });
+ })();
  return Object.freeze({ format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION, tick: snapshot.tick, worldSize: config.worldSize, particleCount: state.particleCount, speciesCount: state.speciesCount, particles: state.particles.slice(), dna: state.dna?.slice() ?? null, laws: { ...config.productLawMask }, worldParams: { ...config.worldParams }, runtime: { ...config.runtime }, prng, civilization: state.civilization ?? null, migration: Object.freeze({ source: 'vepa.world-snapshot/v2', prngRestored: prng !== null }) });
 }
 export const PRODUCT_SOLVER_PHASE_CONTRACT = Object.freeze([
