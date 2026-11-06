@@ -1,53 +1,40 @@
-name: Deploy source-faithful VEPA Next
+name: Validate VEPA Next mainline and Pages payload
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: vepa-next-pages
+  group: vepa-next-mainline-validation
   cancel-in-progress: true
 
 jobs:
-  build:
+  validate-and-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source-faithful rebuild branch
+      - name: Checkout the triggering revision
         uses: actions/checkout@v4
-        with:
-          ref: rebuild/source-faithful-baseline
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Validate syntax and generated specification
-        run: |
-          npm run syntax-check
-          npm run spec:check
-      - name: Build GitHub Pages application
+      - name: Run product and SIM contract suites
+        run: npm run test:all
+      - name: Check generated specs and repository consistency
+        run: npm run repository:check
+      - name: Build the GitHub Pages application
         run: VITE_BASE=/vepa-next/ npm run build
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Publish source-faithful VEPA Next
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Verify deployable output
+        run: |
+          test -s dist/index.html
+          test -d dist/assets
+          echo "Built Pages payload from ${GITHUB_SHA}: dist/"
