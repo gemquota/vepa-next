@@ -26,7 +26,7 @@
 
 ## Implementation evidence
 
-[src/physics/lawgroups/mechanicsHelp.js](src/physics/lawgroups/mechanicsHelp.js), [src/physics/lawgroups/mechanicsLaws.js](src/physics/lawgroups/mechanicsLaws.js), [src/physics/laws.js](src/physics/laws.js), [src/physics/solver.js](src/physics/solver.js)
+[src/physics/lawgroups/mechanicsHelp.js](src/physics/lawgroups/mechanicsHelp.js), [src/physics/lawgroups/mechanicsLaws.js](src/physics/lawgroups/mechanicsLaws.js), [src/physics/laws.js](src/physics/laws.js), [src/physics/solver.js](src/physics/solver.js), [src/worker/physics.worker.js](src/worker/physics.worker.js)
 
 ## Verification evidence
 

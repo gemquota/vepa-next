@@ -3152,7 +3152,8 @@
         "src/physics/lawgroups/mechanicsHelp.js",
         "src/physics/lawgroups/mechanicsLaws.js",
         "src/physics/laws.js",
-        "src/physics/solver.js"
+        "src/physics/solver.js",
+        "src/worker/physics.worker.js"
       ],
       "solverGateFiles": [
         "src/physics/solver.js"
