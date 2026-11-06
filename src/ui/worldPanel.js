@@ -5,6 +5,7 @@
  */
 import { LAW_INDEXES, LAW_CATEGORIES, LAW_COUNT, LAW_SPECTRUM, LAW_HUE_BY_INDEX, LAW_SAT_BY_INDEX, LAW_HELP_DB } from '../constants.js';
 import { isSet } from '../state/lawState.js';
+import { getLawExecutionStatus, isLawExecutable } from '../state/lawOntology.js';
 import { WORLD_PARAM_DEFS } from '../state/worldParams.js';
 import { runtimeConfig } from '../state/runtimeConfig.js';
 import { createSliderRow } from './sliderControl.js';
@@ -102,7 +103,7 @@ export const LAW_SET_PRESETS = [
 
 const LAW_SET_STORAGE = 'vepa.lawsets.v1';
 const proposedLaws = new WeakMap();
-const displayedLaw = (state, index) => proposedLaws.get(state)?.get(index) ?? isSet(state, index);
+const displayedLaw = (state, index) => isLawExecutable(LAW_NAME_BY_IDX[index]) && (proposedLaws.get(state)?.get(index) ?? isSet(state, index));
 
 function loadSavedLawSets() {
   try {
@@ -121,7 +122,7 @@ function resolvePresetLaws(preset) {
   const out = [];
   for (const l of preset.laws || []) {
     const i = typeof l === 'number' ? l : LAW_INDEXES[l];
-    if (i !== undefined && i < LAW_COUNT) out.push(i);
+    if (i !== undefined && i < LAW_COUNT && isLawExecutable(typeof l === 'number' ? LAW_NAME_BY_IDX[i] : l)) out.push(i);
   }
   return out;
 }
@@ -299,7 +300,7 @@ function renderLawGrid(grid, lawStateObj, bus) {
     const centerHue = band.grey ? band.hue : Math.round(band.center * 3.6);
     const catSat = band.grey ? band.sat : null;
     let onCount = 0;
-    for (const idx of cat.laws) if (displayedLaw(lawStateObj, idx)) onCount += 1;
+    for (const idx of cat.laws) if (isLawExecutable(LAW_NAME_BY_IDX[idx]) && displayedLaw(lawStateObj, idx)) onCount += 1;
     html += `<div class="law-cat-row" data-cat-row="${catName}">`;
     // The count answers "what is on?" without counting lit tiles, and bulk
     // controls act on visible matches only (with WRAP excluded explicitly).
@@ -312,19 +313,24 @@ function renderLawGrid(grid, lawStateObj, bus) {
     for (const idx of cat.laws) {
       const name = LAW_NAME_BY_IDX[idx] || `LAW_${idx}`;
       const icon = LAW_ICONS[name] || '?';
-      const active = displayedLaw(lawStateObj, idx);
+      const executable = isLawExecutable(name);
+      const status = getLawExecutionStatus(name);
+      const active = executable && displayedLaw(lawStateObj, idx);
       const catClass = 'cat-' + catName;
       const hue = LAW_HUE_BY_INDEX[idx] !== undefined ? LAW_HUE_BY_INDEX[idx] : centerHue;
       const selectedClass = (idx === selectedLawIdx ? ' selected' : '')
-        + (proposedLaws.get(lawStateObj)?.has(idx) ? ' pending-law' : '');
+        + (proposedLaws.get(lawStateObj)?.has(idx) ? ' pending-law' : '')
+        + (executable ? '' : ' metadata-only');
+      const statusTitle = executable ? `${name}${proposedLaws.get(lawStateObj)?.has(idx) ? ' — pending restart' : ''}` : `${name} — metadata-only; no solver dispatch`;
+      const disabled = idx === LAW_INDEXES.WRAP || !executable;
       const searchText = `data-name="${name.toLowerCase()}"`;
       if (isWordMode) {
         html += `<button class="law-btn ${catClass}${active ? ' active' : ''}${selectedClass}" ${searchText} `
-              + `style="--law-h:${hue};--law-s:${LAW_SAT_BY_INDEX[idx] ?? 85}" data-law="${idx}" aria-pressed="${active}" title="${name}${proposedLaws.get(lawStateObj)?.has(idx) ? ' — pending restart' : ''}"${idx === LAW_INDEXES.WRAP ? ' disabled aria-label="WRAP — use WORLD TOROIDAL"' : ''}>`
+              + `style="--law-h:${hue};--law-s:${LAW_SAT_BY_INDEX[idx] ?? 85}" data-law="${idx}" aria-pressed="${active}" title="${statusTitle}"${disabled ? ' disabled aria-disabled="true"' : ''}>`
               + `<span class="tog-icon">${icon}</span><span class="tog-name">${name}</span></button>`;
       } else {
         html += `<button class="sq-toggle ${catClass}${active ? ' active' : ''}${selectedClass}" ${searchText} `
-              + `style="--law-h:${hue};--law-s:${LAW_SAT_BY_INDEX[idx] ?? 85}" data-law="${idx}" aria-pressed="${active}" title="${name}${proposedLaws.get(lawStateObj)?.has(idx) ? ' — pending restart' : ''}"${idx === LAW_INDEXES.WRAP ? ' disabled aria-label="WRAP — use WORLD TOROIDAL"' : ''}>`
+              + `style="--law-h:${hue};--law-s:${LAW_SAT_BY_INDEX[idx] ?? 85}" data-law="${idx}" aria-pressed="${active}" title="${statusTitle}"${disabled ? ' disabled aria-disabled="true"' : ''}>`
               + `<span class="tog-icon">${icon}</span><span class="tog-name">${name}</span></button>`;
       }
     }
@@ -339,7 +345,7 @@ function renderLawGrid(grid, lawStateObj, bus) {
   grid.querySelectorAll('.sq-toggle, .law-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.law, 10);
-      if (idx === LAW_INDEXES.WRAP) return;
+      if (idx === LAW_INDEXES.WRAP || !isLawExecutable(LAW_NAME_BY_IDX[idx])) return;
       setSelectedLaw(idx);
       bus.emit('law:editRequested', { changes: [{ lawIndex: idx, active: !displayedLaw(lawStateObj, idx) }] });
     });
@@ -358,17 +364,17 @@ function renderLawGrid(grid, lawStateObj, bus) {
       const visibleIndexes = [...row.querySelectorAll('[data-law]')]
         .filter((tile) => tile.style.display !== 'none')
         .map((tile) => Number(tile.dataset.law));
-      const excluded = visibleIndexes.filter((idx) => idx === LAW_INDEXES.WRAP);
-      const targetIndexes = visibleIndexes.filter((idx) => idx !== LAW_INDEXES.WRAP);
+      const excluded = visibleIndexes.filter((idx) => idx === LAW_INDEXES.WRAP || !isLawExecutable(LAW_NAME_BY_IDX[idx]));
+      const targetIndexes = visibleIndexes.filter((idx) => idx !== LAW_INDEXES.WRAP && isLawExecutable(LAW_NAME_BY_IDX[idx]));
       const changes = targetIndexes.filter((idx) => displayedLaw(lawStateObj, idx) !== wantOn)
         .map((lawIndex) => ({ lawIndex, active: wantOn }));
       const changed = changes.length;
       if (changed) bus.emit('law:editRequested', {
         changes, category: btn.dataset.cat, active: wantOn, changed,
-        targetCount: targetIndexes.length, excluded: excluded.map(() => 'WRAP'),
+        targetCount: targetIndexes.length, excluded: excluded.map((idx) => idx === LAW_INDEXES.WRAP ? 'WRAP' : LAW_NAME_BY_IDX[idx]),
       });
       const scope = `${targetIndexes.length} visible target${targetIndexes.length === 1 ? '' : 's'}`;
-      const exception = excluded.length ? ' WRAP boundary mode was preserved.' : '';
+      const exception = excluded.length ? ` Excluded non-editable entries: ${excluded.map((idx) => idx === LAW_INDEXES.WRAP ? 'WRAP boundary mode' : LAW_NAME_BY_IDX[idx] + ' (metadata-only)').join(', ')}.` : '';
       bus.emit('narrative:system', {
         text: `${btn.dataset.cat}: ${changed ? (wantOn ? 'staged ON for' : 'staged OFF for') : 'unchanged'} ${scope}; ${changed} changed.${exception}`,
       });
