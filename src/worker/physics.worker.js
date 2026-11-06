@@ -167,12 +167,10 @@ async function rebaseSimShadow(reason = 'config', config = {}) {
   };
   const response = simShadow.request(reason === 'init' ? 'INIT' : 'CONFIG', payload);
   if (response.type === 'ERROR') {
-    self.postMessage({ type: 'SIM_SHADOW_ERROR', reason, error: response.error });
-    return { status: 'error', error: response.error };
+    return { status: 'error', reason, error: response.error };
   }
   const result = response.payload ?? {};
   if (result.status === 'unsupported') {
-    self.postMessage({ type: 'SIM_SHADOW_UNSUPPORTED', reason, unsupportedLawNames: result.unsupportedLawNames ?? [] });
   }
   return result;
 }
@@ -180,8 +178,7 @@ async function rebaseSimShadow(reason = 'config', config = {}) {
 function scheduleSimShadowRebase(reason = 'config', config = {}) {
   simShadowReadyPromise = rebaseSimShadow(reason, config).catch((error) => {
     const message = error?.message || String(error);
-    self.postMessage({ type: 'SIM_SHADOW_ERROR', reason, error: message });
-    return { status: 'error', error: message };
+    return { status: 'error', reason, error: message };
   });
   return simShadowReadyPromise;
 }
@@ -257,7 +254,7 @@ async function handleInit(msg) {
     dnaView = new Uint16Array(dnaBuffer);
   }
 
-  const simShadowStatus = await rebaseSimShadow('init', config ?? {});
+  const simShadowStatus = await scheduleSimShadowRebase('init', config ?? {});
   self.postMessage({
     type: 'INIT_COMPLETE',
     tickCount: 0,
@@ -443,10 +440,9 @@ async function handleTick(msg) {
       const productState = tickCount % 60 === 0 ? new Float32Array(particleView) : undefined;
       const shadowResponse = simShadow.request('TICK', { dt, productState, legacyPrngState: _prngState >>> 0 });
       if (shadowResponse.type === 'ERROR') {
-        self.postMessage({ type: 'SIM_SHADOW_ERROR', reason: 'tick', error: shadowResponse.error });
+        simShadowDiagnostics = { status: 'error', error: shadowResponse.error };
       } else if (productState) {
         simShadowDiagnostics = shadowResponse.payload;
-        self.postMessage({ type: 'SIM_SHADOW_PARITY', tickCount, ...shadowResponse.payload });
       }
     }
   }
@@ -511,7 +507,7 @@ function handleRestore(msg) {
 
   if (runtimeConfig.simFoundationShadow && msg.simShadowSnapshot && simShadow) {
     const response = simShadow.request('RESTORE', { snapshot: msg.simShadowSnapshot });
-    if (response.type === 'ERROR') self.postMessage({ type: 'SIM_SHADOW_ERROR', reason: 'restore', error: response.error });
+    if (response.type === 'ERROR') simShadowReadyPromise = Promise.resolve({ status: 'error', reason: 'restore', error: response.error });
   } else if (runtimeConfig.simFoundationShadow) {
     scheduleSimShadowRebase('restore-without-sim-checkpoint');
   }
