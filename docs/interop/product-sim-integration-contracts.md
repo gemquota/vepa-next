@@ -5,7 +5,7 @@ Baseline: VEPA 9.3.5 remains the production runtime; SIM remains isolated.
 
 ## Worker protocol (G1.3)
 
-The product worker is an unversioned protocol. The SIM worker uses its own request/response protocol. The new adapter adds a versioned, correlated envelope and maps only commands with established counterparts: INIT→INIT, CONFIG→CONFIGURE, TICK→STEP, GET_STATE→READ_STATE, RESTORE→RESTORE, PING→STATUS. TOGGLE_LAW fails closed because product law indices are not SIM law IDs. Responses are checked for protocol, version, request correlation, response type and error shape. This adapter is not connected to the live product worker.
+The product worker is an unversioned protocol. The SIM worker uses its own request/response protocol. The new adapter emits the exact SIM worker envelope shape (protocolVersion, id, type, payload), maps command names with established counterparts, and tracks response IDs to reject duplicates and stale replies while allowing out-of-order completions. Supported mappings are INIT→INIT, CONFIG→CONFIGURE, TICK→STEP, GET_STATE→READ_STATE, RESTORE→RESTORE, PING→STATUS. TOGGLE_LAW fails closed because product law indices are not SIM law IDs. This is an envelope/correlation contract only: payload translation (including product INIT buffers/configuration versus SIM initialState/config) and the live worker connection remain unimplemented and are explicit follow-up work.
 
 ## Random ownership (G1.4)
 
