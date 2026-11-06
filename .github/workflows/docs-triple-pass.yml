@@ -1,0 +1,25 @@
+name: Documentation triple pass
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  documentation-triple-pass:
+    name: Source hygiene, generated docs and release build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run three-pass validation
+        run: npm run docs:triple-pass
+      - name: Require generated output to be committed
+        run: git diff --exit-code -- docs/spec docs/systems/ui-module-report.md
