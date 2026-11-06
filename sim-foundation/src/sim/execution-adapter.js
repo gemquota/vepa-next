@@ -181,6 +181,8 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   return Object.freeze({
     get tick() { return tick; },
     get generation() { return worldGeneration; },
+    getParticleIdentityCount() { return particleIdentities.activeCount; },
+    getRandomStreamCount() { return randomStreams.streamCount; },
     get count() { return particleCount; },
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
