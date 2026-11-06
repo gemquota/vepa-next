@@ -530,7 +530,6 @@ export function applyLifeCycle(lawState, view, base, dnaParams, dt, prng, synerg
   view[base + S.HUNGER] = hunger;
 
   // === BIOLOGICAL VARIANCE ===
-  const ageNorm = Math.min(1.0, age / 5000);
   const birthRate = Math.abs(dnaParams[10] || 0.5); // BIRTH_RATE=10
   const mutRate = Math.abs(dnaParams[12] || 0.5); // MUTATION=12
 
@@ -558,19 +557,28 @@ export function applyLifeCycle(lawState, view, base, dnaParams, dt, prng, synerg
   view[base + S.MASS] = Math.max(0.1, Math.min(50, view[base + S.MASS] || 1));
   // === END BIOLOGICAL VARIANCE ===
 
-  // Senescence (LAW_INDEXES.SENESCENCE = 12)
-  if (isSet(lawState, LAW_INDEXES.SENESCENCE)) {
-    // TELOMERE_LENGTH (60, genome-only) — longer telomeres resist aging death.
-    const telomere = dnaBuffer ? readSpeciesDNAParam(dnaBuffer, view[base + S.SPECIES_ID] || 0, 60) : 0.5;
-    const deathRate = dnaParams[11] * 0.001 * (1.0 + ageNorm * 0.5) * (1 - telomere * 0.5);
-    if (age > 500 && prng() < deathRate * dt) {
-      view[base + S.DEAD] = 1.0;
-      return;
-    }
-  }
 
   // Radiation damage lives in the standalone RADIATION law (applyRadiationDamage)
   // — applying it here as well would double-drain every irradiated organism.
+}
+
+/**
+ * Aging-driven mortality is a distinct SENESCENCE gate layered on LIFE.
+ * LIFE owns baseline metabolic viability; SENESCENCE adds age/telomere mortality.
+ * Keeping this dispatch separate makes both law gates independently inspectable.
+ */
+export function applySenescence(lawState, view, base, dnaParams, dt, prng, dnaBuffer) {
+  if (!isSet(lawState, LAW_INDEXES.LIFE) || !isSet(lawState, LAW_INDEXES.SENESCENCE)) return false;
+  const age = view[base + S.AGE] || 0;
+  if (age <= 500) return false;
+  const ageNorm = Math.min(1.0, age / 5000);
+  const telomere = dnaBuffer ? readSpeciesDNAParam(dnaBuffer, view[base + S.SPECIES_ID] || 0, 60) : 0.5;
+  const deathRate = dnaParams[11] * 0.001 * (1.0 + ageNorm * 0.5) * (1 - telomere * 0.5);
+  if (prng() < deathRate * dt) {
+    view[base + S.DEAD] = 1.0;
+    return true;
+  }
+  return false;
 }
 
 // ============================================================================
