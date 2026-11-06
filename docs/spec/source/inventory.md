@@ -126,7 +126,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/state/systemLifecycle.js](src/state/systemLifecycle.js) | state | 465 | 23 | 3 | 1 |
 | [src/state/systemVariants.js](src/state/systemVariants.js) | state | 119 | 7 | 1 | 1 |
 | [src/state/worldParams.js](src/state/worldParams.js) | state | 301 | 8 | 2 | 66 |
-| [src/state/worldSave.js](src/state/worldSave.js) | state | 623 | 18 | 4 | 2 |
+| [src/state/worldSave.js](src/state/worldSave.js) | state | 634 | 18 | 4 | 2 |
 | [src/ui/analyticsPanel.js](src/ui/analyticsPanel.js) | ui | 109 | 3 | 1 | 1 |
 | [src/ui/camera.js](src/ui/camera.js) | ui | 300 | 6 | 0 | 0 |
 | [src/ui/civilizationPanel.js](src/ui/civilizationPanel.js) | ui | 189 | 4 | 3 | 2 |
