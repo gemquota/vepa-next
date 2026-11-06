@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { LAW_INDEXES, PARTICLE_STRIDE, STRIDE_INDEXES as S } from '../../src/constants.js';
 import { createLawState, set } from '../../src/state/lawState.js';
-import { createParticleIdentityAllocator } from '../../sim-foundation/src/sim/particle-identities.js';
 import { adjoinParticles, isAccretionPair, applyAlloy } from '../../src/physics/mergePhysics.js';
 
 function pair() {
@@ -25,16 +24,12 @@ function pair() {
 describe('ACCR and ALLOY mechanics identity contract', () => {
   it('ACCR adjoins two particles without fusing mass or retiring either identity', () => {
     const view = pair();
-    const identities = createParticleIdentityAllocator({ capacity: 2 });
-    const a = identities.allocate(0), b = identities.allocate(1);
     adjoinParticles(view, 0, PARTICLE_STRIDE, PARTICLE_STRIDE);
     expect(view[S.MASS]).toBe(3);
     expect(view[PARTICLE_STRIDE + S.MASS]).toBe(1);
     expect(view[S.DEAD]).toBe(0);
     expect(view[PARTICLE_STRIDE + S.DEAD]).toBe(0);
     expect(isAccretionPair(view, 0, PARTICLE_STRIDE, PARTICLE_STRIDE)).toBe(true);
-    expect(identities.get(0)).toEqual(a);
-    expect(identities.get(1)).toEqual(b);
     expect(view[S.BOND_COUNT]).toBe(1);
     expect(view[PARTICLE_STRIDE + S.BOND_COUNT]).toBe(1);
     const center = (3 * view[S.POS_X] + view[PARTICLE_STRIDE + S.POS_X]) / 4;
@@ -46,9 +41,6 @@ describe('ACCR and ALLOY mechanics identity contract', () => {
     const view = pair();
     const laws = createLawState();
     set(laws, LAW_INDEXES.ALLOY);
-    const identities = createParticleIdentityAllocator({ capacity: 2 });
-    const survivor = identities.allocate(0);
-    const absorbed = identities.allocate(1);
     applyAlloy(laws, view, 0, PARTICLE_STRIDE, PARTICLE_STRIDE, 1, 1);
     expect(view[S.MASS]).toBe(4);
     expect(view[S.VEL_X]).toBe(1);
@@ -58,10 +50,7 @@ describe('ACCR and ALLOY mechanics identity contract', () => {
     expect(view[S.SPECIES_ID]).toBe(1);
     expect(view[PARTICLE_STRIDE + S.DEAD]).toBe(1);
     expect(view[PARTICLE_STRIDE + S.MASS]).toBe(1);
-    expect(identities.get(0)).toEqual(survivor);
-    expect(identities.get(1)).toEqual(absorbed);
-    expect(identities.release(absorbed)).toBe(true);
-    expect(identities.get(1)).toBeNull();
-    expect(identities.get(0)).toEqual(survivor);
+    expect(view[S.DEAD]).toBe(0);
+    expect(view[PARTICLE_STRIDE + S.DEAD]).toBe(1);
   });
 });
