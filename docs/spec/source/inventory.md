@@ -117,7 +117,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/state/presetManager.js](src/state/presetManager.js) | state | 86 | 6 | 0 | 0 |
 | [src/state/quantumMacro.js](src/state/quantumMacro.js) | state | 494 | 4 | 3 | 8 |
 | [src/state/relativity.js](src/state/relativity.js) | state | 209 | 7 | 2 | 3 |
-| [src/state/runtimeConfig.js](src/state/runtimeConfig.js) | state | 41 | 1 | 1 | 2 |
+| [src/state/runtimeConfig.js](src/state/runtimeConfig.js) | state | 43 | 1 | 1 | 2 |
 | [src/state/selection.js](src/state/selection.js) | state | 101 | 2 | 0 | 0 |
 | [src/state/stellar.js](src/state/stellar.js) | state | 348 | 6 | 3 | 2 |
 | [src/state/structures.js](src/state/structures.js) | state | 253 | 15 | 2 | 1 |
