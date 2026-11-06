@@ -29,10 +29,10 @@ export const LAW_HELP_PATCHES = {
     advanced: 'FIELD is the central simulation-field gradient; ELECTRIC_FIELD is the separate electromagnetic polarity drift.',
   },
   ELECTRIC_FIELD: {
-    hint: 'Electric field drift follows particle polarity.',
-    explanation: 'The electromagnetic field applies a uniform polarity-directed drift, with stored CHARGE increasing the response magnitude.',
-    system: 'For non-zero POLARITY, acceleration follows the polarity sign and is scaled by the electric-field coefficient and charge magnitude.',
-    advanced: 'This is the electromagnetic drift primitive; FIELD is the central simulation-field gradient.',
+    hint: 'Reserved metadata entry — not executable in this release.',
+    explanation: 'ELECTRIC_FIELD is retained in the 136-law registry for compatibility and future specification work. It has no solver dispatch and enabling its saved bit produces no physical effect.',
+    system: 'Metadata-only. No field storage, polarity force, charge coupling, parameter range, or runtime consumer is currently implemented.',
+    advanced: 'Do not confuse this entry with FIELD or CHARGE_LAW. A future implementation requires a separately reviewed field model, units, boundary conditions, dispatch, and differential behavior tests.',
   },
   HORIZON: {
     hint: 'Event horizons capture nearby matter.',
