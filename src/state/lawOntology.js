@@ -1,4 +1,4 @@
-import { LAW_INDEXES } from '../constants.js';
+import { LAW_INDEXES, DNA_INDEXES, DNA_RANGES } from '../constants.js';
 
 /**
  * Relationship vocabulary for the law ontology.
@@ -29,6 +29,50 @@ export const LAW_EDGE_RELATIONSHIP_TYPES = Object.freeze([
 ]);
 
 const LAW_NAMES = new Set(Object.keys(LAW_INDEXES));
+
+function dnaParameter(name, unit, semantic) {
+  const index = DNA_INDEXES[name];
+  const range = DNA_RANGES[index];
+  if (index === undefined || !range) throw new Error(`Missing canonical DNA range for ${name}`);
+  return Object.freeze({ name, index, min: range.min, max: range.max, default: range.default, unit, semantic });
+}
+
+// High-risk parameter contracts. Values remain dimensionless simulation
+// controls unless a world/stride field explicitly declares another unit;
+// these are not SI measurements.
+export const LAW_PARAMETER_CONTRACTS = Object.freeze({
+  GRAV: Object.freeze({ parameters: [dnaParameter('FORCE', 'dimensionless force modifier', 'Scales the particle gravity contribution.')], invariants: Object.freeze(['pair forces are equal and opposite', 'acceleration remains finite']) }),
+  DRAG: Object.freeze({ parameters: [dnaParameter('VISCOSITY', 'dimensionless damping control', 'Controls velocity retention in the drag path.')], invariants: Object.freeze(['positive damping does not increase kinetic energy', 'zero drag leaves velocity unchanged']) }),
+  COLL: Object.freeze({ parameters: [dnaParameter('ELASTICITY', 'dimensionless restitution coefficient', 'Bounds the normal velocity response for an impact.')], invariants: Object.freeze(['linear momentum is conserved for an isolated pair', 'restitution one does not create kinetic energy']) }),
+  BUOYANCY: Object.freeze({ parameters: [dnaParameter('HEAT_OUTPUT', 'dimensionless normalized modifier', 'Scales the temperature-relative vertical acceleration.')], invariants: Object.freeze(['force sign opposes temperature minus ambient', 'non-finite inputs cannot produce non-finite acceleration']) }),
+  LIFE: Object.freeze({ parameters: [dnaParameter('ENERGY_EFFICIENCY', 'dimensionless metabolic efficiency', 'Scales the energy cost of maintaining viability.')], invariants: Object.freeze(['metabolic death is gated by LIFE', 'a dead particle does not continue lifecycle writes']) }),
+  REPRO: Object.freeze({ parameters: [dnaParameter('BIRTH_RATE', 'dimensionless reproduction-rate modifier', 'Controls the reproduction gate and offspring cadence.'), dnaParameter('SEX_CHANCE', 'dimensionless mating-mode modifier', 'Controls reproductive mode selection.')], invariants: Object.freeze(['offspring occupies a distinct live slot', 'parent and offspring identity records do not alias']) }),
+  SENESCENCE: Object.freeze({ parameters: [dnaParameter('DEATH_RATE', 'dimensionless hazard-rate modifier', 'Scales the age-dependent death probability.'), dnaParameter('TELOMERE_LENGTH', 'dimensionless normalized resistance', 'Reduces the age-dependent mortality probability.')], invariants: Object.freeze(['requires LIFE and SENESCENCE gates', 'probability is clamped to [0, 1]', 'longer telomeres do not increase mortality']) }),
+  ENERGY: Object.freeze({ parameters: [dnaParameter('ENERGY_EFFICIENCY', 'dimensionless metabolic efficiency', 'Controls the metabolic energy budget.')], invariants: Object.freeze(['internal transfers preserve ledger balance', 'unexplained residuals are reported rather than clamped']) }),
+  ALLOY: Object.freeze({ parameters: [dnaParameter('FUSION', 'dimensionless fusion efficiency', 'Controls the fusion contribution.'), dnaParameter('FUSION_MOMENTUM', 'dimensionless momentum threshold modifier', 'Controls impact-based fusion qualification.'), dnaParameter('FUSION_TIME', 'dimensionless dwell-time modifier', 'Controls sustained-contact fusion qualification.')], invariants: Object.freeze(['survivor slot is stable', 'linear momentum is conserved', 'extensive DNA and colour values are mass weighted']) }),
+  BOND: Object.freeze({ parameters: [dnaParameter('STIFFNESS', 'dimensionless spring stiffness', 'Controls the bond restoring response.'), dnaParameter('BOND_ANGLE', 'degrees', 'Controls the preferred bond orientation.')], invariants: Object.freeze(['bond partner references are bilateral', 'bond count matches live partner slots']) }),
+  CHARGE_LAW: Object.freeze({ parameters: [dnaParameter('POLARITY', 'dimensionless signed polarity', 'Controls the sign of the charge response.')], invariants: Object.freeze(['isolated pair force is equal and opposite', 'zero charge produces zero Coulomb force']) }),
+  CURRENT: Object.freeze({ parameters: [dnaParameter('CONDUCTIVITY', 'dimensionless normalized conductivity', 'Controls charge-transfer rate.')], invariants: Object.freeze(['charge transfer is bounded', 'closed pair transfer preserves total charge']) }),
+  RESISTANCE: Object.freeze({ parameters: [dnaParameter('CONDUCTIVITY', 'dimensionless normalized conductivity', 'Controls resistive response as the inverse transport property.')], invariants: Object.freeze(['resistive work is non-negative dissipation', 'dissipation is routed to thermal ownership']) }),
+  MAGNETISM: Object.freeze({ parameters: [dnaParameter('MAGNETIC_MOMENT', 'dimensionless signed magnetic moment', 'Controls the magnetic response strength.')], invariants: Object.freeze(['force remains finite for finite state', 'zero charge or zero magnetic moment removes the corresponding force']) }),
+});
+
+export function validateLawParameterContracts() {
+  const errors = [];
+  for (const [lawName, contract] of Object.entries(LAW_PARAMETER_CONTRACTS)) {
+    if (!LAW_NAMES.has(lawName)) errors.push(`Unknown parameter-contract law: ${lawName}`);
+    if (!Array.isArray(contract.parameters) || contract.parameters.length === 0) errors.push(`${lawName}: parameter contract is empty`);
+    if (!Array.isArray(contract.invariants) || contract.invariants.length === 0) errors.push(`${lawName}: invariant contract is empty`);
+    for (const parameter of contract.parameters) {
+      const index = DNA_INDEXES[parameter.name];
+      const range = DNA_RANGES[index];
+      if (index !== parameter.index || !range) errors.push(`${lawName}: ${parameter.name} index mismatch`);
+      else if (range.min !== parameter.min || range.max !== parameter.max || range.default !== parameter.default) errors.push(`${lawName}: ${parameter.name} range drift`);
+      if (!parameter.unit || !parameter.semantic) errors.push(`${lawName}: ${parameter.name} lacks unit/meaning`);
+    }
+  }
+  return errors;
+}
 
 // Execution status is deliberately separate from descriptive relationships.
 // Metadata-only laws remain in the registry/save mask for forward compatibility,
