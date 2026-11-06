@@ -28,11 +28,13 @@ export function replayParticleTicks(snapshot, tickCount) {
   adapter.restoreSnapshot(snapshot);
   for (let i = 0; i < tickCount; i++) adapter.step();
   const state = adapter.readState();
+  const finalSnapshot = adapter.createSnapshot();
   return Object.freeze({
     tick: adapter.tick,
     state,
     stateDigest: digestState(state),
-    identityState: adapter.createSnapshot().identityState,
-    randomState: adapter.createSnapshot().randomState,
+    identityState: finalSnapshot.identityState,
+    randomState: finalSnapshot.randomState,
+    eventJournal: finalSnapshot.eventJournal,
   });
 }
