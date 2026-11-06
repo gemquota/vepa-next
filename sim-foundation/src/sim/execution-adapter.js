@@ -180,6 +180,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
 
   return Object.freeze({
     get tick() { return tick; },
+    get generation() { return worldGeneration; },
     get count() { return particleCount; },
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
@@ -542,12 +543,44 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         } : {}),
       });
     },
+    readEventJournal() { return Object.freeze(eventJournal.snapshot()); },
+    replayJournal(options) {
+      return replayEvents(eventJournal.snapshot(), { ...options, worldId });
+    },
+    resetWorld({ initialState, config: proposedConfig = activeConfig, randomSeed: nextSeed = 0 } = {}) {
+      validateState(initialState, 0);
+      const nextConfig = validateParticleExecutionConfig(proposedConfig);
+      for (let slot = 0; slot < particleCount; slot++) {
+        const identity = particleIdentities.get(slot);
+        if (identity) particleIdentities.release(identity);
+      }
+      state = new Float64Array(initialState);
+      tick = 0;
+      worldGeneration++;
+      activeConfig = nextConfig;
+      randomStreams.restore(createDeterministicRandomStreams({ seed: nextSeed }).snapshot());
+      for (let slot = 0; slot < particleCount; slot++) {
+        const base = slot * stride;
+        if (state[base + PARTICLE_SLOTS.DEAD] < 0.5 && state[base + PARTICLE_SLOTS.MASS] > 0) particleIdentities.allocate(slot);
+      }
+      energyLedger = createEnergyLedger();
+      for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
+      energyBudgetTimeline = createEnergyBudgetTimeline();
+      energyLifecycleAudit = createEnergyLifecycleAudit();
+      solverEnergyEvidence = createSolverEnergyEvidence();
+      forceWorkJournal = createForceWorkJournal();
+      appendDomainEvent('world.reset', { generation: worldGeneration, particleCount, stateDigest: stateDigest() }, 'sim.execution-adapter', 0);
+      return Object.freeze({ reset: true, generation: worldGeneration, tick });
+    },
     createSnapshot() {
+      appendDomainEvent('world.snapshot-created', { snapshotTick: tick, particleCount, stateDigest: stateDigest() });
+      const journalEvents = Object.freeze(eventJournal.snapshot());
       return Object.freeze({
         layoutVersion: PARTICLE_LAYOUT_VERSION,
         stride,
         count: particleCount,
         tick,
+        worldGeneration,
         config: copyConfig(activeConfig),
         randomState: randomStreams.snapshot(),
         identityState: particleIdentities.snapshot(),
@@ -556,6 +589,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         energyLifecycleAudit: energyLifecycleAudit.createSnapshot(),
         solverEnergyEvidence: solverEnergyEvidence.createSnapshot(),
         forceWorkJournal: forceWorkJournal.createSnapshot(),
+        eventJournal: journalEvents,
+        lastEventSequence: eventJournal.lastSequence,
+        stateDigest: stateDigest(),
         state: new Float64Array(state),
       });
     },
@@ -568,6 +604,10 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const nextEnergyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: snapshot.energyLifecycleAudit ?? null });
       const nextSolverEnergyEvidence = createSolverEnergyEvidence({ snapshot: snapshot.solverEnergyEvidence ?? null });
       const nextForceWorkJournal = createForceWorkJournal({ snapshot: snapshot.forceWorkJournal ?? null });
+      const nextEventJournal = createEventJournal(worldId, { events: snapshot.eventJournal ?? [] });
+      if (snapshot.lastEventSequence !== undefined && nextEventJournal.lastSequence !== snapshot.lastEventSequence) {
+        throw new TypeError('Snapshot event journal sequence does not match lastEventSequence');
+      }
       const nextRandomStreams = createDeterministicRandomStreams({
         seed: randomSeed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
@@ -586,10 +626,17 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       energyLifecycleAudit = nextEnergyLifecycleAudit;
       solverEnergyEvidence = nextSolverEnergyEvidence;
       forceWorkJournal = nextForceWorkJournal;
+      eventJournal = nextEventJournal;
+      worldGeneration = Number.isInteger(snapshot.worldGeneration) && snapshot.worldGeneration >= 0 ? snapshot.worldGeneration : 0;
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
-      return Object.freeze({ restored: true, tick });
+      appendDomainEvent('world.snapshot-restored', {
+        restoredTick: snapshot.tick,
+        sourceLastEventSequence: snapshot.lastEventSequence ?? nextEventJournal.lastSequence,
+        stateDigest: stateDigest(),
+      });
+      return Object.freeze({ restored: true, tick, worldGeneration, lastEventSequence: eventJournal.lastSequence });
     },
   });
 }
