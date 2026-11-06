@@ -33,6 +33,9 @@ const CANONICAL_STATE_NAMES = new Set([
   'POSITION',
   'VELOCITY',
   'FORCE',
+  // Derived/accounting resources, not physical stride slots.
+  'KINETIC_ENERGY',
+  'DISSIPATION',
   'BONDS',
   'LIFECYCLE',
   'QUANTUM_STATE',
