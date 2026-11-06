@@ -111,6 +111,7 @@ let WORKER_SEED = 0x51f15e;
 let launchSettings = null;
 
 let bus, prng, particleBuffer, particleView, lawState, dnaBuffer, renderer;
+let mainPrngSeed = 0;
 let insightEngine, narrativeEngine, lineageEngine, goalEngine, timelineEngine;
 let groupRegistry = null; // Set F.1 — social groups (declared + detected)
 let speciationEngine = null, ecoEngine = null, worldEventEngine = null; // Set A.1/A.2/A.3
@@ -136,6 +137,7 @@ let codex = null;
 // particle memory without copying; browsers without cross-origin isolation
 // keep the safe main-thread path instead of paying a per-tick transfer cost.
 let physicsWorker = null;
+let workerPrngSnapshot = null;
 let workerReady = false;
 let workerPending = false;
 let workerBusy = false;
@@ -248,7 +250,7 @@ async function resolveLaunchConfiguration() {
     const settings = normaliseLaunchSettings(choice || remembered);
     launchSettings = settings;
     if (settings.launchSeed !== null) {
-        prng = new PRNG(settings.launchSeed);
+        setMainPrng(settings.launchSeed);
         WORKER_SEED = settings.launchSeed;
     } else {
         WORKER_SEED = Date.now() | 0;
@@ -286,6 +288,16 @@ const LEGACY_WORLD_PARAM_KEYS = Object.freeze({
     dt: '__RUNTIME_DT__',
 });
 
+function setMainPrng(seed, state = seed) {
+    mainPrngSeed = seed >>> 0;
+    prng = new PRNG(mainPrngSeed).restore({ algorithm: 'splitmix32-v1', state: state >>> 0 });
+}
+function captureWorldPrng() {
+    const main = { algorithm: 'splitmix32-v1', seed: mainPrngSeed, state: prng.snapshot().state };
+    const worker = workerPrngSnapshot ? { ...workerPrngSnapshot } : null;
+    const primary = worker ?? main;
+    return { algorithm: 'splitmix32-v1', seed: primary.seed, state: primary.state, main, worker };
+}
 function rng() { return prng.next(); }
 
 function canUsePhysicsWorker() {
@@ -314,6 +326,9 @@ function workerConfig() {
         seed: WORKER_SEED,
         worldParams: { ...(runtimeConfig.worldParams || {}) },
         computeEngine: runtimeConfig.computeEngine,
+        simFoundationShadow: runtimeConfig.simFoundationShadow === true,
+        prngSeed: workerPrngSnapshot?.seed ?? WORKER_SEED,
+        prngState: workerPrngSnapshot?.state ?? WORKER_SEED,
         lawState: serializeLawState(lawState),
     };
 }
@@ -359,6 +374,14 @@ function handleWorkerTick(message) {
     // The worker owns the authoritative tick counter while it drives the
     // solver — adopt its tickCount so the HUD does not show a frozen TICK 0.
     if (typeof message.tickCount === 'number') tick = message.tickCount;
+    if (message.simShadow) {
+        window.__VEPA_SIM_SHADOW_PARITY__ = message.simShadow;
+        bus.emit('physics:simShadow', message.simShadow);
+    }
+    if (message.simShadowStatus) {
+        window.__VEPA_SIM_SHADOW_STATUS__ = message.simShadowStatus;
+        bus.emit('physics:simShadowStatus', { status: message.simShadowStatus, tick: message.tickCount });
+    }
     finishPhysicsTick(tickStart, offspring);
 }
 
@@ -399,12 +422,18 @@ function startPhysicsWorker() {
             const message = event.data || {};
             if (message.type === 'WORKER_READY') return;
             if (message.type === 'INIT_COMPLETE') {
+                if (Number.isInteger(message.prngSeed) && Number.isInteger(message.prngState)) {
+                    workerPrngSnapshot = { algorithm: 'splitmix32-v1', seed: message.prngSeed >>> 0, state: message.prngState >>> 0 };
+                }
                 workerReady = true;
                 workerPending = false;
                 logDebug('physics worker ready (SharedArrayBuffer, deterministic solver)');
                 return;
             }
             if (message.type === 'TICK_COMPLETE') {
+                if (Number.isInteger(message.prngSeed) && Number.isInteger(message.prngState)) {
+                    workerPrngSnapshot = { algorithm: 'splitmix32-v1', seed: message.prngSeed >>> 0, state: message.prngState >>> 0 };
+                }
                 handleWorkerTick(message);
                 bus.emit('physics:backend', {
                     engine: message.gpuActive ? 'webgpu' : 'cpu',
@@ -456,7 +485,7 @@ async function boot() {
     const t0 = performance.now();
 
     bus = new EventBus();
-    prng = new PRNG(Date.now());
+    setMainPrng(Date.now());
 
     const buf = createParticleBuffer(MAX_PARTICLES, PARTICLE_STRIDE);
     particleBuffer = buf.buffer;
@@ -582,6 +611,13 @@ async function boot() {
     // its spatial-grid/pairwise hot path off-thread whenever SAB is available.
     // The worker is intentionally started after all initial writes are done.
     startPhysicsWorker();
+    window.__VEPA_SIM_SHADOW__ = (enabled) => {
+        runtimeConfig.simFoundationShadow = enabled === true;
+        window.__VEPA_SIM_SHADOW_STATUS__ = enabled === true ? 'pending' : 'disabled';
+        if (!enabled) delete window.__VEPA_SIM_SHADOW_PARITY__;
+        syncPhysicsWorker();
+        return runtimeConfig.simFoundationShadow;
+    };
     requestAnimationFrame(renderLoop);
 
     const dt = (performance.now() - t0).toFixed(1);
@@ -882,6 +918,7 @@ function setDNAFromProfile(species, profile) {
         worldSize,
         tick,
         name,
+        prng: captureWorldPrng(),
         civilization: civilization ? serializeCivilization(civilization) : null,
         codex: codex ? serializeCodex(codex) : null,
     });
@@ -915,6 +952,18 @@ function setDNAFromProfile(species, profile) {
         particleCount = out.particleCount;
         speciesCount = out.speciesCount;
         worldSize = out.worldSize;
+        tick = Number.isInteger(state.tick) && state.tick >= 0 ? state.tick : 0;
+        if (out.prng?.main || out.prng?.worker) {
+            workerPrngSnapshot = out.prng.worker ?? null;
+            if (out.prng.main) setMainPrng(out.prng.main.seed, out.prng.main.state);
+        } else if (out.prng) {
+            // Compatibility with the early additive checkpoint shape: restore
+            // the same stream into both paths rather than silently reseeding.
+            workerPrngSnapshot = { algorithm: out.prng.algorithm, seed: out.prng.seed, state: out.prng.state };
+            setMainPrng(out.prng.seed, out.prng.state);
+        } else {
+            workerPrngSnapshot = null;
+        }
         setWorldSize(out.worldSize);
         resetOffspringRing();
         resetIntelligence();
@@ -1121,7 +1170,7 @@ function setDNAFromProfile(species, profile) {
             text: `Restart applied ${appliedDNA.length} staged DNA edit${appliedDNA.length === 1 ? '' : 's'}.`,
         });
         spawnAccumulator = 0;
-        prng = new PRNG(launchSettings?.launchSeed ?? Date.now());
+        setMainPrng(launchSettings?.launchSeed ?? Date.now());
         WORKER_SEED = launchSettings?.launchSeed ?? (Date.now() | 0);
         particleView.fill(0);
         resetOffspringRing();
@@ -1700,6 +1749,7 @@ function updateIntelligenceCore() {
                 worldSize,
                 tick,
                 name: `Epoch ${epochEngine.era}`,
+                prng: captureWorldPrng(),
                 civilization: civilization ? serializeCivilization(civilization) : null,
                 codex: codex ? serializeCodex(codex) : null,
             }),

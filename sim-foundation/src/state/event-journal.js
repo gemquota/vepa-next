@@ -32,15 +32,15 @@ function cloneAndFreeze(value, seen = new WeakSet()) {
 }
 
 /** In-memory append-only journal. Payloads are copied and deeply frozen. */
-export function createEventJournal(worldId) {
+export function createEventJournal(worldId, { events: initialEvents = [] } = {}) {
   if (typeof worldId !== 'string' || !worldId) throw new TypeError('worldId is required');
+  if (!Array.isArray(initialEvents)) throw new TypeError('initial journal events must be an array');
   const events = [];
   const ids = new Set();
   let lastTick = -1;
   let lastSequence = -1;
 
-  return Object.freeze({
-    append(event) {
+  function append(event) {
       const verdict = validateEventEnvelope(event);
       if (!verdict.valid) return { accepted: false, reason: 'invalid-envelope', errors: verdict.errors };
       if (event.worldId !== worldId) return { accepted: false, reason: 'wrong-world' };
@@ -59,7 +59,14 @@ export function createEventJournal(worldId) {
       lastTick = stored.tick;
       lastSequence = stored.sequence;
       return { accepted: true, event: stored, index: events.length - 1 };
-    },
+  }
+  for (const event of initialEvents) {
+    const result = append(event);
+    if (!result.accepted) throw new TypeError('Invalid restored event journal: ' + result.reason);
+  }
+
+  return Object.freeze({
+    append,
     snapshot() { return events.slice(); },
     eventsAtTick(tick) {
       if (!Number.isInteger(tick) || tick < 0) throw new RangeError('tick must be a non-negative integer');

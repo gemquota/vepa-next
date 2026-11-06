@@ -10,6 +10,9 @@ import { calculateEnergyBudget, compareEnergyBudgets, createEnergyBudgetTimeline
 import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
 import { createForceWorkJournal } from './force-work-journal.js';
+import { createEventEnvelope } from '../core/event-envelope.js';
+import { createEventJournal } from '../state/event-journal.js';
+import { replayEvents } from '../state/replay.js';
 import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from './periodic-images.js';
 import { calculateEwaldSystem } from './periodic-ewald.js';
 
@@ -137,7 +140,9 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   let solverEnergyEvidence = createSolverEnergyEvidence();
   let forceWorkJournal = createForceWorkJournal();
   for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
-  const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
+  let randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
+  let eventJournal = createEventJournal(worldId);
+  let worldGeneration = 0;
   let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
   for (let i = 0; i < particleCount; i++) {
     const base = i * stride;
@@ -153,8 +158,31 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     for (let i = 0; i < nextState.length; i++) if (!Number.isFinite(nextState[i])) throw new RangeError('snapshot state contains a non-finite value');
   }
 
+  function appendDomainEvent(type, payload, sourceModule = 'sim.execution-adapter', simulationTick = tick) {
+    const sequence = eventJournal.lastSequence + 1;
+    const eventTick = Math.max(eventJournal.lastTick + 1, simulationTick);
+    const event = createEventEnvelope({
+      eventId: `${worldId}:g${worldGeneration}:e${sequence}`,
+      type, worldId, tick: eventTick, sequence, sourceModule,
+      payload: { ...payload, simulationTick, worldGeneration },
+    });
+    const result = eventJournal.append(event);
+    if (!result.accepted) throw new Error(`Event journal rejected ${type}: ${result.reason}`);
+    return result.event;
+  }
+
+  function stateDigest(view = state) {
+    const bytes = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < bytes.length; i++) hash = Math.imul(hash ^ bytes[i], 0x01000193) >>> 0;
+    return hash.toString(16).padStart(8, '0');
+  }
+
   return Object.freeze({
     get tick() { return tick; },
+    get generation() { return worldGeneration; },
+    getParticleIdentityCount() { return particleIdentities.activeCount; },
+    getRandomStreamCount() { return randomStreams.streamCount; },
     get count() { return particleCount; },
     get stride() { return stride; },
     getConfig() { return copyConfig(activeConfig); },
@@ -220,6 +248,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const identitySnapshot = particleIdentities.snapshot();
       const randomSnapshot = randomStreams.snapshot();
       const lifecycleSnapshot = energyLifecycleAudit.createSnapshot();
+      const journalSnapshot = eventJournal.snapshot();
       try {
         const result = applyV3BehaviorKernel({
           state, count: particleCount, stride, dt: activeConfig.dt,
@@ -238,24 +267,31 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
           if (!wasLive && isLive) {
             const mass = state[base + PARTICLE_SLOTS.MASS];
             const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
+            const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+            const sourceId = behaviorConfig?.features?.reproduction ? 'reproduction' : 'behavior-creation';
             energyLifecycleAudit.record({
-              kind: 'particle-created', sourceId: behaviorConfig?.features?.reproduction ? 'reproduction' : 'behavior-creation',
+              kind: 'particle-created', sourceId,
               entityId: String(afterIdentity.id), tick, massDelta: mass,
-              kineticEnergyDelta: 0.5 * mass * (vx * vx + vy * vy + vz * vz),
+              kineticEnergyDelta: kineticEnergy,
               momentumDelta: [mass * vx, mass * vy, mass * vz],
               metadata: { slot, speciesId: state[base + PARTICLE_SLOTS.SPECIES_ID], worldId: behaviorConfig?.worldId ?? worldId },
             });
+            appendDomainEvent('particle.created', { slot, entityId: String(afterIdentity.id), sourceId,
+              massDelta: mass, kineticEnergyDelta: kineticEnergy, momentum: [mass * vx, mass * vy, mass * vz] }, 'sim.v3-behavior-kernel');
           } else if (wasLive && !isLive) {
             const mass = beforeState[base + PARTICLE_SLOTS.MASS];
             const vx = beforeState[base + PARTICLE_SLOTS.VEL_X], vy = beforeState[base + PARTICLE_SLOTS.VEL_Y], vz = beforeState[base + PARTICLE_SLOTS.VEL_Z];
+            const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+            const sourceId = behaviorConfig?.features?.senescence ? 'senescence' : behaviorConfig?.features?.radiation ? 'radiation' : 'behavior-retirement';
             energyLifecycleAudit.record({
-              kind: 'particle-retired',
-              sourceId: behaviorConfig?.features?.senescence ? 'senescence' : behaviorConfig?.features?.radiation ? 'radiation' : 'behavior-retirement',
+              kind: 'particle-retired', sourceId,
               entityId: String(beforeIdentity.id), tick, massDelta: -mass,
-              kineticEnergyDelta: -0.5 * mass * (vx * vx + vy * vy + vz * vz),
+              kineticEnergyDelta: -kineticEnergy,
               momentumDelta: [-mass * vx, -mass * vy, -mass * vz],
               metadata: { slot, worldId: behaviorConfig?.worldId ?? worldId },
             });
+            appendDomainEvent('particle.retired', { slot, entityId: String(beforeIdentity.id), sourceId,
+              massDelta: -mass, kineticEnergyDelta: -kineticEnergy, momentum: [-mass * vx, -mass * vy, -mass * vz] }, 'sim.v3-behavior-kernel');
           }
         }
         return result;
@@ -264,6 +300,7 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         particleIdentities.restore(identitySnapshot);
         randomStreams.restore(randomSnapshot);
         energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: lifecycleSnapshot });
+        eventJournal = createEventJournal(worldId, { events: journalSnapshot });
         throw error;
       }
     },
@@ -276,18 +313,25 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       if (values[PARTICLE_SLOTS.DEAD] >= 0.5 || values[PARTICLE_SLOTS.MASS] <= 0) throw new TypeError('new particle values must describe a live particle');
       const identity = particleIdentities.allocate(slot);
       const previous = state.slice(base, base + stride);
+      const auditSnapshot = energyLifecycleAudit.createSnapshot();
+      const journalSnapshot = eventJournal.snapshot();
       state.set(values, base);
       const mass = values[PARTICLE_SLOTS.MASS];
       const vx = values[PARTICLE_SLOTS.VEL_X], vy = values[PARTICLE_SLOTS.VEL_Y], vz = values[PARTICLE_SLOTS.VEL_Z];
       try {
+        const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
         energyLifecycleAudit.record({ kind: 'particle-created', sourceId: 'particle-creation',
           entityId: String(identity), tick, massDelta: mass,
-          kineticEnergyDelta: 0.5 * mass * (vx * vx + vy * vy + vz * vz),
+          kineticEnergyDelta: kineticEnergy,
           momentumDelta: [mass * vx, mass * vy, mass * vz],
           metadata: { slot, speciesId: values[PARTICLE_SLOTS.SPECIES_ID] } });
+        appendDomainEvent('particle.created', { slot, entityId: String(identity), sourceId: 'particle-creation',
+          massDelta: mass, kineticEnergyDelta: kineticEnergy, momentum: [mass * vx, mass * vy, mass * vz] });
       } catch (error) {
         state.set(previous, base);
         particleIdentities.release(identity);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: auditSnapshot });
+        eventJournal = createEventJournal(worldId, { events: journalSnapshot });
         throw error;
       }
       return identity;
@@ -298,13 +342,29 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       const base = slot * stride;
       const mass = state[base + PARTICLE_SLOTS.MASS];
       const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
-      energyLifecycleAudit.record({ kind: 'particle-retired', sourceId: 'particle-retirement',
-        entityId: String(identity), tick, massDelta: -mass,
-        kineticEnergyDelta: -0.5 * mass * (vx * vx + vy * vy + vz * vz),
-        momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot } });
-      state[base + PARTICLE_SLOTS.DEAD] = 1;
-      state[base + PARTICLE_SLOTS.MASS] = 0;
-      return particleIdentities.release(identity);
+      const previous = state.slice(base, base + stride);
+      const identitySnapshot = particleIdentities.snapshot();
+      const auditSnapshot = energyLifecycleAudit.createSnapshot();
+      const journalSnapshot = eventJournal.snapshot();
+      const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+      try {
+        energyLifecycleAudit.record({ kind: 'particle-retired', sourceId: 'particle-retirement',
+          entityId: String(identity), tick, massDelta: -mass,
+          kineticEnergyDelta: -kineticEnergy,
+          momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot } });
+        state[base + PARTICLE_SLOTS.DEAD] = 1;
+        state[base + PARTICLE_SLOTS.MASS] = 0;
+        particleIdentities.release(identity);
+        appendDomainEvent('particle.retired', { slot, entityId: String(identity), sourceId: 'particle-retirement',
+          massDelta: -mass, kineticEnergyDelta: -kineticEnergy, momentum: [-mass * vx, -mass * vy, -mass * vz] });
+        return true;
+      } catch (error) {
+        state.set(previous, base);
+        particleIdentities.restore(identitySnapshot);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: auditSnapshot });
+        eventJournal = createEventJournal(worldId, { events: journalSnapshot });
+        throw error;
+      }
     },
     readState() { return new Float64Array(state); },
     readRenderState() {
@@ -322,13 +382,29 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
       return render;
     },
     configure(proposal) {
+      const previous = activeConfig;
       const next = validateParticleExecutionConfig({ ...activeConfig, ...proposal, activeLawIds: proposal.activeLawIds ?? activeConfig.activeLawIds });
       activeConfig = next;
+      try {
+        appendDomainEvent('world.configured', {
+          changedKeys: Object.keys(proposal).sort(),
+          activeLawIds: next.activeLawIds,
+          dt: next.dt,
+          worldSize: next.worldSize,
+        });
+      } catch (error) {
+        activeConfig = previous;
+        throw error;
+      }
       return copyConfig(activeConfig);
     },
     step() {
       // Always retain a tick checkpoint: state and its transfer journal commit together.
       const beforeState = new Float64Array(state);
+      const beforeIdentityState = particleIdentities.snapshot();
+      const beforeIdentities = Array.from({ length: particleCount }, (_, slot) => particleIdentities.get(slot));
+      const beforeLifecycleSnapshot = energyLifecycleAudit.createSnapshot();
+      const beforeJournalSnapshot = eventJournal.snapshot();
       const before = activeConfig.numerics.diagnostics ? measureParticleState(state, particleCount, stride, PARTICLE_SLOTS) : null;
       const maxAcceleration = activeConfig.numerics.adaptiveSubstepping
         ? estimateModeledPairAcceleration(state, particleCount, stride, activeConfig) : 0;
@@ -402,12 +478,49 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         forceWorkJournal = createForceWorkJournal({ snapshot: beforeForceWorkSnapshot });
         throw error;
       }
-      for (let i = 0; i < particleCount; i++) {
-        const identity = particleIdentities.get(i);
-        const base = i * stride;
-        if (identity && (state[base + PARTICLE_SLOTS.DEAD] >= 0.5 || state[base + PARTICLE_SLOTS.MASS] <= 0)) {
-          particleIdentities.release(identity);
+      try {
+        for (let i = 0; i < particleCount; i++) {
+          const identity = beforeIdentities[i];
+          const base = i * stride;
+          const wasLive = Boolean(identity) && beforeState[base + PARTICLE_SLOTS.DEAD] < 0.5 && beforeState[base + PARTICLE_SLOTS.MASS] > 0;
+          const isLive = state[base + PARTICLE_SLOTS.DEAD] < 0.5 && state[base + PARTICLE_SLOTS.MASS] > 0;
+          if (wasLive && !isLive) {
+            const mass = beforeState[base + PARTICLE_SLOTS.MASS];
+            const vx = beforeState[base + PARTICLE_SLOTS.VEL_X], vy = beforeState[base + PARTICLE_SLOTS.VEL_Y], vz = beforeState[base + PARTICLE_SLOTS.VEL_Z];
+            const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+            energyLifecycleAudit.record({
+              kind: 'particle-retired', sourceId: 'solver-retirement', entityId: String(identity),
+              tick: tick + 1, massDelta: -mass, kineticEnergyDelta: -kineticEnergy,
+              momentumDelta: [-mass * vx, -mass * vy, -mass * vz], metadata: { slot: i },
+            });
+            appendDomainEvent('particle.retired', { slot: i, entityId: String(identity), sourceId: 'solver-retirement',
+              massDelta: -mass, kineticEnergyDelta: -kineticEnergy, momentum: [-mass * vx, -mass * vy, -mass * vz] },
+              'sim.solver', tick + 1);
+            particleIdentities.release(identity);
+          } else if (!identity && isLive) {
+            const createdIdentity = particleIdentities.allocate(i);
+            const mass = state[base + PARTICLE_SLOTS.MASS];
+            const vx = state[base + PARTICLE_SLOTS.VEL_X], vy = state[base + PARTICLE_SLOTS.VEL_Y], vz = state[base + PARTICLE_SLOTS.VEL_Z];
+            const kineticEnergy = 0.5 * mass * (vx * vx + vy * vy + vz * vz);
+            energyLifecycleAudit.record({
+              kind: 'particle-created', sourceId: 'solver-creation', entityId: String(createdIdentity),
+              tick: tick + 1, massDelta: mass, kineticEnergyDelta: kineticEnergy,
+              momentumDelta: [mass * vx, mass * vy, mass * vz], metadata: { slot: i },
+            });
+            appendDomainEvent('particle.created', { slot: i, entityId: String(createdIdentity), sourceId: 'solver-creation',
+              massDelta: mass, kineticEnergyDelta: kineticEnergy, momentum: [mass * vx, mass * vy, mass * vz] },
+              'sim.solver', tick + 1);
+          }
         }
+      } catch (error) {
+        state = beforeState;
+        particleIdentities.restore(beforeIdentityState);
+        energyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: beforeLifecycleSnapshot });
+        eventJournal = createEventJournal(worldId, { events: beforeJournalSnapshot });
+        energyLedger = createEnergyLedger({ snapshot: beforeLedgerSnapshot });
+        solverEnergyEvidence = createSolverEnergyEvidence({ snapshot: beforeEvidenceSnapshot });
+        forceWorkJournal = createForceWorkJournal({ snapshot: beforeForceWorkSnapshot });
+        throw error;
       }
       tick++;
       energyLedger.setTick(tick);
@@ -432,12 +545,45 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         } : {}),
       });
     },
+    readEventJournal() { return Object.freeze(eventJournal.snapshot()); },
+    replayJournal(options) {
+      return replayEvents(eventJournal.snapshot(), { ...options, worldId });
+    },
+    resetWorld({ initialState, config: proposedConfig = activeConfig, randomSeed: nextSeed = 0 } = {}) {
+      validateState(initialState, 0);
+      const nextConfig = validateParticleExecutionConfig(proposedConfig);
+      for (let slot = 0; slot < particleCount; slot++) {
+        const identity = particleIdentities.get(slot);
+        if (identity) particleIdentities.release(identity);
+      }
+      state = new Float64Array(initialState);
+      tick = 0;
+      worldGeneration++;
+      activeConfig = nextConfig;
+      randomStreams = createDeterministicRandomStreams({ seed: nextSeed });
+      for (let slot = 0; slot < particleCount; slot++) {
+        const base = slot * stride;
+        if (state[base + PARTICLE_SLOTS.DEAD] < 0.5 && state[base + PARTICLE_SLOTS.MASS] > 0) particleIdentities.allocate(slot);
+      }
+      energyLedger = createEnergyLedger();
+      for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
+      energyBudgetTimeline = createEnergyBudgetTimeline();
+      energyLifecycleAudit = createEnergyLifecycleAudit();
+      solverEnergyEvidence = createSolverEnergyEvidence();
+      forceWorkJournal = createForceWorkJournal();
+      appendDomainEvent('world.reset', { generation: worldGeneration, particleCount, stateDigest: stateDigest() }, 'sim.execution-adapter', 0);
+      return Object.freeze({ reset: true, generation: worldGeneration, tick });
+    },
     createSnapshot() {
+      appendDomainEvent('world.snapshot-created', { snapshotTick: tick, particleCount, stateDigest: stateDigest() });
+      const journalEvents = Object.freeze(eventJournal.snapshot());
       return Object.freeze({
         layoutVersion: PARTICLE_LAYOUT_VERSION,
+        worldId,
         stride,
         count: particleCount,
         tick,
+        worldGeneration,
         config: copyConfig(activeConfig),
         randomState: randomStreams.snapshot(),
         identityState: particleIdentities.snapshot(),
@@ -446,20 +592,29 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         energyLifecycleAudit: energyLifecycleAudit.createSnapshot(),
         solverEnergyEvidence: solverEnergyEvidence.createSnapshot(),
         forceWorkJournal: forceWorkJournal.createSnapshot(),
+        eventJournal: journalEvents,
+        lastEventSequence: eventJournal.lastSequence,
+        stateDigest: stateDigest(),
         state: new Float64Array(state),
       });
     },
     restoreSnapshot(snapshot) {
       if (!snapshot || snapshot.layoutVersion !== PARTICLE_LAYOUT_VERSION || snapshot.stride !== stride || snapshot.count !== particleCount) throw new TypeError('Snapshot layout is incompatible with this execution adapter');
+      if (snapshot.worldId !== undefined && snapshot.worldId !== worldId) throw new TypeError('Snapshot worldId does not match this execution adapter');
       validateState(snapshot.state, snapshot.tick);
+      if (snapshot.stateDigest !== undefined && stateDigest(snapshot.state) !== snapshot.stateDigest) throw new TypeError('Snapshot state digest does not match its particle buffer');
       const nextConfig = validateParticleExecutionConfig(snapshot.config);
       const nextEnergyLedger = snapshot.energyLedger ? createEnergyLedger({ snapshot: snapshot.energyLedger }) : createEnergyLedger({ tick: snapshot.tick });
       const nextEnergyBudgetTimeline = createEnergyBudgetTimeline({ snapshot: snapshot.energyBudgetTimeline ?? null });
       const nextEnergyLifecycleAudit = createEnergyLifecycleAudit({ snapshot: snapshot.energyLifecycleAudit ?? null });
       const nextSolverEnergyEvidence = createSolverEnergyEvidence({ snapshot: snapshot.solverEnergyEvidence ?? null });
       const nextForceWorkJournal = createForceWorkJournal({ snapshot: snapshot.forceWorkJournal ?? null });
+      const nextEventJournal = createEventJournal(worldId, { events: snapshot.eventJournal ?? [] });
+      if (snapshot.lastEventSequence !== undefined && nextEventJournal.lastSequence !== snapshot.lastEventSequence) {
+        throw new TypeError('Snapshot event journal sequence does not match lastEventSequence');
+      }
       const nextRandomStreams = createDeterministicRandomStreams({
-        seed: randomSeed,
+        seed: snapshot.randomState?.rootSeed ?? randomStreams.seed,
         ...(snapshot.randomState === undefined ? {} : { snapshot: snapshot.randomState }),
       });
       if (snapshot.identityState === undefined) throw new TypeError('Snapshot is missing particle identity state');
@@ -469,17 +624,24 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
         const alive = snapshot.state[base + PARTICLE_SLOTS.DEAD] < 0.5 && snapshot.state[base + PARTICLE_SLOTS.MASS] > 0;
         if (alive !== Boolean(nextIdentities.get(i))) throw new TypeError('Snapshot particle identity state does not match particle liveness');
       }
-      randomStreams.restore(nextRandomStreams.snapshot());
+      randomStreams = nextRandomStreams;
       particleIdentities = nextIdentities;
       energyLedger = nextEnergyLedger;
       energyBudgetTimeline = nextEnergyBudgetTimeline;
       energyLifecycleAudit = nextEnergyLifecycleAudit;
       solverEnergyEvidence = nextSolverEnergyEvidence;
       forceWorkJournal = nextForceWorkJournal;
+      eventJournal = nextEventJournal;
+      worldGeneration = Number.isInteger(snapshot.worldGeneration) && snapshot.worldGeneration >= 0 ? snapshot.worldGeneration : 0;
       state = new Float64Array(snapshot.state);
       tick = snapshot.tick;
       activeConfig = nextConfig;
-      return Object.freeze({ restored: true, tick });
+      appendDomainEvent('world.snapshot-restored', {
+        restoredTick: snapshot.tick,
+        sourceLastEventSequence: snapshot.lastEventSequence ?? nextEventJournal.lastSequence,
+        stateDigest: stateDigest(),
+      });
+      return Object.freeze({ restored: true, tick, worldGeneration, lastEventSequence: eventJournal.lastSequence });
     },
   });
 }

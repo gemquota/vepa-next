@@ -34,6 +34,6 @@ The generator extracts runtime constants, law/category metadata, source exports/
 | DNA count | 64 |
 | Declared law count | 136 |
 | Mapped law records | 136 |
-| Source files scanned | 297 |
+| Source files scanned | 298 |
 
 Generated records preserve discrepancies between runtime exports, supplemental metadata, tests, and older prose. They do not silently convert evidence into approval.

@@ -9,8 +9,8 @@ test('migration ledger covers every stable law exactly once', () => {
 });
 
 test('only laws with executable solver coverage are marked executable', () => {
- assert.equal(LAW_MIGRATION_SUMMARY.executable, 8);
- assert.equal(LAW_MIGRATION_SUMMARY.catalogOnly, 128);
+ assert.equal(LAW_MIGRATION_SUMMARY.executable, 7);
+ assert.equal(LAW_MIGRATION_SUMMARY.catalogOnly, 129);
  for (const law of LAW_MIGRATION_MANIFEST) {
   assert.ok(['executable', 'catalog-only'].includes(law.runtimeStatus));
   assert.ok(law.primitiveClass.length > 0);

@@ -71,6 +71,7 @@ function capture(world, name = 'test', savedAt = Date.now()) {
     runtime: world.runtime,
     worldSize: world.worldSize,
     tick: world.tick,
+    prng: world.prng,
     name,
     savedAt,
   });
@@ -188,6 +189,29 @@ describe('world save capture/restore (v7.4)', () => {
     expect(fresh.laws.pentaFlags[0]).toBe(0);
     expect(restored.civilization).toBeNull();
     expect(restored.codex).toBeNull();
+  });
+
+  it('round-trips independent main-thread and worker PRNG checkpoints', () => {
+    const world = makeWorld();
+    world.prng = {
+      algorithm: 'splitmix32-v1', seed: 17, state: 23,
+      main: { algorithm: 'splitmix32-v1', seed: 17, state: 23 },
+      worker: { algorithm: 'splitmix32-v1', seed: 29, state: 31 },
+    };
+    const state = capture(world, 'random-checkpoint');
+    expect(state.prng.main.state).toBe(23);
+    expect(state.prng.worker.state).toBe(31);
+    const parsed = parseWorldSave(exportWorldSave(state));
+    const fresh = makeWorld(0, 1);
+    const restored = restoreWorldState(parsed, { view: fresh.view, dna: fresh.dna, laws: fresh.laws,
+      worldParams: fresh.worldParams, runtime: fresh.runtime });
+    expect(restored.prng).toEqual(state.prng);
+  });
+
+  it('rejects malformed or unsupported PRNG checkpoints', () => {
+    const world = makeWorld();
+    world.prng = { algorithm: 'unknown', seed: 1, state: 1 };
+    expect(() => capture(world)).toThrow(/PRNG checkpoint/);
   });
 
   it('restore throws on non-world payloads', () => {

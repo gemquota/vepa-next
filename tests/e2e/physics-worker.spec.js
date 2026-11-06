@@ -3,14 +3,14 @@ import { test, expect } from '@playwright/test';
 test('boots the simulation shell without a module error', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.locator('#sim-canvas')).toBeVisible();
   await expect.poll(() => page.evaluate(() => Boolean(window.__VEPA_DEBUG__?._active))).toBe(true);
   expect(errors).toEqual([]);
 });
 
 test('runs worker ticks asynchronously when SharedArrayBuffer is available', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect.poll(() => page.evaluate(() => document.querySelector('#hud-tick')?.textContent || '')).toMatch(/\d[\d,]*\n\d+\.\d/);
   const result = await page.evaluate(async () => {
     const started = performance.now();
@@ -23,7 +23,7 @@ test('runs worker ticks asynchronously when SharedArrayBuffer is available', asy
 });
 
 test('GPU force output matches CPU for a fixed browser fixture', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const result = await page.evaluate(async () => {
     const gpuModule = await import('/src/physics/gpuCompute.js');
     const gpu = await gpuModule.createGPUContext();
@@ -56,7 +56,7 @@ test('GPU opt-in remains safe when WebGPU is unavailable', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'gpu', { configurable: true, value: undefined });
   });
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.locator('#sim-canvas')).toBeVisible();
   const fallback = await page.evaluate(async () => {
     const module = await import('/src/physics/gpuCompute.js');
@@ -66,7 +66,7 @@ test('GPU opt-in remains safe when WebGPU is unavailable', async ({ page }) => {
 });
 
 test('hardware WebGPU device loss is observed by the same fallback monitor used in the worker', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const result = await page.evaluate(async () => {
     const module = await import('/src/physics/gpuCompute.js');
     const gpu = await module.createGPUContext();

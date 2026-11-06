@@ -40,9 +40,9 @@ The actual product physics worker can load `sim-foundation/src/interop/product-s
 
 The shadow uses the versioned PR33 request/response envelope and response tracker. It evolves a separate Float64 SIM state and periodically compares it with the product worker state. It never writes to product buffers or replaces product solver output. Diagnostics are attached to existing worker tick responses and exposed through `physics:simShadow` / `physics:simShadowStatus` events.
 
-Only seven product laws currently map into the SIM runtime: GRAV, DRAG, COLL, CHARGE_LAW, ENTR, BUOYANCY and BOND. Any other enabled law fails closed and disables shadow execution for that configuration. CHARGE_LAW additionally requires an explicit positive electric constant. ACCR is deliberately excluded: product ACCR is structural adjacency, while the current SIM accretion implementation fuses particle state. Numeric index or name similarity is not sufficient evidence of semantic parity.
+Only seven product laws currently map into the SIM runtime: GRAV, DRAG, COLL, CHARGE_LAW, ENTR, BUOYANCY and BOND. WRAP is handled separately through boundaryMode derived from world parameters; it is not sent as a force law. Any other active unsupported law fails closed and disables shadow execution for that configuration. CHARGE_LAW additionally requires an explicit positive electric constant. ACCR is deliberately excluded: product ACCR is structural adjacency, while the current SIM accretion implementation fuses particle state. Numeric index or name similarity is not sufficient evidence of semantic parity.
 
-The worker still uses the product solver as the only authoritative path. The shadow is for parity evidence, not a production backend promotion.
+The worker still uses the product solver as the only authoritative path. The shadow is for parity evidence, not a production backend promotion. The Pages browser acceptance suite verifies both default fail-closed behavior and a supported-only configuration, while checking that product ticks continue.
 
 ## G4.6 spatial grid and periodic features
 

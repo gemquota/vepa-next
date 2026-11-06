@@ -80,6 +80,27 @@ function bytesToU16(u8) {
   return out;
 }
 
+function normalizeSinglePrngCheckpoint(value, label = 'PRNG') {
+  if (!value || !Number.isInteger(value.seed) || value.seed < -2147483648 || value.seed > 0xffffffff ||
+      !Number.isInteger(value.state) || value.state < -2147483648 || value.state > 0xffffffff) {
+    throw new TypeError('Invalid ' + label + ' checkpoint');
+  }
+  return Object.freeze({ algorithm: 'splitmix32-v1', seed: value.seed >>> 0, state: value.state >>> 0 });
+}
+
+function normalizePrngSnapshot(value) {
+  if (value == null) return null;
+  if (!value || value.algorithm !== 'splitmix32-v1') throw new TypeError('Invalid worker PRNG checkpoint');
+  const primary = normalizeSinglePrngCheckpoint(value, 'primary PRNG');
+  const main = value.main == null ? null : normalizeSinglePrngCheckpoint(value.main, 'main-thread PRNG');
+  const worker = value.worker == null ? null : normalizeSinglePrngCheckpoint(value.worker, 'worker PRNG');
+  return Object.freeze({
+    ...primary,
+    ...(main ? { main } : {}),
+    ...(worker ? { worker } : {}),
+  });
+}
+
 function popcount(w) {
   w = (w | 0) >>> 0;
   let n = 0;
@@ -160,6 +181,8 @@ export function captureWorldState(opts = {}) {
     name: opts.name || '',
     savedAt: opts.savedAt || Date.now(),
     tick: opts.tick || 0,
+    // Additive v1 extension: old saves omit this and cannot resume the exact worker stream.
+    prng: normalizePrngSnapshot(opts.prng),
     worldSize: Number.isFinite(opts.worldSize) ? opts.worldSize : WORLD_SIZE,
     particleCount: count,
     speciesCount,
@@ -245,6 +268,7 @@ export function restoreWorldState(state, target = {}) {
     particleCount,
     speciesCount,
     worldSize: Number.isFinite(state.worldSize) ? state.worldSize : WORLD_SIZE,
+    prng: normalizePrngSnapshot(state.prng),
     // Caller rebuilds the registry with restoreCivilization(); we only hand
     // back the raw snapshot so the shape stays free of a state-module import.
     civilization: state.civilization ?? null,
@@ -271,6 +295,7 @@ export function exportWorldSave(state) {
     name: state.name,
     savedAt: state.savedAt,
     tick: state.tick,
+    prng: normalizePrngSnapshot(state.prng),
     worldSize: state.worldSize,
     particleCount: state.particleCount,
     speciesCount: state.speciesCount,
@@ -301,6 +326,7 @@ export function parseWorldSave(json) {
     name: data.name || '',
     savedAt: data.savedAt || Date.now(),
     tick: data.tick || 0,
+    prng: normalizePrngSnapshot(data.prng),
     worldSize: Number.isFinite(data.worldSize) ? data.worldSize : WORLD_SIZE,
     particleCount: Math.max(0, Math.min(data.particleCount || 0, MAX_PARTICLES)),
     speciesCount: Math.max(1, Math.min(data.speciesCount || 5, MAX_SPECIES)),

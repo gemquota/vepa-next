@@ -28,12 +28,22 @@ export function toProductWorkerResponse(message, { requestId, productType } = {}
  const type = PRODUCT_RESPONSE[productType]; if (!type) throw new RangeError('Product worker response has no bridge mapping: ' + productType);
  return Object.freeze({ type, payload: message.payload ?? null, requestId: message.id });
 }
-export function createWorkerResponseTracker() {
- const pending = new Set(); const completed = new Set();
+export function createWorkerResponseTracker({ maxCompleted = 1024 } = {}) {
+ if (!Number.isSafeInteger(maxCompleted) || maxCompleted < 1) throw new RangeError('maxCompleted must be a positive safe integer');
+ const pending = new Set(); const completed = new Set(); const completedOrder = [];
  return Object.freeze({
   register(id) { if (!Number.isSafeInteger(id) || id < 0 || pending.has(id) || completed.has(id)) throw new TypeError('duplicate or invalid worker request id'); pending.add(id); },
-  accept(message) { const verdict = validateSimWorkerResponse(message); if (!verdict.valid) return Object.freeze({ accepted: false, errors: verdict.errors }); if (completed.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['duplicate-response']) }); if (!pending.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['unknown-or-stale-response']) }); pending.delete(message.id); completed.add(message.id); return Object.freeze({ accepted: true, requestId: message.id }); },
+  accept(message) {
+   const verdict = validateSimWorkerResponse(message);
+   if (!verdict.valid) return Object.freeze({ accepted: false, errors: verdict.errors });
+   if (completed.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['duplicate-response']) });
+   if (!pending.has(message.id)) return Object.freeze({ accepted: false, errors: Object.freeze(['unknown-or-stale-response']) });
+   pending.delete(message.id); completed.add(message.id); completedOrder.push(message.id);
+   if (completedOrder.length > maxCompleted) completed.delete(completedOrder.shift());
+   return Object.freeze({ accepted: true, requestId: message.id });
+  },
   get pendingCount() { return pending.size; },
+  get completedCount() { return completed.size; },
  });
 }
 export function createProductRandomBridge({ seed = 0, state = seed } = {}) {
@@ -49,14 +59,40 @@ export function productSaveToSimSnapshot(save, { worldId, generation = 0 } = {})
  typed(save.particles, Float32Array, 'product particles'); if (save.particles.length !== save.particleCount * 100) throw new RangeError('product particle buffer length mismatch');
  if (save.dna !== null) typed(save.dna, Uint16Array, 'product DNA'); record(save.laws, 'product law mask');
  const productLawMask = Object.freeze({ low: word(save.laws.low, 'laws.low'), high: word(save.laws.high, 'laws.high'), ext: word(save.laws.ext, 'laws.ext'), quad: word(save.laws.quad, 'laws.quad'), penta: word(save.laws.penta, 'laws.penta') });
- return createWorldSnapshot({ worldId, tick: Number.isSafeInteger(save.tick) && save.tick >= 0 ? save.tick : 0, generation, config: { source: { format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION }, worldSize: save.worldSize, worldParams: save.worldParams ?? {}, runtime: save.runtime ?? {}, productLawMask, lawIdentityPolicy: 'opaque-product-index-space-v1', deterministicContinuation: 'unavailable-product-save-has-no-prng-state' }, simulationState: { layoutVersion: 1, particleStride: 100, particleCount: save.particleCount, speciesCount: save.speciesCount, particles: save.particles, dna: save.dna, civilization: save.civilization ?? null }, prngState: null, lastEventSequence: -1 });
+ let prngState = null;
+ if (save.prng != null) {
+  record(save.prng, 'product PRNG checkpoint');
+  if (save.prng.algorithm !== 'splitmix32-v1') throw new TypeError('Unsupported product PRNG algorithm');
+  const checkpoint = (value, label) => {
+   record(value, label);
+   return Object.freeze({ algorithm: 'splitmix32-v1', seed: word(value.seed, label + '.seed'), state: word(value.state, label + '.state') });
+  };
+  const primary = checkpoint(save.prng, 'prng');
+  const main = save.prng.main == null ? null : checkpoint(save.prng.main, 'prng.main');
+  const worker = save.prng.worker == null ? null : checkpoint(save.prng.worker, 'prng.worker');
+  prngState = Object.freeze({ ...primary, ...(main ? { main } : {}), ...(worker ? { worker } : {}) });
+ }
+ const deterministicContinuation = prngState ? 'splitmix32-v1-checkpoint-available' : 'unavailable-legacy-save-has-no-prng-state';
+ return createWorldSnapshot({ worldId, tick: Number.isSafeInteger(save.tick) && save.tick >= 0 ? save.tick : 0, generation, config: { source: { format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION }, worldSize: save.worldSize, worldParams: save.worldParams ?? {}, runtime: save.runtime ?? {}, productLawMask, lawIdentityPolicy: 'opaque-product-index-space-v1', deterministicContinuation }, simulationState: { layoutVersion: 1, particleStride: 100, particleCount: save.particleCount, speciesCount: save.speciesCount, particles: save.particles, dna: save.dna, civilization: save.civilization ?? null }, prngState, lastEventSequence: -1 });
 }
 export function simSnapshotToProductSave(snapshot, { expectedWorldId } = {}) {
  const verdict = validateWorldSnapshot(snapshot, { expectedWorldId }); if (!verdict.valid) throw new TypeError('Invalid SIM snapshot: ' + verdict.errors.join(', '));
  const config = restoreSnapshotValue(snapshot.config); const state = restoreSnapshotValue(snapshot.simulationState);
  if (config?.source?.format !== PRODUCT_SAVE_FORMAT || config.source.version !== PRODUCT_SAVE_VERSION || state?.layoutVersion !== 1 || state.particleStride !== 100) throw new TypeError('SIM snapshot does not contain a supported product v1 payload');
  typed(state.particles, Float32Array, 'snapshot particles'); if (state.particles.length !== state.particleCount * 100) throw new RangeError('snapshot particle buffer length mismatch'); if (state.dna !== null) typed(state.dna, Uint16Array, 'snapshot DNA');
- return Object.freeze({ format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION, tick: snapshot.tick, worldSize: config.worldSize, particleCount: state.particleCount, speciesCount: state.speciesCount, particles: state.particles.slice(), dna: state.dna?.slice() ?? null, laws: { ...config.productLawMask }, worldParams: { ...config.worldParams }, runtime: { ...config.runtime }, civilization: state.civilization ?? null, migration: Object.freeze({ source: 'vepa.world-snapshot/v2', prngRestored: false }) });
+ const prng = snapshot.prngState == null ? null : (() => {
+  if (snapshot.prngState.algorithm !== 'splitmix32-v1') throw new TypeError('Unsupported snapshot PRNG algorithm');
+  const checkpoint = (value, label) => Object.freeze({
+   algorithm: 'splitmix32-v1',
+   seed: word(value.seed, label + '.seed'),
+   state: word(value.state, label + '.state'),
+  });
+  const primary = checkpoint(snapshot.prngState, 'snapshot.prngState');
+  const main = snapshot.prngState.main == null ? null : checkpoint(snapshot.prngState.main, 'snapshot.prngState.main');
+  const worker = snapshot.prngState.worker == null ? null : checkpoint(snapshot.prngState.worker, 'snapshot.prngState.worker');
+  return Object.freeze({ ...primary, ...(main ? { main } : {}), ...(worker ? { worker } : {}) });
+ })();
+ return Object.freeze({ format: PRODUCT_SAVE_FORMAT, version: PRODUCT_SAVE_VERSION, tick: snapshot.tick, worldSize: config.worldSize, particleCount: state.particleCount, speciesCount: state.speciesCount, particles: state.particles.slice(), dna: state.dna?.slice() ?? null, laws: { ...config.productLawMask }, worldParams: { ...config.worldParams }, runtime: { ...config.runtime }, prng, civilization: state.civilization ?? null, migration: Object.freeze({ source: 'vepa.world-snapshot/v2', prngRestored: prng !== null }) });
 }
 export const PRODUCT_SOLVER_PHASE_CONTRACT = Object.freeze([
  ...[['prepare','solver','tick',['scratch','runtime-limits']],['field-update','solver','cadence',['field-state']],['backend-selection','solver','tick',['backend-local-state']],['neighbor-build','solver','tick-or-reuse',['neighbor-index']],['force-evaluation','solver','particle-and-pair',['force-accumulators']],['mechanics-boundaries','solver','particle-and-pair',['particle-physical-state']],['integration','solver','particle',['particle-physical-state']],['lifecycle','solver','particle-and-population',['particle-lifecycle','offspring-buffer']],['post-tick','main-thread','cadence',['population','lineage','metrics','events']],['render','renderer','frame',['render-cache-only']]].map(([id,ownership,granularity,writes]) => Object.freeze({ id, ownership, granularity, writes: Object.freeze(writes) }))

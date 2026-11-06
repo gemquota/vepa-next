@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: 'pages-baseline.spec.js',
+  testMatch: ['pages-baseline.spec.js', 'sim-shadow-baseline.spec.js'],
   fullyParallel: false,
   timeout: 60_000,
   expect: { timeout: 30_000 },
