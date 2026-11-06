@@ -6,7 +6,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 
 | Area | Files | Exports | Law references |
 | --- | --- | --- | --- |
-| Application | 36 | 157 | 458 |
+| Application | 36 | 158 | 458 |
 | Benchmark | 4 | 5 | 10 |
 | Repository | 7 | 2 | 3 |
 | Simulation | 30 | 218 | 369 |
@@ -39,7 +39,7 @@ The generator scanned `297` files from active repository inputs. Individual modu
 | [src/core/eventBus.js](src/core/eventBus.js) | application | 43 | 2 | 0 | 0 |
 | [src/core/logQueue.js](src/core/logQueue.js) | application | 90 | 3 | 0 | 0 |
 | [src/core/numeric.js](src/core/numeric.js) | application | 97 | 10 | 0 | 1 |
-| [src/core/prng.js](src/core/prng.js) | application | 25 | 1 | 0 | 0 |
+| [src/core/prng.js](src/core/prng.js) | application | 54 | 2 | 0 | 0 |
 | [src/debug.js](src/debug.js) | application | 212 | 6 | 2 | 0 |
 | [src/dna/codec.js](src/dna/codec.js) | state | 83 | 5 | 1 | 1 |
 | [src/dna/dnaBuffer.js](src/dna/dnaBuffer.js) | state | 153 | 10 | 1 | 0 |
