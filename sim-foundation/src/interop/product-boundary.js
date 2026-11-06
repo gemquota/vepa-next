@@ -5,28 +5,28 @@ export const SIM_WORKER_PROTOCOL_VERSION = 1;
 export const PRODUCT_SAVE_FORMAT = 'vepa-world-save';
 export const PRODUCT_SAVE_VERSION = 1;
 const PRODUCT_TO_SIM = Object.freeze({ INIT: 'INIT', CONFIG: 'CONFIGURE', TICK: 'STEP', GET_STATE: 'READ_STATE', RESTORE: 'RESTORE', PING: 'STATUS' });
-const SIM_TO_PRODUCT = Object.freeze({ READY: 'INIT_COMPLETE', CONFIGURED: 'CONFIG_COMPLETE', STEP_COMPLETE: 'TICK_COMPLETE', BUSY: 'TICK_QUEUED', STATUS: 'PONG', ERROR: 'ERROR' });
+const PRODUCT_RESPONSE = Object.freeze({ INIT: 'INIT_COMPLETE', CONFIG: 'CONFIG_COMPLETE', TICK: 'TICK_COMPLETE', GET_STATE: 'STATE', RESTORE: 'RESTORE_COMPLETE', PING: 'PONG' });
 function record(value, label) { if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new TypeError(label + ' must be a plain object'); }
 export function createSimWorkerRequest({ requestId, productType, payload = null } = {}) {
  if (!Number.isSafeInteger(requestId) || requestId < 0) throw new TypeError('requestId must be a non-negative safe integer');
  const type = PRODUCT_TO_SIM[productType]; if (!type) throw new RangeError('Product worker command has no SIM bridge mapping: ' + productType);
- return Object.freeze({ protocol: 'vepa.sim-worker', protocolVersion: SIM_WORKER_PROTOCOL_VERSION, requestId, type, payload, sourceProtocol: 'vepa.product-worker', sourceProtocolVersion: PRODUCT_WORKER_PROTOCOL_VERSION });
+ // Match the existing SIM worker adapter envelope exactly: protocolVersion + id + type + payload.
+ return Object.freeze({ protocolVersion: SIM_WORKER_PROTOCOL_VERSION, id: requestId, type, payload });
 }
 export function validateSimWorkerResponse(message, { requestId } = {}) {
  const errors = []; if (!message || typeof message !== 'object' || Array.isArray(message)) return { valid: false, errors: ['invalid-envelope'] };
- if (message.protocol !== 'vepa.sim-worker') errors.push('wrong-protocol');
  if (message.protocolVersion !== SIM_WORKER_PROTOCOL_VERSION) errors.push('unsupported-version');
- if (!Number.isSafeInteger(message.requestId) || message.requestId < 0) errors.push('invalid-request-id');
- if (requestId !== undefined && message.requestId !== requestId) errors.push('stale-or-mismatched-request');
- if (typeof message.type !== 'string' || !Object.hasOwn(SIM_TO_PRODUCT, message.type)) errors.push('unknown-response-type');
+ if (!Number.isSafeInteger(message.id) || message.id < 0) errors.push('invalid-request-id');
+ if (requestId !== undefined && message.id !== requestId) errors.push('stale-or-mismatched-request');
  if (message.ok !== true && message.ok !== false) errors.push('invalid-result-status');
  if (message.ok === false && (!message.error || typeof message.error.message !== 'string')) errors.push('missing-error-detail');
  return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
 }
-export function toProductWorkerResponse(message, options = {}) {
- const verdict = validateSimWorkerResponse(message, options); if (!verdict.valid) throw new TypeError('Invalid SIM worker response: ' + verdict.errors.join(', '));
- if (message.ok === false) return Object.freeze({ type: 'ERROR', error: message.error.message, requestId: message.requestId });
- return Object.freeze({ type: SIM_TO_PRODUCT[message.type], payload: message.payload ?? null, requestId: message.requestId });
+export function toProductWorkerResponse(message, { requestId, productType } = {}) {
+ const verdict = validateSimWorkerResponse(message, { requestId }); if (!verdict.valid) throw new TypeError('Invalid SIM worker response: ' + verdict.errors.join(', '));
+ if (message.ok === false) return Object.freeze({ type: 'ERROR', error: message.error.message, requestId: message.id });
+ const type = PRODUCT_RESPONSE[productType]; if (!type) throw new RangeError('Product worker response has no bridge mapping: ' + productType);
+ return Object.freeze({ type, payload: message.payload ?? null, requestId: message.id });
 }
 export function createProductRandomBridge({ seed = 0, state = seed } = {}) {
  if (!Number.isInteger(state) || state < -2147483648 || state > 0xffffffff) throw new TypeError('product PRNG state must be a 32-bit integer');
