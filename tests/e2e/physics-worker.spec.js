@@ -90,7 +90,6 @@ test('hardware WebGPU device loss is observed by the same fallback monitor used 
 test('live physics worker enables the opt-in SIM shadow without replacing product ticks', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    if (!crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') return { supported: false };
     const deadline = performance.now() + 6000;
     while (typeof window.__VEPA_SIM_SHADOW__ !== 'function' && performance.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 25));
