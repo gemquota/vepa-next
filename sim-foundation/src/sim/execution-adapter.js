@@ -10,6 +10,9 @@ import { calculateEnergyBudget, compareEnergyBudgets, createEnergyBudgetTimeline
 import { createEnergyLifecycleAudit } from './energy-lifecycle-audit.js';
 import { createSolverEnergyEvidence } from './solver-energy-evidence.js';
 import { createForceWorkJournal } from './force-work-journal.js';
+import { createEventEnvelope } from '../core/event-envelope.js';
+import { createEventJournal } from '../state/event-journal.js';
+import { replayEvents } from '../state/replay.js';
 import { calculatePeriodicImagePair, calculatePeriodicImageSystem, estimatePeriodicImageConvergence } from './periodic-images.js';
 import { calculateEwaldSystem } from './periodic-ewald.js';
 
@@ -138,6 +141,8 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
   let forceWorkJournal = createForceWorkJournal();
   for (const [id, type, allowNegative] of energyAccounts) energyLedger.createAccount({ id, type, allowNegative });
   const randomStreams = createDeterministicRandomStreams({ seed: randomSeed });
+  let eventJournal = createEventJournal(worldId);
+  let worldGeneration = 0;
   let particleIdentities = createParticleIdentityAllocator({ capacity: particleCount });
   for (let i = 0; i < particleCount; i++) {
     const base = i * stride;
@@ -151,6 +156,26 @@ export function createParticleExecutionAdapter({ initialState, count, stride = P
     if (!ArrayBuffer.isView(nextState) || nextState instanceof DataView || nextState.length !== particleCount * stride) throw new TypeError('snapshot state has an incompatible typed-array shape');
     if (!Number.isInteger(nextTick) || nextTick < 0) throw new RangeError('snapshot tick must be a non-negative integer');
     for (let i = 0; i < nextState.length; i++) if (!Number.isFinite(nextState[i])) throw new RangeError('snapshot state contains a non-finite value');
+  }
+
+  function appendDomainEvent(type, payload, sourceModule = 'sim.execution-adapter', simulationTick = tick) {
+    const sequence = eventJournal.lastSequence + 1;
+    const eventTick = Math.max(eventJournal.lastTick + 1, simulationTick);
+    const event = createEventEnvelope({
+      eventId: `${worldId}:g${worldGeneration}:e${sequence}`,
+      type, worldId, tick: eventTick, sequence, sourceModule,
+      payload: { ...payload, simulationTick, worldGeneration },
+    });
+    const result = eventJournal.append(event);
+    if (!result.accepted) throw new Error(`Event journal rejected ${type}: ${result.reason}`);
+    return result.event;
+  }
+
+  function stateDigest(view = state) {
+    const bytes = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < bytes.length; i++) hash = Math.imul(hash ^ bytes[i], 0x01000193) >>> 0;
+    return hash.toString(16).padStart(8, '0');
   }
 
   return Object.freeze({
