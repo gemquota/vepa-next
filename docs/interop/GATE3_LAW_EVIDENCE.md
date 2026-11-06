@@ -26,3 +26,8 @@ Semantic fixtures exercise enabled/disabled behavior, force antisymmetry, charge
 - WebGPU is a gravity-only pre-pass, not a replacement solver. Browser tests compare GPU output against CPU on actual hardware when available; the shared device-loss monitor is tested both with a deterministic rejected/lost promise and with a hardware-backed device destroy. Missing WebGPU hardware is reported as an environment skip, never as parity evidence.
 
 `npm run bench:acceptance` records a fixed-seed benchmark matrix at 32, 128, 512, 1024 and 2048 particles. It reports timing and error metrics and does not change any backend selection.
+
+
+## Canonical ontology vocabulary
+
+Resource references use the product's actual stride, DNA and world-parameter names wherever a stored value exists. Derived accounting resources are explicitly distinguished from particle-buffer slots: `KINETIC_ENERGY` is derived from mass and velocity, while `DISSIPATION` names the energy sink. The ontology does not invent aliases such as a separate particle-mass field, a magnetic-field slot or a current slot when the corresponding runtime path consumes existing canonical state instead.
