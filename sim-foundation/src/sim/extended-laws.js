@@ -77,23 +77,11 @@ export function applyExtendedLaws(view, alive, acceleration, candidates, queryNe
   // synergy multipliers must be supplied by the caller when comparing a
   // combined-law configuration; defaults reproduce the isolated law constants.
   const pairPhysics = activeLawIds.some(id =>
-    id === 'law.tide' || id === 'law.horizon' || id === 'law.radiation-pressure');
+    id === 'law.tide' || id === 'law.horizon' || id === 'law.radiation-pressure' || id === 'law.field');
   if (pairPhysics || activeLawIds.includes('law.field')) {
     for (const i of alive) {
       const a = i * stride;
       const massA = Math.max(view[a + slots.MASS], 1e-12);
-      if (activeLawIds.includes('law.field') && fieldCoefficient !== 0) {
-        const dx = worldSize * 0.5 - view[a + slots.POS_X];
-        const dy = worldSize * 0.5 - view[a + slots.POS_Y];
-        const dz = worldSize * 0.5 - view[a + slots.POS_Z];
-        const distance = Math.hypot(dx, dy, dz);
-        if (distance > 0) {
-          const magnitude = Math.min(50, Math.max(0, fieldCoefficient) * Math.min(distance, 100) / 100);
-          acceleration[i * 3] += dx / distance * magnitude / massA;
-          acceleration[i * 3 + 1] += dy / distance * magnitude / massA;
-          acceleration[i * 3 + 2] += dz / distance * magnitude / massA;
-        }
-      }
       if (!pairPhysics) continue;
       const query = queryNeighbors(view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z]);
       if (!query.complete) throw new Error('Neighbor query incomplete; refusing partial product-law parity');
@@ -106,6 +94,18 @@ export function applyExtendedLaws(view, alive, acceleration, candidates, queryNe
         const distance = Math.hypot(dx, dy, dz);
         if (!(distance > 0) || distance > interactionRadius) continue;
         const invDistance = 1 / distance;
+        if (activeLawIds.includes('law.field') && fieldCoefficient !== 0) {
+          const fx = worldSize * 0.5 - view[a + slots.POS_X];
+          const fy = worldSize * 0.5 - view[a + slots.POS_Y];
+          const fz = worldSize * 0.5 - view[a + slots.POS_Z];
+          const fieldDistance = Math.hypot(fx, fy, fz);
+          if (fieldDistance > 0) {
+            const fieldMagnitude = Math.min(50, Math.max(0, fieldCoefficient) * Math.min(fieldDistance, 100) / 100);
+            acceleration[i * 3] += fx / fieldDistance * fieldMagnitude / massA;
+            acceleration[i * 3 + 1] += fy / fieldDistance * fieldMagnitude / massA;
+            acceleration[i * 3 + 2] += fz / fieldDistance * fieldMagnitude / massA;
+          }
+        }
         let magnitude = 0;
         let sign = 1;
         if (activeLawIds.includes('law.tide') && tideCoefficient !== 0) {
