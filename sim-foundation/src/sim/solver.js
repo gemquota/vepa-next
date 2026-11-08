@@ -70,6 +70,11 @@ export function stepParticleWorld(view, count, {
   accretionRadiusMultiplier = 1.25,
   bondStrength = 2,
   bondDamping = 0.15,
+  tideCoefficient = 0.3,
+  horizonCoefficient = 0.08,
+  radiationPressureCoefficient = 0.12,
+  fieldCoefficient = 0.02,
+  frictionCoefficient = 0.05,
   slots = S,
   advancedPhysics = null,
   integrator = 'semi-implicit-euler',
@@ -233,7 +238,9 @@ export function stepParticleWorld(view, count, {
   }, {
     stride, worldSize, boundaryMode, interactionRadius, softening, dt, activeLawIds,
     entrainmentCoefficient, buoyancyCoefficient, ambientTemperature,
-    accretionRadiusMultiplier, bondStrength, bondDamping, slots,
+    accretionRadiusMultiplier, bondStrength, bondDamping,
+    tideCoefficient, horizonCoefficient, radiationPressureCoefficient,
+    fieldCoefficient, frictionCoefficient, slots,
   });
 
   const advancedMetrics = applyAdvancedPhysics(view, alive, acceleration, candidates, (x, y, z) => {
