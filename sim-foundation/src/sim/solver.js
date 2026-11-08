@@ -92,6 +92,9 @@ export function stepParticleWorld(view, count, {
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
     throw new TypeError('view must be a numeric typed array with count * stride elements');
   }
+  for (const [name, value] of Object.entries({ tideCoefficient, frictionCoefficient, horizonCoefficient, radiationPressureCoefficient, fieldCoefficient })) {
+    if (!Number.isFinite(value) || value < 0) throw new RangeError(name + ' must be finite and >= 0');
+  }
   if (!Number.isFinite(worldSize) || worldSize <= 0 || !Number.isFinite(dt) || dt <= 0 ||
       !Number.isFinite(gravitationalConstant) || gravitationalConstant < 0 ||
       !Number.isFinite(electricConstant) || electricConstant < 0 ||
