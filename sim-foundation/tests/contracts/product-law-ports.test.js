@@ -13,7 +13,10 @@ function world({ a = {}, b = {}, law, ...config }) {
     state[base + S.POS_Y] = 10;
     state[base + S.POS_Z] = 10;
     state[base + S.DEAD] = 0;
-    for (const [key, value] of Object.entries(values)) state[base + S[key]] = value;
+    for (const [key, value] of Object.entries(values)) {
+      if (key === 'VISCOSITY') state[base + S.DNA_CACHE_START + 1] = value;
+      else state[base + S[key]] = value;
+    }
   };
   set(0, a); set(1, b);
   const metrics = stepParticleWorld(state, 2, {
@@ -56,11 +59,9 @@ test('FIELD attracts toward the world centre', () => {
 test('FRICTION damps velocity and converts removed motion into temperature', () => {
   const { state } = world({
     law: 'law.friction',
-    a: { VEL_X: 2, DNA_CACHE_START: 0 },
+    a: { VEL_X: 2, VISCOSITY: 0.5 },
     frictionCoefficient: 0.05,
   });
-  // VISCOSITY is DNA locus 1 in the product 42-locus cache.
-  state[S.DNA_CACHE_START + 1] = 0.5;
   assert.ok(state[S.VEL_X] < 2);
   assert.ok(state[S.VEL_X] > 0);
   assert.ok(state[S.TEMPERATURE] > 0);
