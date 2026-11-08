@@ -12,7 +12,7 @@ kernel and records them as executable in the 136-law migration manifest:
 | FRICTION | `law.friction` | Velocity drag using DNA viscosity, with removed motion deposited as temperature |
 | HORIZON | `law.horizon` | Bounded mass/radius capture acceleration with quadratic falloff |
 | RADIATION_PRESSURE | `law.radiation-pressure` | Outward force from the neighbor's energy inventory |
-| FIELD | `law.field` | Central force toward the world centre |
+| FIELD | `law.field` | Central force toward the world centre, dispatched once for each eligible neighbor pair |
 
 ## Coefficient and semantic contract
 
