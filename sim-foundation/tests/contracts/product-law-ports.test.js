@@ -42,15 +42,8 @@ test('RADIATION_PRESSURE pushes away from a neighbor energy inventory', () => {
   assert.ok(state[S.VEL_X] < 0);
 });
 
-test('FIELD attracts toward the world centre', () => {
-  const state = new Float64Array(PARTICLE_STRIDE);
-  state[S.MASS] = 1; state[S.RADIUS] = 1; state[S.DEAD] = 0;
-  state[S.POS_X] = 0; state[S.POS_Y] = 0; state[S.POS_Z] = 0;
-  stepParticleWorld(state, 1, {
-    worldSize: 100, dt: 0.1, interactionRadius: 20,
-    gravitationalConstant: 0, electricConstant: 0, resolveContacts: false,
-    activeLawIds: ['law.field'],
-  });
+test('FIELD attracts toward the world centre once per product neighbor pair', () => {
+  const { state } = world({ law: 'law.field' });
   assert.ok(state[S.VEL_X] > 0);
   assert.ok(state[S.VEL_Y] > 0);
   assert.ok(state[S.VEL_Z] > 0);
