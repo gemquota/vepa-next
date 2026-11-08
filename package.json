@@ -32,7 +32,8 @@
     "baseline:capture": "node scripts/capture-baseline.mjs",
     "golden:capture": "node scripts/capture-product-golden.mjs",
     "test:e2e:baseline": "playwright test --config=playwright.baseline.config.js",
-    "bench:acceptance": "node scripts/capture-backend-acceptance.mjs"
+    "bench:acceptance": "node scripts/capture-backend-acceptance.mjs",
+    "bench:release-matrix": "node bench/release-matrix.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.18.1",
