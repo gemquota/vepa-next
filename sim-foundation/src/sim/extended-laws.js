@@ -33,6 +33,11 @@ export function applyExtendedLaws(view, alive, acceleration, candidates, queryNe
   accretionRadiusMultiplier = 1.25,
   bondStrength = 2,
   bondDamping = 0.15,
+  tideCoefficient = 0.3,
+  horizonCoefficient = 0.08,
+  radiationPressureCoefficient = 0.12,
+  fieldCoefficient = 0.02,
+  frictionCoefficient = 0.05,
   slots = S,
 } = {}) {
   const toroidal = boundaryMode === 'toroidal';
@@ -65,6 +70,91 @@ export function applyExtendedLaws(view, alive, acceleration, candidates, queryNe
         acceleration[i * 3 + 2] += ((vz / weightSum) - view[a + slots.VEL_Z]) * factor / Math.max(dt, 1e-12);
         interactions++;
       }
+    }
+  }
+
+  // Product-law ports: coefficients are explicit effective values. Product
+  // synergy multipliers must be supplied by the caller when comparing a
+  // combined-law configuration; defaults reproduce the isolated law constants.
+  const pairPhysics = activeLawIds.some(id =>
+    id === 'law.tide' || id === 'law.horizon' || id === 'law.radiation-pressure' || id === 'law.field');
+  if (pairPhysics || activeLawIds.includes('law.field')) {
+    for (const i of alive) {
+      const a = i * stride;
+      const massA = Math.max(view[a + slots.MASS], 1e-12);
+      if (!pairPhysics) continue;
+      const query = queryNeighbors(view[a + slots.POS_X], view[a + slots.POS_Y], view[a + slots.POS_Z]);
+      if (!query.complete) throw new Error('Neighbor query incomplete; refusing partial product-law parity');
+      for (let n = 0; n < query.count; n++) {
+        const j = candidates[n];
+        if (j === i) continue;
+        const b = j * stride;
+        if (view[b + slots.DEAD] >= 0.5 || view[b + slots.MASS] <= 0) continue;
+        const [dx, dy, dz] = displacement(view, a, b, slots, worldSize, toroidal);
+        const distance = Math.hypot(dx, dy, dz);
+        if (!(distance > 0) || distance > interactionRadius) continue;
+        const invDistance = 1 / distance;
+        if (activeLawIds.includes('law.field') && fieldCoefficient !== 0) {
+          const fx = worldSize * 0.5 - view[a + slots.POS_X];
+          const fy = worldSize * 0.5 - view[a + slots.POS_Y];
+          const fz = worldSize * 0.5 - view[a + slots.POS_Z];
+          const fieldDistance = Math.hypot(fx, fy, fz);
+          if (fieldDistance > 0) {
+            const fieldMagnitude = Math.min(50, Math.max(0, fieldCoefficient) * Math.min(fieldDistance, 100) / 100);
+            acceleration[i * 3] += fx / fieldDistance * fieldMagnitude / massA;
+            acceleration[i * 3 + 1] += fy / fieldDistance * fieldMagnitude / massA;
+            acceleration[i * 3 + 2] += fz / fieldDistance * fieldMagnitude / massA;
+          }
+        }
+        let magnitude = 0;
+        let sign = 1;
+        if (activeLawIds.includes('law.tide') && tideCoefficient !== 0) {
+          magnitude = view[b + slots.MASS] * tideCoefficient / distance;
+          acceleration[i * 3] += dx * invDistance * magnitude / massA;
+          acceleration[i * 3 + 1] += dy * invDistance * magnitude / massA;
+          acceleration[i * 3 + 2] += dz * invDistance * magnitude / massA;
+        }
+        if (activeLawIds.includes('law.horizon') && horizonCoefficient !== 0) {
+          const neighborMass = Math.max(0, view[b + slots.MASS]);
+          const neighborRadius = Math.max(0.01, view[b + slots.RADIUS]);
+          const horizon = neighborRadius + Math.sqrt(neighborMass) * 0.5;
+          if (distance < horizon * 4) {
+            const falloff = Math.max(0, 1 - distance / (horizon * 4));
+            magnitude = Math.min(50, horizonCoefficient * neighborMass * falloff * falloff / Math.max(distance, 0.1));
+            acceleration[i * 3] += dx * invDistance * magnitude / massA;
+            acceleration[i * 3 + 1] += dy * invDistance * magnitude / massA;
+            acceleration[i * 3 + 2] += dz * invDistance * magnitude / massA;
+          }
+        }
+        if (activeLawIds.includes('law.radiation-pressure') && radiationPressureCoefficient !== 0) {
+          const energy = Math.max(0, view[b + slots.ENERGY] || 0)
+            + Math.max(0, view[b + slots.ELECTRIC_ENERGY] || 0)
+            + Math.max(0, view[b + slots.STORED_ENERGY] || 0);
+          magnitude = Math.min(50, radiationPressureCoefficient * energy / Math.max(1, distance * distance));
+          sign = -1;
+          acceleration[i * 3] += sign * dx * invDistance * magnitude / massA;
+          acceleration[i * 3 + 1] += sign * dy * invDistance * magnitude / massA;
+          acceleration[i * 3 + 2] += sign * dz * invDistance * magnitude / massA;
+        }
+        interactions++;
+      }
+    }
+  }
+
+  if (activeLawIds.includes('law.friction') && frictionCoefficient !== 0) {
+    for (const i of alive) {
+      const b = i * stride;
+      const vx = Number.isFinite(view[b + slots.VEL_X]) ? view[b + slots.VEL_X] : 0;
+      const vy = Number.isFinite(view[b + slots.VEL_Y]) ? view[b + slots.VEL_Y] : 0;
+      const vz = Number.isFinite(view[b + slots.VEL_Z]) ? view[b + slots.VEL_Z] : 0;
+      const speed = Math.hypot(vx, vy, vz);
+      const viscosityRaw = view[b + slots.DNA_CACHE_START + 1];
+      const viscosity = Number.isFinite(viscosityRaw) ? viscosityRaw : 0.98;
+      const damping = frictionCoefficient * viscosity;
+      if (speed > 1e-6) view[b + slots.TEMPERATURE] = Math.min(1, (view[b + slots.TEMPERATURE] || 0) + speed * damping * 0.5);
+      acceleration[i * 3] += Math.max(-50, Math.min(50, -vx * damping)) / Math.max(view[b + slots.MASS], 1e-12);
+      acceleration[i * 3 + 1] += Math.max(-50, Math.min(50, -vy * damping)) / Math.max(view[b + slots.MASS], 1e-12);
+      acceleration[i * 3 + 2] += Math.max(-50, Math.min(50, -vz * damping)) / Math.max(view[b + slots.MASS], 1e-12);
     }
   }
 

@@ -70,6 +70,11 @@ export function stepParticleWorld(view, count, {
   accretionRadiusMultiplier = 1.25,
   bondStrength = 2,
   bondDamping = 0.15,
+  tideCoefficient = 0.3,
+  horizonCoefficient = 0.08,
+  radiationPressureCoefficient = 0.12,
+  fieldCoefficient = 0.02,
+  frictionCoefficient = 0.05,
   slots = S,
   advancedPhysics = null,
   integrator = 'semi-implicit-euler',
@@ -86,6 +91,9 @@ export function stepParticleWorld(view, count, {
   if (!ArrayBuffer.isView(view) || view instanceof DataView || !Number.isInteger(count) || count < 0 ||
       !Number.isInteger(stride) || stride < 1 || view.length < count * stride) {
     throw new TypeError('view must be a numeric typed array with count * stride elements');
+  }
+  for (const [name, value] of Object.entries({ tideCoefficient, frictionCoefficient, horizonCoefficient, radiationPressureCoefficient, fieldCoefficient })) {
+    if (!Number.isFinite(value) || value < 0) throw new RangeError(name + ' must be finite and >= 0');
   }
   if (!Number.isFinite(worldSize) || worldSize <= 0 || !Number.isFinite(dt) || dt <= 0 ||
       !Number.isFinite(gravitationalConstant) || gravitationalConstant < 0 ||
@@ -233,7 +241,9 @@ export function stepParticleWorld(view, count, {
   }, {
     stride, worldSize, boundaryMode, interactionRadius, softening, dt, activeLawIds,
     entrainmentCoefficient, buoyancyCoefficient, ambientTemperature,
-    accretionRadiusMultiplier, bondStrength, bondDamping, slots,
+    accretionRadiusMultiplier, bondStrength, bondDamping,
+    tideCoefficient, horizonCoefficient, radiationPressureCoefficient,
+    fieldCoefficient, frictionCoefficient, slots,
   });
 
   const advancedMetrics = applyAdvancedPhysics(view, alive, acceleration, candidates, (x, y, z) => {

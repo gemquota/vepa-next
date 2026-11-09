@@ -13,6 +13,11 @@ export const PRODUCT_SIM_LAW_MAP = Object.freeze({
   ENTR: 'law.entrainment',
   BUOYANCY: 'law.buoyancy',
   BOND: 'law.bond',
+  TIDE: 'law.tide',
+  FRICTION: 'law.friction',
+  HORIZON: 'law.horizon',
+  RADIATION_PRESSURE: 'law.radiation-pressure',
+  FIELD: 'law.field',
 });
 
 export function mapProductLawNames(activeLawNames = []) {
@@ -61,6 +66,11 @@ function normalizeSimConfig(payload, activeLawIds) {
     activeLawIds,
     resolveContacts: activeLawIds.includes('law.collision'),
     contactIterations: Number.isInteger(source.contactIterations) ? source.contactIterations : 2,
+    tideCoefficient: finite(source.tideCoefficient, 0.3),
+    frictionCoefficient: finite(source.frictionCoefficient, 0.05),
+    horizonCoefficient: finite(source.horizonCoefficient, 0.08),
+    radiationPressureCoefficient: finite(source.radiationPressureCoefficient, 0.12),
+    fieldCoefficient: finite(source.fieldCoefficient, 0.02),
     advancedPhysics: source.advancedPhysics ?? null,
     numerics: source.numerics ?? { integrator: 'semi-implicit-euler', diagnostics: true },
   };

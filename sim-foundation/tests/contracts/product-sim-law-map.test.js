@@ -12,10 +12,13 @@ test('product ACCR cannot be silently mapped to SIM accretion fusion', () => {
   assert.deepEqual(mapped.unsupportedLawNames, ['ACCR']);
 });
 
-test('only the seven explicitly parity-reviewed product laws enter the SIM shadow', () => {
-  const mapped = mapProductLawNames(['GRAV', 'DRAG', 'COLL', 'CHARGE_LAW', 'ENTR', 'BUOYANCY', 'BOND']);
-  assert.equal(mapped.activeLawIds.length, 7);
+test('only explicitly parity-reviewed product laws enter the SIM shadow', () => {
+  const mapped = mapProductLawNames(['GRAV', 'DRAG', 'COLL', 'CHARGE_LAW', 'ENTR', 'BUOYANCY', 'BOND', 'TIDE', 'FRICTION', 'HORIZON', 'RADIATION_PRESSURE', 'FIELD']);
+  assert.equal(mapped.activeLawIds.length, 12);
   assert.deepEqual(mapped.unsupportedLawNames, []);
+  for (const id of ['law.tide', 'law.friction', 'law.horizon', 'law.radiation-pressure', 'law.field']) {
+    assert.equal(LAW_MIGRATION_MANIFEST.find(law => law.canonicalId === id).runtimeStatus, 'executable');
+  }
   const unknown = mapProductLawNames(['ELECTRIC_FIELD']);
   assert.deepEqual(unknown.unsupportedLawNames, ['ELECTRIC_FIELD']);
 });
